@@ -406,20 +406,29 @@ public class TaskLifecycleTest
   {
     final Task indexTask = new IndexTask(
         null,
-        new IndexTask.IndexIngestionSpec(new DataSchema("foo", null,new AggregatorFactory[]{new DoubleSumAggregatorFactory("met", "met")},new UniformGranularitySpec(
-            Granularity.DAY,
-            null,
-            ImmutableList.of(new Interval("2010-01-01/P2D"))
-        ) ),
-                                         new IndexTask.IndexIOConfig(newMockFirehoseFactory(
-                                             ImmutableList.of(
-                                                 IR("2010-01-01T01", "x", "y", 1),
-                                                 IR("2010-01-01T01", "x", "z", 1),
-                                                 IR("2010-01-02T01", "a", "b", 2),
-                                                 IR("2010-01-02T01", "a", "c", 1)
-                                             )
-                                         )),
-                                         new IndexTask.IndexTuningConfig(10000, 10, -1, indexSpec)),
+        new IndexTask.IndexIngestionSpec(
+            new DataSchema(
+                "foo",
+                null,
+                new AggregatorFactory[]{new DoubleSumAggregatorFactory("met", "met")},
+                new UniformGranularitySpec(
+                    Granularity.DAY,
+                    null,
+                    ImmutableList.of(new Interval("2010-01-01/P2D"))
+                )
+            ),
+            new IndexTask.IndexIOConfig(
+                newMockFirehoseFactory(
+                    ImmutableList.of(
+                        IR("2010-01-01T01", "x", "y", 1),
+                        IR("2010-01-01T01", "x", "z", 1),
+                        IR("2010-01-02T01", "a", "b", 2),
+                        IR("2010-01-02T01", "a", "c", 1)
+                    )
+                )
+            ),
+            new IndexTask.IndexTuningConfig(10000, 10, -1, indexSpec, 0)
+        ),
         TestUtils.MAPPER
     );
 
@@ -473,7 +482,7 @@ public class TaskLifecycleTest
                 )
             ),
             new IndexTask.IndexIOConfig(newMockExceptionalFirehoseFactory()),
-            new IndexTask.IndexTuningConfig(10000, 10, -1, indexSpec)
+            new IndexTask.IndexTuningConfig(10000, 10, -1, indexSpec, 0)
         ),
         TestUtils.MAPPER
     );
@@ -490,7 +499,7 @@ public class TaskLifecycleTest
   {
     // This test doesn't actually do anything right now.  We should actually put things into the Mocked coordinator
     // Such that this test can test things...
-    final Task killTask = new KillTask(null, "foo", new Interval("2010-01-02/P2D"));
+    final Task killTask = new KillTask(null, "foo", new Interval("2010-01-02/P2D"), 0);
 
     final TaskStatus status = runTask(killTask);
     Assert.assertEquals("merged statusCode", TaskStatus.Status.SUCCESS, status.getStatusCode());
@@ -545,7 +554,8 @@ public class TaskLifecycleTest
         "id1",
         new TaskResource("id1", 1),
         "ds",
-        new Interval("2012-01-01/P1D")
+        new Interval("2012-01-01/P1D"),
+        0
     )
     {
       @Override
@@ -583,7 +593,7 @@ public class TaskLifecycleTest
   @Test
   public void testBadInterval() throws Exception
   {
-    final Task task = new AbstractFixedIntervalTask("id1", "id1", "ds", new Interval("2012-01-01/P1D"))
+    final Task task = new AbstractFixedIntervalTask("id1", "id1", "ds", new Interval("2012-01-01/P1D"), 0)
     {
       @Override
       public String getType()
@@ -617,7 +627,7 @@ public class TaskLifecycleTest
   @Test
   public void testBadVersion() throws Exception
   {
-    final Task task = new AbstractFixedIntervalTask("id1", "id1", "ds", new Interval("2012-01-01/P1D"))
+    final Task task = new AbstractFixedIntervalTask("id1", "id1", "ds", new Interval("2012-01-01/P1D"), 0)
     {
       @Override
       public String getType()
@@ -649,10 +659,13 @@ public class TaskLifecycleTest
   }
 
   @Test
-  public void testRealtimeIndexTask() throws Exception{
-    serverView.registerSegmentCallback(EasyMock.anyObject(Executor.class),
-                                       EasyMock.anyObject(ServerView.SegmentCallback.class),
-                                       EasyMock.anyObject(Predicate.class));
+  public void testRealtimeIndexTask() throws Exception
+  {
+    serverView.registerSegmentCallback(
+        EasyMock.anyObject(Executor.class),
+        EasyMock.anyObject(ServerView.SegmentCallback.class),
+        EasyMock.anyObject(Predicate.class)
+    );
     EasyMock.expectLastCall().atLeastOnce();
     monitorScheduler.addMonitor(EasyMock.anyObject(Monitor.class));
     EasyMock.expectLastCall().atLeastOnce();
@@ -661,10 +674,10 @@ public class TaskLifecycleTest
     EasyMock.replay(monitorScheduler, serverView, queryRunnerFactoryConglomerate);
     String taskId = "rt_task_1";
     DataSchema dataSchema = new DataSchema(
-      "test_ds",
-      null,
-      new AggregatorFactory[]{new LongSumAggregatorFactory("count", "rows")},
-      new UniformGranularitySpec(Granularity.DAY, QueryGranularity.NONE, null)
+        "test_ds",
+        null,
+        new AggregatorFactory[]{new LongSumAggregatorFactory("count", "rows")},
+        new UniformGranularitySpec(Granularity.DAY, QueryGranularity.NONE, null)
     );
     DateTime now = new DateTime();
     RealtimeIOConfig realtimeIOConfig = new RealtimeIOConfig(
@@ -675,7 +688,8 @@ public class TaskLifecycleTest
                 IR(now.plus(new Period(Hours.TWO)).toString("YYYY-MM-dd'T'HH:mm:ss"), "test_dim1", "test_dim2", 3.0f)
             )
         ),
-        null // PlumberSchool - Realtime Index Task always uses RealtimePlumber which is hardcoded in RealtimeIndexTask class
+        null
+        // PlumberSchool - Realtime Index Task always uses RealtimePlumber which is hardcoded in RealtimeIndexTask class
     );
     RealtimeTuningConfig realtimeTuningConfig = new RealtimeTuningConfig(
         1000,
@@ -690,13 +704,15 @@ public class TaskLifecycleTest
         null,
         null,
         null,
-        null
+        null,
+        0, 0
     );
     FireDepartment fireDepartment = new FireDepartment(dataSchema, realtimeIOConfig, realtimeTuningConfig);
     RealtimeIndexTask realtimeIndexTask = new RealtimeIndexTask(
         taskId,
         new TaskResource(taskId, 1),
-        fireDepartment
+        fireDepartment,
+        0
     );
     tq.add(realtimeIndexTask);
     //wait for task to process events and publish segment
@@ -709,7 +725,10 @@ public class TaskLifecycleTest
     DataSegment segment = mdc.getPublished().iterator().next();
     Assert.assertEquals("test_ds", segment.getDataSource());
     Assert.assertEquals(ImmutableList.of("dim1", "dim2"), segment.getDimensions());
-    Assert.assertEquals(new Interval(now.toString("YYYY-MM-dd")+"/"+now.plusDays(1).toString("YYYY-MM-dd")), segment.getInterval());
+    Assert.assertEquals(
+        new Interval(now.toString("YYYY-MM-dd") + "/" + now.plusDays(1).toString("YYYY-MM-dd")),
+        segment.getInterval()
+    );
     Assert.assertEquals(ImmutableList.of("count"), segment.getMetrics());
     EasyMock.verify(monitorScheduler, serverView, queryRunnerFactoryConglomerate);
   }

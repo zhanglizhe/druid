@@ -76,7 +76,8 @@ public class HadoopIndexTask extends HadoopTask
       @JsonProperty("spec") HadoopIngestionSpec spec,
       @JsonProperty("hadoopCoordinates") String hadoopCoordinates,
       @JsonProperty("hadoopDependencyCoordinates") List<String> hadoopDependencyCoordinates,
-      @JsonProperty("classpathPrefix") String classpathPrefix
+      @JsonProperty("classpathPrefix") String classpathPrefix,
+      @JsonProperty("taskPriority") int taskPriority
   )
   {
     super(
@@ -84,9 +85,9 @@ public class HadoopIndexTask extends HadoopTask
         getTheDataSource(spec),
         hadoopDependencyCoordinates == null
         ? (hadoopCoordinates == null ? null : ImmutableList.of(hadoopCoordinates))
-        : hadoopDependencyCoordinates
+        : hadoopDependencyCoordinates,
+        taskPriority
     );
-
 
     this.spec = spec;
 

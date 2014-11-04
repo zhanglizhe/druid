@@ -203,6 +203,14 @@ public class ForkingTaskRunner implements TaskRunner, TaskLogStreamer
 
                               command.add(String.format("-Ddruid.host=%s", childHost));
                               command.add(String.format("-Ddruid.port=%d", childPort));
+                              /**
+                               * These are not enabled per default to allow the user to either set or not set them
+                               * Users are highly suggested to be set in druid.indexer.runner.javaOpts
+                               * See io.druid.concurrent.TaskPriority#getThreadPriorityFromTaskPriority(int)
+                               * for more information
+                              command.add("-XX:+UseThreadPriorities");
+                              command.add("-XX:ThreadPriorityPolicy=42");
+                               */
 
                               command.add("io.druid.cli.Main");
                               command.add("internal");
@@ -251,9 +259,11 @@ public class ForkingTaskRunner implements TaskRunner, TaskLogStreamer
                               // Process exited unsuccessfully
                               return TaskStatus.failure(task.getId());
                             }
-                          } catch (Throwable t) {
+                          }
+                          catch (Throwable t) {
                             throw closer.rethrow(t);
-                          } finally {
+                          }
+                          finally {
                             closer.close();
                           }
                         }

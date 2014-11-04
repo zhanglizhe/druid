@@ -69,7 +69,8 @@ public class NoopTask extends AbstractTask
   {
     super(
         id == null ? String.format("noop_%s_%s", new DateTime(), UUID.randomUUID().toString()) : id,
-        "none"
+        "none",
+        0
     );
 
     this.runTime = (runTime == 0) ? defaultRunTime : runTime;

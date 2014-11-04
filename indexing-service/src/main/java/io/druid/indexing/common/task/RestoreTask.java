@@ -40,13 +40,15 @@ public class RestoreTask extends AbstractFixedIntervalTask
   public RestoreTask(
       @JsonProperty("id") String id,
       @JsonProperty("dataSource") String dataSource,
-      @JsonProperty("interval") Interval interval
+      @JsonProperty("interval") Interval interval,
+      @JsonProperty("taskPriority") int taskPriority
   )
   {
     super(
         makeId(id, "restore", dataSource, interval),
         dataSource,
-        interval
+        interval,
+        taskPriority
     );
   }
 

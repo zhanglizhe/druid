@@ -50,10 +50,11 @@ public class MergeTask extends MergeTaskBase
       @JsonProperty("dataSource") String dataSource,
       @JsonProperty("segments") List<DataSegment> segments,
       @JsonProperty("aggregations") List<AggregatorFactory> aggregators,
-      @JsonProperty("indexSpec") IndexSpec indexSpec
+      @JsonProperty("indexSpec") IndexSpec indexSpec,
+      @JsonProperty("taskPriority") int taskPriority
   )
   {
-    super(id, dataSource, segments);
+    super(id, dataSource, segments, taskPriority);
     this.aggregators = aggregators;
     this.indexSpec = indexSpec == null ? new IndexSpec() : indexSpec;
   }

@@ -63,7 +63,8 @@ public class HadoopConverterTask extends ConvertSegmentTask
       @JsonProperty("distributedSuccessCache") URI distributedSuccessCache,
       @JsonProperty("jobPriority") String jobPriority,
       @JsonProperty("segmentOutputPath") String segmentOutputPath,
-      @JsonProperty("classpathPrefix") String classpathPrefix
+      @JsonProperty("classpathPrefix") String classpathPrefix,
+      @JsonProperty("taskPriority") int taskPriority
   )
   {
     super(
@@ -78,7 +79,8 @@ public class HadoopConverterTask extends ConvertSegmentTask
         null, // Always call subtask codepath
         indexSpec,
         force,
-        validate == null ? true : validate
+        validate == null ? true : validate,
+        taskPriority
     );
     this.hadoopDependencyCoordinates = hadoopDependencyCoordinates;
     this.distributedSuccessCache = Preconditions.checkNotNull(distributedSuccessCache, "distributedSuccessCache");
@@ -130,7 +132,8 @@ public class HadoopConverterTask extends ConvertSegmentTask
       final Iterable<DataSegment> segments,
       final IndexSpec indexSpec,
       final boolean force,
-      final boolean validate
+      final boolean validate,
+      final int taskPriority
   )
   {
     return Collections.<Task>singleton(
@@ -175,7 +178,8 @@ public class HadoopConverterTask extends ConvertSegmentTask
               parent.getInterval().getEnd()
           ),
           parent.getDataSource(),
-          parent.getHadoopDependencyCoordinates()
+          parent.getHadoopDependencyCoordinates(),
+          parent.getTaskPriority()
       );
       this.segments = segments;
       this.parent = parent;

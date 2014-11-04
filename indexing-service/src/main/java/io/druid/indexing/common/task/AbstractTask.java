@@ -38,6 +38,9 @@ public abstract class AbstractTask implements Task
   private static final Joiner ID_JOINER = Joiner.on("_");
 
   @JsonIgnore
+  protected int taskPriortiy;
+
+  @JsonIgnore
   private final String id;
 
   @JsonIgnore
@@ -49,22 +52,23 @@ public abstract class AbstractTask implements Task
   @JsonIgnore
   private final String dataSource;
 
-  protected AbstractTask(String id, String dataSource)
+  protected AbstractTask(String id, String dataSource, int taskPriority)
   {
-    this(id, id, new TaskResource(id, 1), dataSource);
+    this(id, id, new TaskResource(id, 1), dataSource, taskPriority);
   }
 
-  protected AbstractTask(String id, String groupId, String dataSource)
+  protected AbstractTask(String id, String groupId, String dataSource, int taskPriority)
   {
-    this(id, groupId, new TaskResource(id, 1), dataSource);
+    this(id, groupId, new TaskResource(id, 1), dataSource, taskPriority);
   }
 
-  protected AbstractTask(String id, String groupId, TaskResource taskResource, String dataSource)
+  protected AbstractTask(String id, String groupId, TaskResource taskResource, String dataSource, int taskPriortiy)
   {
     this.id = Preconditions.checkNotNull(id, "id");
     this.groupId = Preconditions.checkNotNull(groupId, "groupId");
     this.taskResource = Preconditions.checkNotNull(taskResource, "resource");
     this.dataSource = Preconditions.checkNotNull(dataSource, "dataSource");
+    this.taskPriortiy = taskPriortiy;
   }
 
   public static String makeId(String id, final String typeName, String dataSource, Interval interval)
@@ -131,13 +135,22 @@ public abstract class AbstractTask implements Task
                   .add("id", id)
                   .add("type", getType())
                   .add("dataSource", dataSource)
+                  .add("taskPriortiy", taskPriortiy)
                   .toString();
+  }
+
+  @JsonProperty
+  @Override
+  public int getTaskPriority()
+  {
+    return this.taskPriortiy;
   }
 
   /**
    * Start helper methods
    *
    * @param objects objects to join
+   *
    * @return string of joined objects
    */
   public static String joinId(Object... objects)

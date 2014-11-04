@@ -21,8 +21,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.io.Files;
 import io.druid.segment.IndexSpec;
-import io.druid.segment.data.BitmapSerde;
-import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.realtime.plumber.IntervalStartVersioningPolicy;
 import io.druid.segment.realtime.plumber.RejectionPolicyFactory;
 import io.druid.segment.realtime.plumber.ServerTimeRejectionPolicyFactory;
@@ -48,7 +46,7 @@ public class RealtimeTuningConfig implements TuningConfig
   private static final IndexSpec defaultIndexSpec = new IndexSpec();
   private static final boolean defaultPersistInHeap = false;
   private static final boolean defaultIngestOffheap = false;
-  private static final int defaultBufferSize = 128 * 1024* 1024; // 128M
+  private static final int defaultBufferSize = 128 * 1024 * 1024; // 128M
   private static final float DEFAULT_AGG_BUFFER_RATIO = 0.5f;
 
   // Might make sense for this to be a builder
@@ -67,7 +65,9 @@ public class RealtimeTuningConfig implements TuningConfig
         defaultPersistInHeap,
         defaultIngestOffheap,
         defaultBufferSize,
-        DEFAULT_AGG_BUFFER_RATIO
+        DEFAULT_AGG_BUFFER_RATIO,
+        0,
+        0
     );
   }
 
@@ -84,6 +84,8 @@ public class RealtimeTuningConfig implements TuningConfig
   private final boolean ingestOffheap;
   private final int bufferSize;
   private final float aggregationBufferRatio;
+  private final int persistThreadPriority;
+  private final int mergeThreadPriority;
 
   @JsonCreator
   public RealtimeTuningConfig(
@@ -99,7 +101,9 @@ public class RealtimeTuningConfig implements TuningConfig
       @JsonProperty("persistInHeap") Boolean persistInHeap,
       @JsonProperty("ingestOffheap") Boolean ingestOffheap,
       @JsonProperty("buffersize") Integer bufferSize,
-      @JsonProperty("aggregationBufferRatio") Float aggregationBufferRatio
+      @JsonProperty("aggregationBufferRatio") Float aggregationBufferRatio,
+      @JsonProperty("persistThreadPriority") int persistThreadPriority,
+      @JsonProperty("mergeThreadPriority") int mergeThreadPriority
   )
   {
     this.maxRowsInMemory = maxRowsInMemory == null ? defaultMaxRowsInMemory : maxRowsInMemory;
@@ -119,6 +123,8 @@ public class RealtimeTuningConfig implements TuningConfig
     this.ingestOffheap = ingestOffheap == null ? defaultIngestOffheap : ingestOffheap;
     this.bufferSize = bufferSize == null ? defaultBufferSize : bufferSize;
     this.aggregationBufferRatio = aggregationBufferRatio == null ? DEFAULT_AGG_BUFFER_RATIO : aggregationBufferRatio;
+    this.mergeThreadPriority = mergeThreadPriority;
+    this.persistThreadPriority = persistThreadPriority;
   }
 
   @JsonProperty
@@ -182,12 +188,14 @@ public class RealtimeTuningConfig implements TuningConfig
   }
 
   @JsonProperty
-  public boolean isIngestOffheap(){
+  public boolean isIngestOffheap()
+  {
     return ingestOffheap;
   }
 
   @JsonProperty
-  public int getBufferSize(){
+  public int getBufferSize()
+  {
     return bufferSize;
   }
 
@@ -195,6 +203,18 @@ public class RealtimeTuningConfig implements TuningConfig
   public float getAggregationBufferRatio()
   {
     return aggregationBufferRatio;
+  }
+
+  @JsonProperty
+  public int getPersistThreadPriority()
+  {
+    return this.persistThreadPriority;
+  }
+
+  @JsonProperty
+  public int getMergeThreadPriority()
+  {
+    return this.mergeThreadPriority;
   }
 
   public RealtimeTuningConfig withVersioningPolicy(VersioningPolicy policy)
@@ -212,7 +232,9 @@ public class RealtimeTuningConfig implements TuningConfig
         persistInHeap,
         ingestOffheap,
         bufferSize,
-        aggregationBufferRatio
+        aggregationBufferRatio,
+        persistThreadPriority,
+        mergeThreadPriority
     );
   }
 
@@ -231,7 +253,9 @@ public class RealtimeTuningConfig implements TuningConfig
         persistInHeap,
         ingestOffheap,
         bufferSize,
-        aggregationBufferRatio
+        aggregationBufferRatio,
+        persistThreadPriority,
+        mergeThreadPriority
     );
   }
 }

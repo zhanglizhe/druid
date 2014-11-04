@@ -118,7 +118,8 @@ public class IndexTaskTest
                 2,
                 0,
                 null,
-                indexSpec
+                indexSpec,
+                0
             )
         ),
         new DefaultObjectMapper()
@@ -303,7 +304,8 @@ public class IndexTaskTest
         100,
         1000,
         null,
-        new IndexSpec()
+        new IndexSpec(),
+        0
     );
     RealtimeTuningConfig realtimeTuningConfig = IndexTask.convertTuningConfig(spec, config);
     Assert.assertEquals(realtimeTuningConfig.getMaxRowsInMemory(), config.getRowFlushBoundary());

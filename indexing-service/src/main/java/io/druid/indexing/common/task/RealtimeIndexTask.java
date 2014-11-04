@@ -108,14 +108,16 @@ public class RealtimeIndexTask extends AbstractTask
   public RealtimeIndexTask(
       @JsonProperty("id") String id,
       @JsonProperty("resource") TaskResource taskResource,
-      @JsonProperty("spec") FireDepartment fireDepartment
+      @JsonProperty("spec") FireDepartment fireDepartment,
+      @JsonProperty("taskPriority") int taskPriority
   )
   {
     super(
         id == null ? makeTaskId(fireDepartment) : id,
         String.format("index_realtime_%s", makeDatasource(fireDepartment)),
         taskResource == null ? new TaskResource(makeTaskId(fireDepartment), 1) : taskResource,
-        makeDatasource(fireDepartment)
+        makeDatasource(fireDepartment),
+        taskPriority
     );
     this.spec = fireDepartment;
   }

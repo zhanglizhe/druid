@@ -53,9 +53,9 @@ public abstract class HadoopTask extends AbstractTask
 
   private final List<String> hadoopDependencyCoordinates;
 
-  protected HadoopTask(String id, String dataSource, List<String> hadoopDependencyCoordinates)
+  protected HadoopTask(String id, String dataSource, List<String> hadoopDependencyCoordinates, int taskPriority)
   {
-    super(id, dataSource);
+    super(id, dataSource, taskPriority);
     this.hadoopDependencyCoordinates = hadoopDependencyCoordinates;
   }
 

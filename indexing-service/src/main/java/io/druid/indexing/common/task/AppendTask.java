@@ -55,10 +55,11 @@ public class AppendTask extends MergeTaskBase
       @JsonProperty("id") String id,
       @JsonProperty("dataSource") String dataSource,
       @JsonProperty("segments") List<DataSegment> segments,
-      @JsonProperty("indexSpec") IndexSpec indexSpec
+      @JsonProperty("indexSpec") IndexSpec indexSpec,
+      @JsonProperty("taskPriority") int taskPriority
   )
   {
-    super(id, dataSource, segments);
+    super(id, dataSource, segments,taskPriority);
     this.indexSpec = indexSpec == null ? new IndexSpec() : indexSpec;
   }
 

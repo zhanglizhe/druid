@@ -32,20 +32,22 @@ public abstract class AbstractFixedIntervalTask extends AbstractTask
   protected AbstractFixedIntervalTask(
       String id,
       String dataSource,
-      Interval interval
+      Interval interval,
+      int taskPriority
   )
   {
-    this(id, id, new TaskResource(id, 1), dataSource, interval);
+    this(id, id, new TaskResource(id, 1), dataSource, interval, taskPriority);
   }
 
   protected AbstractFixedIntervalTask(
       String id,
       String groupId,
       String dataSource,
-      Interval interval
+      Interval interval,
+      int taskPriority
   )
   {
-    this(id, groupId, new TaskResource(id, 1), dataSource, interval);
+    this(id, groupId, new TaskResource(id, 1), dataSource, interval, taskPriority);
   }
 
   protected AbstractFixedIntervalTask(
@@ -53,10 +55,11 @@ public abstract class AbstractFixedIntervalTask extends AbstractTask
       String groupId,
       TaskResource taskResource,
       String dataSource,
-      Interval interval
+      Interval interval,
+      int taskPriority
   )
   {
-    super(id, groupId, taskResource, dataSource);
+    super(id, groupId, taskResource, dataSource, taskPriority);
     this.interval = Preconditions.checkNotNull(interval, "interval");
     Preconditions.checkArgument(interval.toDurationMillis() > 0, "interval empty");
   }

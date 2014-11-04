@@ -40,6 +40,7 @@ import io.druid.client.ServerView;
 import io.druid.common.guava.ThreadRenamingCallable;
 import io.druid.common.guava.ThreadRenamingRunnable;
 import io.druid.concurrent.Execs;
+import io.druid.concurrent.TaskPriority;
 import io.druid.data.input.InputRow;
 import io.druid.query.MetricsEmittingQueryRunner;
 import io.druid.query.Query;
@@ -540,13 +541,17 @@ public class RealtimePlumber implements Plumber
     if (persistExecutor == null) {
       // use a blocking single threaded executor to throttle the firehose when write to disk is slow
       persistExecutor = Execs.newBlockingSingleThreaded(
-          "plumber_persist_%d", maxPendingPersists
+          "plumber_persist_%d",
+          maxPendingPersists,
+          TaskPriority.getThreadPriorityFromTaskPriority(config.getPersistThreadPriority())
       );
     }
     if (mergeExecutor == null) {
       // use a blocking single threaded executor to throttle the firehose when write to disk is slow
       mergeExecutor = Execs.newBlockingSingleThreaded(
-          "plumber_merge_%d", 1
+          "plumber_merge_%d",
+          1,
+          TaskPriority.getThreadPriorityFromTaskPriority(config.getMergeThreadPriority())
       );
     }
 

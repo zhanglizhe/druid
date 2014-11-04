@@ -65,7 +65,8 @@ public class TestRealtimeTask extends RealtimeIndexTask
           }
         }
         ), null
-        )
+        ),
+        0
     );
     this.status = status;
   }

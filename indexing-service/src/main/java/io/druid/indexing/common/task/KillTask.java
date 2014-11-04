@@ -43,13 +43,15 @@ public class KillTask extends AbstractFixedIntervalTask
   public KillTask(
       @JsonProperty("id") String id,
       @JsonProperty("dataSource") String dataSource,
-      @JsonProperty("interval") Interval interval
+      @JsonProperty("interval") Interval interval,
+      @JsonProperty("taskPriority") int taskPriority
   )
   {
     super(
         makeId(id, "kill", dataSource, interval),
         dataSource,
-        interval
+        interval,
+        taskPriority
     );
   }
 

@@ -32,6 +32,7 @@ import com.google.inject.Inject;
 import com.metamx.common.lifecycle.LifecycleStop;
 import com.metamx.emitter.EmittingLogger;
 import io.druid.concurrent.Execs;
+import io.druid.concurrent.TaskPriority;
 import io.druid.indexing.common.TaskStatus;
 import io.druid.indexing.common.TaskToolbox;
 import io.druid.indexing.common.TaskToolboxFactory;
@@ -48,8 +49,11 @@ import org.joda.time.Interval;
 
 import java.io.File;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
@@ -58,7 +62,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 public class ThreadPoolTaskRunner implements TaskRunner, QuerySegmentWalker
 {
   private final TaskToolboxFactory toolboxFactory;
-  private final ListeningExecutorService exec;
+  private final ConcurrentMap<Integer, ListeningExecutorService> exec = new ConcurrentHashMap<>();
   private final Set<ThreadPoolTaskRunnerWorkItem> runningItems = new ConcurrentSkipListSet<>();
   private final QueryRunnerFactoryConglomerate conglomerate;
   private static final EmittingLogger log = new EmittingLogger(ThreadPoolTaskRunner.class);
@@ -70,21 +74,47 @@ public class ThreadPoolTaskRunner implements TaskRunner, QuerySegmentWalker
   )
   {
     this.toolboxFactory = Preconditions.checkNotNull(toolboxFactory, "toolboxFactory");
-    this.exec = MoreExecutors.listeningDecorator(Execs.singleThreaded("task-runner-%d"));
     this.conglomerate = conglomerate;
+  }
+
+  private static ListeningExecutorService buildExecutorService(int priority)
+  {
+    return MoreExecutors.listeningDecorator(
+        Execs.singleThreaded(
+            "task-runner-%d-priority-" + priority,
+            TaskPriority.getThreadPriorityFromTaskPriority(priority)
+        )
+    );
   }
 
   @LifecycleStop
   public void stop()
   {
-    exec.shutdownNow();
+    for (Map.Entry<Integer, ListeningExecutorService> entry : exec.entrySet()) {
+      try {
+        entry.getValue().shutdownNow();
+      }
+      catch (SecurityException ex) {
+        log.wtf(ex, "I can't control my own threads!");
+      }
+    }
   }
 
   @Override
   public ListenableFuture<TaskStatus> run(final Task task)
   {
     final TaskToolbox toolbox = toolboxFactory.build(task);
-    final ListenableFuture<TaskStatus> statusFuture = exec.submit(new ThreadPoolTaskRunnerCallable(task, toolbox));
+    final int taskPriority = task.getTaskPriority();
+    // Ensure an executor for that priority exists
+    if (!exec.containsKey(taskPriority)) {
+      final ListeningExecutorService executorService = buildExecutorService(taskPriority);
+      if (exec.putIfAbsent(taskPriority, executorService) != null) {
+        // favor prior service
+        executorService.shutdownNow();
+      }
+    }
+    final ListenableFuture<TaskStatus> statusFuture = exec.get(taskPriority)
+                                                          .submit(new ThreadPoolTaskRunnerCallable(task, toolbox));
     final ThreadPoolTaskRunnerWorkItem taskRunnerWorkItem = new ThreadPoolTaskRunnerWorkItem(task, statusFuture);
     runningItems.add(taskRunnerWorkItem);
     Futures.addCallback(
