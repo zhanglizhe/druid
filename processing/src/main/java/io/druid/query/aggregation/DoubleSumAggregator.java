@@ -23,11 +23,12 @@ import com.google.common.collect.Ordering;
 import com.google.common.primitives.Doubles;
 import io.druid.segment.FloatColumnSelector;
 
+import java.nio.ByteBuffer;
 import java.util.Comparator;
 
 /**
  */
-public class DoubleSumAggregator implements Aggregator
+public class DoubleSumAggregator implements Aggregator, BlockAggregator
 {
   static final Comparator COMPARATOR = new Ordering()
   {
@@ -60,6 +61,35 @@ public class DoubleSumAggregator implements Aggregator
   public void aggregate()
   {
     sum += selector.get();
+  }
+
+  @Override
+  public void aggregateBlock()
+  {
+    final float[] block = selector.getBlock();
+
+    final int n = block.length;
+    final int ub = (n / 8) * 8 - 1;
+    final int extra = n - (n % 8);
+
+    double acc = 0;
+    for(int i = 0; i < ub; i += 8)
+    {
+      acc += (double) block[i]
+             + (double) block[i + 1]
+             + (double) block[i + 2]
+             + (double) block[i + 3];
+
+      sum += (double) block[i + 4]
+             + (double) block[i + 5]
+             + (double) block[i + 6]
+             + (double) block[i + 7];
+    }
+    sum += acc;
+    for(int i = extra; i < n; ++i)
+    {
+      sum += block[i];
+    }
   }
 
   @Override

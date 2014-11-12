@@ -74,6 +74,12 @@ public class IndexedFloatsGenericColumn implements GenericColumn
   }
 
   @Override
+  public float[] getFloatBlock(int rowNum, int size)
+  {
+    return column.getBlock(rowNum, size);
+  }
+
+  @Override
   public IndexedFloats getFloatMultiValueRow(int rowNum)
   {
     throw new UnsupportedOperationException();

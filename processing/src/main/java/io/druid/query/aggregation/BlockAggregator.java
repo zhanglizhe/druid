@@ -1,6 +1,6 @@
 /*
  * Druid - a distributed column store.
- * Copyright (C) 2012, 2013  Metamarkets Group Inc.
+ * Copyright (C) 2014  Metamarkets Group Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,21 +17,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-package io.druid.segment.data;
+package io.druid.query.aggregation;
 
-/**
- * The "mutable" version of a ReadableOffset.  Introduces "increment()" and "withinBounds()" methods, which are
- * very similar to "next()" and "hasNext()" on the Iterator interface except increment() does not return a value.
- */
-public interface Offset extends ReadableOffset
+public interface BlockAggregator
 {
-  void increment();
-
-  boolean withinBounds();
-
-  Offset clone();
-
-  default void incrementBlock() { throw new UnsupportedOperationException(); }
-  default int getBlockIncrement() { throw new UnsupportedOperationException(); }
-  default void setBlockIncrement(int i) { throw new UnsupportedOperationException(); }
+  public void aggregateBlock();
 }

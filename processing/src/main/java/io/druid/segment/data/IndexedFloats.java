@@ -28,5 +28,6 @@ public interface IndexedFloats extends Closeable
 {
   public int size();
   public float get(int index);
+  public default float[] getBlock(int index, int size) { throw new UnsupportedOperationException(); }
   public void fill(int index, float[] toFill);
 }

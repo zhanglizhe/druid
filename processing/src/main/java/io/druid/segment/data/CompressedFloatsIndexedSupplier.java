@@ -89,6 +89,38 @@ public class CompressedFloatsIndexedSupplier implements Supplier<IndexedFloats>
           final int bufferIndex = index & rem;
           return buffer.get(buffer.position() + bufferIndex);
         }
+
+        @Override
+        public float[] getBlock(final int index, final int size)
+        {
+          // optimize division and remainder for powers of 2
+          final int bufferNum = index >> div;
+
+          if (bufferNum != currIndex) {
+            loadBuffer(bufferNum);
+          }
+
+          final float[] out = new float[size];
+
+          final int bufferIndex = index & rem;
+          final int remaining = sizePer - bufferIndex;
+          if(remaining >= size) {
+            final int position = buffer.position();
+            buffer.position(position + bufferIndex);
+            buffer.get(out);
+            buffer.position(position);
+          } else {
+            final int position = buffer.position();
+            buffer.get(out, 0, remaining);
+            buffer.position(position);
+
+            loadBuffer(bufferNum + 1);
+            final int pos2 = buffer.position();
+            buffer.get(out, remaining, size - remaining);
+            buffer.position(pos2);
+          }
+          return out;
+        }
       };
     } else {
       return new CompressedIndexedFloats();
@@ -254,6 +286,12 @@ public class CompressedFloatsIndexedSupplier implements Supplier<IndexedFloats>
         loadBuffer(bufferNum);
       }
       return buffer.get(buffer.position() + bufferIndex);
+    }
+
+    @Override
+    public float[] getBlock(final int index, final int size)
+    {
+      throw new UnsupportedOperationException();
     }
 
     @Override
