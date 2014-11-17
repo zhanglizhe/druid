@@ -83,27 +83,27 @@ public class DoubleSumBufferAggregator implements BufferAggregator, BlockBufferA
   public void parallelAggregate(ByteBuffer buf, int[] positions)
   {
     final int n = positions.length;
+    final int extra = n - n % 4;
     final int ub = (n / 4) * 4 - 1;
-    final int extra = n - (n % 4);
 
     final double val = (double) selector.get();
     for(int i = 0; i < ub; i += 4)
     {
-      final double v1 = buf.getDouble(positions[i]);
+      final double v1 = buf.getDouble(positions[i]    );
       final double v2 = buf.getDouble(positions[i + 1]);
       final double v3 = buf.getDouble(positions[i + 2]);
       final double v4 = buf.getDouble(positions[i + 3]);
+      // this gets optimized into a single AVX instruction
       final double sum1 = v1 + val;
       final double sum2 = v2 + val;
       final double sum3 = v3 + val;
       final double sum4 = v4 + val;
-      buf.putDouble(positions[i], sum1);
-      buf.putDouble(positions[i], sum2);
-      buf.putDouble(positions[i], sum3);
-      buf.putDouble(positions[i], sum4);
+      buf.putDouble(positions[i]    , sum1);
+      buf.putDouble(positions[i + 1], sum2);
+      buf.putDouble(positions[i + 2], sum3);
+      buf.putDouble(positions[i + 3], sum4);
     }
-    for(int i = extra; i < n; ++i)
-    {
+    for(int i = extra; i < n; ++i) {
       buf.putDouble(positions[i], buf.getDouble(positions[i]) + val);
     }
   }
