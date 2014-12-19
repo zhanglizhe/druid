@@ -1,3 +1,5 @@
+If you are looking for the main Druid repository, Druid is now hosted at [https://github.com/druid-io/druid](https://github.com/druid-io/druid).
+
 ## Druid
 
 Druid is a distributed, column-oriented, real-time analytics data store that is
