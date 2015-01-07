@@ -125,14 +125,27 @@ public class Initialization
     extensionsMap.clear();
   }
 
+  private static <T> Set<T> getModulesToLoad(Class<T> clazz, ServiceLoader<T> loader){
+    final Set<T> loadedClasses = getLoadedModules(clazz);
+    final Set<T> toLoad = Sets.newHashSet(loader);
+    if(null == loadedClasses || loadedClasses.isEmpty()){
+      return toLoad;
+    }
+    toLoad.removeAll(loadedClasses);
+    return toLoad;
+  }
   public synchronized static <T> Collection<T> getFromExtensions(ExtensionsConfig config, Class<T> clazz)
   {
     final TeslaAether aether = getAetherClient(config);
-    Set<T> retVal = Sets.newHashSet();
+    final Set<T> retVal = Sets.newHashSet();
 
     if (config.searchCurrentClassloader()) {
-      for (T module : ServiceLoader.load(clazz, Initialization.class.getClassLoader())) {
-        log.info("Adding local module[%s]", module.getClass());
+      for(T module : getModulesToLoad(clazz, ServiceLoader.load(clazz, Initialization.class.getClassLoader()))) {
+        log.info(
+            "Adding local module[%s] for class [%s]",
+            module.getClass().getCanonicalName(),
+            clazz.getCanonicalName()
+        );
         retVal.add(module);
       }
     }
@@ -141,11 +154,14 @@ public class Initialization
       log.info("Loading extension[%s] for class[%s]", coordinate, clazz.getName());
       try {
         URLClassLoader loader = getClassLoaderForCoordinates(aether, coordinate, config.getDefaultVersion());
-
-        final ServiceLoader<T> serviceLoader = ServiceLoader.load(clazz, loader);
-
-        for (T module : serviceLoader) {
-          log.info("Adding extension module[%s] for class[%s]", module.getClass(), clazz.getName());
+        Set<T> modulesToLoad = getModulesToLoad(clazz, ServiceLoader.load(clazz, loader));
+        modulesToLoad.removeAll(retVal);
+        for (T module : modulesToLoad) {
+          log.info(
+              "Adding extension module[%s] for class[%s]",
+              module.getClass().getCanonicalName(),
+              clazz.getCanonicalName()
+          );
           retVal.add(module);
         }
       }

@@ -20,8 +20,9 @@
 package io.druid.indexer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
-import io.druid.metadata.MetadataStorageConnector;
+import com.metamx.common.logger.Logger;
 import io.druid.metadata.SQLMetadataConnector;
 import io.druid.timeline.DataSegment;
 import io.druid.timeline.partition.NoneShardSpec;
@@ -30,8 +31,6 @@ import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.PreparedBatch;
 import org.skife.jdbi.v2.tweak.HandleCallback;
-import com.metamx.common.logger.Logger;
-import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
 

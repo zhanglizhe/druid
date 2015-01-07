@@ -26,7 +26,7 @@ import com.google.inject.Inject;
 import io.druid.guice.Binders;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.LazySingleton;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.storage.hdfs.tasklog.HdfsTaskLogs;
 import io.druid.storage.hdfs.tasklog.HdfsTaskLogsConfig;
 import org.apache.hadoop.conf.Configuration;
@@ -36,7 +36,7 @@ import java.util.Properties;
 
 /**
  */
-public class HdfsStorageDruidModule implements DruidModule
+public class HdfsStorageDruidModule extends AbstractDruidModule
 {
   private Properties props = null;
 

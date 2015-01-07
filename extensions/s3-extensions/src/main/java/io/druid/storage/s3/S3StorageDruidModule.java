@@ -34,6 +34,7 @@ import com.google.inject.Provides;
 import io.druid.guice.Binders;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.LazySingleton;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.initialization.DruidModule;
 import org.jets3t.service.impl.rest.httpclient.RestS3Service;
 import org.jets3t.service.security.AWSCredentials;
@@ -42,7 +43,7 @@ import java.util.List;
 
 /**
  */
-public class S3StorageDruidModule implements DruidModule
+public class S3StorageDruidModule extends AbstractDruidModule
 {
   @Override
   public List<? extends Module> getJacksonModules()

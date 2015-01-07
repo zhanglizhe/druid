@@ -24,13 +24,13 @@ import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 
 import java.util.List;
 
 /**
  */
-public class S3FirehoseDruidModule implements DruidModule
+public class S3FirehoseDruidModule extends AbstractDruidModule
 {
   @Override
   public List<? extends Module> getJacksonModules()

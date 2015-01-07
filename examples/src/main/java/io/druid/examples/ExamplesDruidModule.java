@@ -24,14 +24,14 @@ import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.inject.Binder;
 import io.druid.examples.twitter.TwitterSpritzerFirehoseFactory;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 
 import java.util.Arrays;
 import java.util.List;
 
 /**
  */
-public class ExamplesDruidModule implements DruidModule
+public class ExamplesDruidModule extends AbstractDruidModule
 {
   @Override
   public List<? extends Module> getJacksonModules()

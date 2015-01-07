@@ -17,11 +17,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-package io.druid.guice;;
+package io.druid.guice;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
-import com.google.common.io.Closeables;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.metamx.common.guava.CloseQuietly;
@@ -36,6 +35,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Properties;
+
+;
 
 /**
  */

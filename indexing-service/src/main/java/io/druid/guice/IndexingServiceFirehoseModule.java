@@ -25,12 +25,12 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import io.druid.indexing.firehose.IngestSegmentFirehoseFactory;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.segment.realtime.firehose.EventReceiverFirehoseFactory;
 
 import java.util.List;
 
-public class IndexingServiceFirehoseModule implements DruidModule
+public class IndexingServiceFirehoseModule extends AbstractDruidModule
 {
   @Override
   public List<? extends Module> getJacksonModules()

@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.inject.Binder;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.segment.realtime.firehose.ClippedFirehoseFactory;
 import io.druid.segment.realtime.firehose.CombiningFirehoseFactory;
 import io.druid.segment.realtime.firehose.EventReceiverFirehoseFactory;
@@ -36,7 +36,7 @@ import java.util.List;
 
 /**
  */
-public class FirehoseModule implements DruidModule
+public class FirehoseModule extends AbstractDruidModule
 {
   @Override
   public void configure(Binder binder)

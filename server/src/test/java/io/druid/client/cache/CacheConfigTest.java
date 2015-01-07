@@ -27,7 +27,7 @@ import com.google.inject.Injector;
 import io.druid.guice.GuiceInjectors;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.JsonConfigurator;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -51,7 +51,7 @@ public class CacheConfigTest
     injector = GuiceInjectors.makeStartupInjectorWithModules(ImmutableList.<com.google.inject.Module>of(new CacheConfigTestModule()));
     configurator = injector.getBinding(JsonConfigurator.class).getProvider().get();
   }
-  private static class CacheConfigTestModule implements DruidModule
+  private static class CacheConfigTestModule extends AbstractDruidModule
   {
 
     @Override

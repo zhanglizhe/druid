@@ -27,14 +27,14 @@ import io.druid.guice.Binders;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.LazySingleton;
 import io.druid.guice.PolyBind;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.segment.loading.DataSegmentPusher;
 
 import java.util.List;
 
 /**
  */
-public class CassandraDruidModule implements DruidModule
+public class CassandraDruidModule extends AbstractDruidModule
 {
   @Override
   public List<? extends Module> getJacksonModules()

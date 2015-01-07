@@ -29,8 +29,8 @@ import io.druid.granularity.QueryGranularity;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.DoubleSumAggregatorFactory;
 import io.druid.segment.indexing.granularity.ArbitraryGranularitySpec;
-import org.junit.Assert;
 import org.joda.time.Interval;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class DataSchemaTest

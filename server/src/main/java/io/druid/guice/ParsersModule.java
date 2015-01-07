@@ -24,7 +24,7 @@ import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.inject.Binder;
 import io.druid.data.input.ProtoBufInputRowParser;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.segment.realtime.firehose.IrcInputRowParser;
 
 import java.util.Arrays;
@@ -32,7 +32,7 @@ import java.util.List;
 
 /**
  */
-public class ParsersModule implements DruidModule
+public class ParsersModule extends AbstractDruidModule
 {
   @Override
   public void configure(Binder binder)

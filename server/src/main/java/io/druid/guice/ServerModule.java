@@ -27,7 +27,7 @@ import com.metamx.common.concurrent.ScheduledExecutorFactory;
 import com.metamx.common.concurrent.ScheduledExecutors;
 import com.metamx.common.lifecycle.Lifecycle;
 import io.druid.guice.annotations.Self;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.server.DruidNode;
 import io.druid.server.initialization.ZkPathsConfig;
 import io.druid.timeline.partition.HashBasedNumberedShardSpec;
@@ -40,7 +40,7 @@ import java.util.List;
 
 /**
  */
-public class ServerModule implements DruidModule
+public class ServerModule extends AbstractDruidModule
 {
   @Override
   public void configure(Binder binder)

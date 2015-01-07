@@ -131,7 +131,7 @@ public class InitializationTest
     Assert.assertEquals("Set from loaded modules #2 should be same!", modules, loadedModules2);
   }
 
-  public static class TestDruidModule implements DruidModule
+  public static class TestDruidModule extends AbstractDruidModule
   {
     @Override
     public List<? extends Module> getJacksonModules()

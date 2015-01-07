@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.inject.Binder;
 import com.google.inject.util.Providers;
-import io.druid.initialization.DruidModule;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.query.QuerySegmentWalker;
 import io.druid.server.log.EmittingRequestLoggerProvider;
 import io.druid.server.log.FileRequestLoggerProvider;
@@ -35,7 +35,7 @@ import java.util.List;
 
 /**
  */
-public class QueryableModule implements DruidModule
+public class QueryableModule extends AbstractDruidModule
 {
   @Override
   public void configure(Binder binder)

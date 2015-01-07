@@ -19,13 +19,13 @@
 
 package io.druid.guice;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.Module;
 import io.druid.indexer.MetadataStorageUpdaterJobHandler;
 import io.druid.indexer.SQLMetadataStorageUpdaterJobHandler;
 import io.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
-import io.druid.metadata.MetadataStorageActionHandlerFactory;
+import io.druid.initialization.AbstractDruidModule;
 import io.druid.metadata.IndexerSQLMetadataStorageCoordinator;
 import io.druid.metadata.MetadataRuleManager;
 import io.druid.metadata.MetadataRuleManagerProvider;
@@ -33,6 +33,7 @@ import io.druid.metadata.MetadataSegmentManager;
 import io.druid.metadata.MetadataSegmentManagerProvider;
 import io.druid.metadata.MetadataSegmentPublisher;
 import io.druid.metadata.MetadataSegmentPublisherProvider;
+import io.druid.metadata.MetadataStorageActionHandlerFactory;
 import io.druid.metadata.MetadataStorageConnector;
 import io.druid.metadata.MetadataStorageProvider;
 import io.druid.metadata.NoopMetadataStorageProvider;
@@ -45,7 +46,9 @@ import io.druid.metadata.SQLMetadataSegmentPublisher;
 import io.druid.metadata.SQLMetadataSegmentPublisherProvider;
 import io.druid.metadata.SQLMetadataStorageActionHandlerFactory;
 
-public class SQLMetadataStorageDruidModule implements Module
+import java.util.List;
+
+public class SQLMetadataStorageDruidModule extends AbstractDruidModule
 {
   public static final String PROPERTY = "druid.metadata.storage.type";
   final String type;
@@ -186,5 +189,11 @@ public class SQLMetadataStorageDruidModule implements Module
             .addBinding(type)
             .to(SQLMetadataStorageUpdaterJobHandler.class)
             .in(LazySingleton.class);
+  }
+
+  @Override
+  public List<? extends com.fasterxml.jackson.databind.Module> getJacksonModules()
+  {
+    return ImmutableList.of();
   }
 }

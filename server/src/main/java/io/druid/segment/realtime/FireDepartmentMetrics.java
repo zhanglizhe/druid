@@ -19,9 +19,9 @@
 
 package io.druid.segment.realtime;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 import com.google.common.base.Preconditions;
+
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
