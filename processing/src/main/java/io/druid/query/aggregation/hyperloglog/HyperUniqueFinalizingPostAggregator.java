@@ -61,6 +61,15 @@ public class HyperUniqueFinalizingPostAggregator implements PostAggregator
   }
 
   @Override
+  public String toString(){
+    StringBuilder sb = new StringBuilder();
+    sb.append("HyperUniqueFinalizingPostAggregator{");
+    sb.append(String.format("'fieldName'='%s'", getName()));
+    sb.append("}");
+    return sb.toString();
+  }
+
+  @Override
   @JsonProperty("fieldName")
   public String getName()
   {
