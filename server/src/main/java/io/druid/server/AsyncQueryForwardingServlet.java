@@ -178,7 +178,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet
     // Add proxy headers
     addViaHeader(proxyRequest);
 
-    addXForwardedHeaders(proxyRequest, request);
+    addXForwardedHeaders(request, proxyRequest);
 
     final AsyncContext asyncContext = request.startAsync();
     // We do not timeout the continuation, but the proxy request

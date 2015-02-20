@@ -68,7 +68,7 @@
     <properties>
         <metamx.java-util.version>0.26.14</metamx.java-util.version>
         <apache.curator.version>2.7.0</apache.curator.version>
-        <jetty.version>9.2.5.v20141112</jetty.version>
+        <jetty.version>9.3.0-SNAPSHOT</jetty.version>
         <druid.api.version>0.3.4</druid.api.version>
         <jackson.version>2.4.4</jackson.version>
         <log4j.version>2.1</log4j.version>
@@ -359,6 +359,11 @@
             <dependency>
                 <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-servlets</artifactId>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty.http2</groupId>
+                <artifactId>http2-server</artifactId>
                 <version>${jetty.version}</version>
             </dependency>
             <dependency>
