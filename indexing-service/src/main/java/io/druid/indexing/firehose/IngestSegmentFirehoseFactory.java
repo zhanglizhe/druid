@@ -168,7 +168,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
       } else {
         Set<String> dimSet = new HashSet<>();
         for (TimelineObjectHolder<String, DataSegment> timelineObjectHolder : timeLineSegments) {
-          dimSet.addAll(timelineObjectHolder.getObject().getChunk(0).getObject().getDimensions());
+          dimSet.addAll(timelineObjectHolder.getObject().iterator().next().getObject().getDimensions());
         }
         dims = Lists.newArrayList(
             Sets.difference(
@@ -185,7 +185,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
       } else {
         Set<String> metricsSet = new HashSet<>();
         for (TimelineObjectHolder<String, DataSegment> timelineObjectHolder : timeLineSegments) {
-          metricsSet.addAll(timelineObjectHolder.getObject().getChunk(0).getObject().getMetrics());
+          metricsSet.addAll(timelineObjectHolder.getObject().iterator().next().getObject().getMetrics());
         }
         metricsList = Lists.newArrayList(metricsSet);
       }
@@ -198,7 +198,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
             @Override
             public StorageAdapter apply(TimelineObjectHolder<String, DataSegment> input)
             {
-              final DataSegment segment = input.getObject().getChunk(0).getObject();
+              final DataSegment segment = input.getObject().iterator().next().getObject();
               final File file = Preconditions.checkNotNull(
                   segmentFileMap.get(segment),
                   "File for segment %s", segment.getIdentifier()

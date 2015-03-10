@@ -122,7 +122,7 @@ public class IndexerSQLMetadataStorageCoordinator implements IndexerMetadataStor
           @Override
           public DataSegment apply(TimelineObjectHolder<String, DataSegment> input)
           {
-            return input.getObject().getChunk(0).getObject();
+            return input.getObject().iterator().next().getObject();
           }
         }
     );

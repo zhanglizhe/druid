@@ -72,7 +72,7 @@ public class AppendTask extends MergeTaskBase
           @Override
           public SegmentToMergeHolder apply(TimelineObjectHolder<String, DataSegment> input)
           {
-            final DataSegment segment = input.getObject().getChunk(0).getObject();
+            final DataSegment segment = input.getObject().iterator().next().getObject();
             final File file = Preconditions.checkNotNull(
                 segments.get(segment),
                 "File for segment %s", segment.getIdentifier()

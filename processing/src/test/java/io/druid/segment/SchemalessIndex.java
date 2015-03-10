@@ -445,7 +445,7 @@ public class SchemalessIndex
             @Override
             public Pair<File, Interval> apply(@Nullable TimelineObjectHolder<Integer, File> input)
             {
-              return new Pair<File, Interval>(input.getObject().getChunk(0).getObject(), input.getInterval());
+              return new Pair<File, Interval>(input.getObject().iterator().next().getObject(), input.getInterval());
             }
           }
       );

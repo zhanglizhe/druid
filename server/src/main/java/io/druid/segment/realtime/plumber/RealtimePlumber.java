@@ -267,7 +267,7 @@ public class RealtimePlumber implements Plumber
                           throw new ISE("No timeline entry at all!");
                         }
 
-                        final Sink theSink = holder.getObject().getChunk(0).getObject();
+                        final Sink theSink = holder.getObject().iterator().next().getObject();
 
                         if (theSink == null) {
                           throw new ISE("Missing sink for timeline entry[%s]!", holder);
