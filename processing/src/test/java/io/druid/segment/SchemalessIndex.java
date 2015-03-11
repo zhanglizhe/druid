@@ -27,6 +27,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.hash.Hashing;
 import com.metamx.common.Pair;
+import com.metamx.common.guava.FunctionalIterable;
 import com.metamx.common.logger.Logger;
 import io.druid.data.input.MapBasedInputRow;
 import io.druid.granularity.QueryGranularity;
@@ -43,6 +44,7 @@ import io.druid.segment.serde.ComplexMetrics;
 import io.druid.timeline.TimelineObjectHolder;
 import io.druid.timeline.VersionedIntervalTimeline;
 import io.druid.timeline.partition.NoneShardSpec;
+import io.druid.timeline.partition.PartitionChunk;
 import io.druid.timeline.partition.ShardSpec;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
@@ -426,8 +428,6 @@ public class SchemalessIndex
 
       List<File> filesToMap = makeFilesToMap(tmpFile, files);
 
-      List<IndexableAdapter> adapters = Lists.newArrayList();
-
       VersionedIntervalTimeline<Integer, File> timeline = new VersionedIntervalTimeline<Integer, File>(
           Ordering.natural().nullsFirst()
       );
@@ -438,33 +438,59 @@ public class SchemalessIndex
         timeline.add(intervals.get(i), i, noneShardSpec.createChunk(filesToMap.get(i)));
       }
 
-      List<Pair<File, Interval>> intervalsToMerge = Lists.transform(
-          timeline.lookup(new Interval("1000-01-01/3000-01-01")),
-          new Function<TimelineObjectHolder<Integer, File>, Pair<File, Interval>>()
-          {
-            @Override
-            public Pair<File, Interval> apply(@Nullable TimelineObjectHolder<Integer, File> input)
-            {
-              return new Pair<File, Interval>(input.getObject().iterator().next().getObject(), input.getInterval());
-            }
-          }
-      );
-
-      for (final Pair<File, Interval> pair : intervalsToMerge) {
-        adapters.add(
-            new RowboatFilteringIndexAdapter(
-                new QueryableIndexIndexableAdapter(IndexIO.loadIndex(pair.lhs)),
-                new Predicate<Rowboat>()
+      final List<IndexableAdapter> adapters = Lists.newArrayList(
+          Iterables.transform(
+              Iterables.concat(
+                  Iterables.transform(
+                      timeline.lookup(new Interval("1000-01-01/3000-01-01")),
+                      new Function<TimelineObjectHolder<Integer, File>, Iterable<Pair<File, Interval>>>()
+                      {
+                        @Override
+                        public Iterable<Pair<File, Interval>> apply(final TimelineObjectHolder<Integer, File> timelineObjectHolder)
+                        {
+                          return Iterables.transform(
+                              timelineObjectHolder.getObject(),
+                              new Function<PartitionChunk<File>, Pair<File, Interval>>()
+                              {
+                                @Override
+                                public Pair<File, Interval> apply(PartitionChunk<File> chunk)
+                                {
+                                  return new Pair<File, Interval>(
+                                      chunk.getObject(),
+                                      timelineObjectHolder.getInterval()
+                                  );
+                                }
+                              }
+                          );
+                        }
+                      }
+                  )
+              ),
+              new Function<Pair<File, Interval>, IndexableAdapter>()
+              {
+                @Override
+                public IndexableAdapter apply(final Pair<File, Interval> pair)
                 {
-                  @Override
-                  public boolean apply(@Nullable Rowboat input)
-                  {
-                    return pair.rhs.contains(input.getTimestamp());
+                  try {
+                    return new RowboatFilteringIndexAdapter(
+                        new QueryableIndexIndexableAdapter(IndexIO.loadIndex(pair.lhs)),
+                        new Predicate<Rowboat>()
+                        {
+                          @Override
+                          public boolean apply(Rowboat input)
+                          {
+                            return pair.rhs.contains(input.getTimestamp());
+                          }
+                        }
+                    );
+                  }
+                  catch (IOException e) {
+                    throw Throwables.propagate(e);
                   }
                 }
-            )
-        );
-      }
+              }
+          )
+      );
 
       return IndexIO.loadIndex(IndexMerger.append(adapters, mergedFile));
     }

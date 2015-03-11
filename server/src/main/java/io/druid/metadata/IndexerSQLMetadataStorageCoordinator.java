@@ -116,17 +116,21 @@ public class IndexerSQLMetadataStorageCoordinator implements IndexerMetadataStor
         }
     );
 
-    final Iterable<DataSegment> segments = Iterables.concat(Iterables.transform(
-            timeline.lookup(interval),
-            new Function<TimelineObjectHolder<String, DataSegment>, Iterable<DataSegment>>() {
-                @Override
-                public Iterable<DataSegment> apply(TimelineObjectHolder<String, DataSegment> input) {
+    return Lists.newArrayList(
+        Iterables.concat(
+            Iterables.transform(
+                timeline.lookup(interval),
+                new Function<TimelineObjectHolder<String, DataSegment>, Iterable<DataSegment>>()
+                {
+                  @Override
+                  public Iterable<DataSegment> apply(TimelineObjectHolder<String, DataSegment> input)
+                  {
                     return input.getObject().payloads();
+                  }
                 }
-            }
-    ));
-
-    return Lists.newArrayList(segments);
+            )
+        )
+    );
   }
 
   /**
