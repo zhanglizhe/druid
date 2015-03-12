@@ -124,7 +124,9 @@ public class IngestSegmentFirehoseFactoryTest
     }
 
     if (!persistDir.mkdirs()) {
-      throw new IOException(String.format("Could not create directory at [%s]", persistDir.getAbsolutePath()));
+      if(!persistDir.exists()) {
+        throw new IOException(String.format("Could not create directory at [%s]", persistDir.getAbsolutePath()));
+      }
     }
     IndexMerger.persist(index, persistDir);
 
