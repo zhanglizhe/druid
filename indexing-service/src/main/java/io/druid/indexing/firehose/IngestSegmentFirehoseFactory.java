@@ -28,7 +28,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.inject.Injector;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.guava.Yielder;
@@ -69,7 +68,6 @@ import org.joda.time.Interval;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +81,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
   private final DimFilter dimFilter;
   private final List<String> dimensions;
   private final List<String> metrics;
-  private final Injector injector;
+  private final TaskToolboxFactory taskToolboxFactory;
 
   @JsonCreator
   public IngestSegmentFirehoseFactory(
@@ -92,7 +90,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
       @JsonProperty("filter") DimFilter dimFilter,
       @JsonProperty("dimensions") List<String> dimensions,
       @JsonProperty("metrics") List<String> metrics,
-      @JacksonInject Injector injector
+      @JacksonInject TaskToolboxFactory taskToolboxFactory
   )
   {
     Preconditions.checkNotNull(dataSource, "dataSource");
@@ -102,7 +100,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
     this.dimFilter = dimFilter;
     this.dimensions = dimensions;
     this.metrics = metrics;
-    this.injector = injector;
+    this.taskToolboxFactory = taskToolboxFactory;
   }
 
   @JsonProperty
@@ -141,7 +139,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
     log.info("Connecting firehose: dataSource[%s], interval[%s]", dataSource, interval);
     // better way to achieve this is to pass toolbox to Firehose, The instance is initialized Lazily on connect method.
     // Noop Task is just used to create the toolbox and list segments.
-    final TaskToolbox toolbox = injector.getInstance(TaskToolboxFactory.class).build(
+    final TaskToolbox toolbox = taskToolboxFactory.build(
         new NoopTask("reingest", 0, 0, null, null)
     );
 
@@ -410,10 +408,10 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
       );
       rowYielder = rows.toYielder(
           null,
-          new YieldingAccumulator()
+          new YieldingAccumulator<InputRow, InputRow>()
           {
             @Override
-            public Object accumulate(Object accumulated, Object in)
+            public InputRow accumulate(InputRow accumulated, InputRow in)
             {
               yield();
               return in;
