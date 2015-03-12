@@ -24,6 +24,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
+import com.google.inject.Binder;
+import com.google.inject.Guice;
+import com.google.inject.Module;
 import com.metamx.common.logger.Logger;
 import com.metamx.emitter.core.Event;
 import com.metamx.emitter.service.ServiceEmitter;
@@ -166,7 +169,7 @@ public class IngestSegmentFirehoseFactoryTest
         ts,
         new TaskActionToolbox(tl, mdc, newMockEmitter())
     );
-    TaskToolboxFactory taskToolboxFactory = new TaskToolboxFactory(
+    final TaskToolboxFactory taskToolboxFactory = new TaskToolboxFactory(
         new TaskConfig(tmpDir.getAbsolutePath(), null, null, 50000, null),
         tac,
         newMockEmitter(),
@@ -266,7 +269,16 @@ public class IngestSegmentFirehoseFactoryTest
                       new SelectorDimFilter(DIM_NAME, DIM_VALUE),
                       dim_names,
                       metric_names,
-                      taskToolboxFactory
+                      Guice.createInjector(
+                          new Module()
+                          {
+                            @Override
+                            public void configure(Binder binder)
+                            {
+                              binder.bind(TaskToolboxFactory.class).toInstance(taskToolboxFactory);
+                            }
+                          }
+                      )
                   ),
                   String.format(
                       "DimNames[%s]MetricNames[%s]ParserDimNames[%s]",

@@ -28,6 +28,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
+import com.google.inject.Injector;
+import com.google.inject.Provider;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.guava.Yielder;
@@ -81,7 +83,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
   private final DimFilter dimFilter;
   private final List<String> dimensions;
   private final List<String> metrics;
-  private final TaskToolboxFactory taskToolboxFactory;
+  private final Injector injector;
 
   @JsonCreator
   public IngestSegmentFirehoseFactory(
@@ -90,7 +92,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
       @JsonProperty("filter") DimFilter dimFilter,
       @JsonProperty("dimensions") List<String> dimensions,
       @JsonProperty("metrics") List<String> metrics,
-      @JacksonInject TaskToolboxFactory taskToolboxFactory
+      @JacksonInject Injector injector
   )
   {
     Preconditions.checkNotNull(dataSource, "dataSource");
@@ -100,7 +102,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
     this.dimFilter = dimFilter;
     this.dimensions = dimensions;
     this.metrics = metrics;
-    this.taskToolboxFactory = taskToolboxFactory;
+    this.injector = injector;
   }
 
   @JsonProperty
@@ -139,7 +141,7 @@ public class IngestSegmentFirehoseFactory implements FirehoseFactory<InputRowPar
     log.info("Connecting firehose: dataSource[%s], interval[%s]", dataSource, interval);
     // better way to achieve this is to pass toolbox to Firehose, The instance is initialized Lazily on connect method.
     // Noop Task is just used to create the toolbox and list segments.
-    final TaskToolbox toolbox = taskToolboxFactory.build(
+    final TaskToolbox toolbox = injector.getInstance(TaskToolboxFactory.class).build(
         new NoopTask("reingest", 0, 0, null, null)
     );
 
