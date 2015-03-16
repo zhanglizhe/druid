@@ -54,7 +54,6 @@ import io.druid.indexing.worker.TaskAnnouncement;
 import io.druid.indexing.worker.Worker;
 import io.druid.server.initialization.IndexerZkConfig;
 import io.druid.tasklogs.TaskLogStreamer;
-import org.apache.commons.lang.mutable.MutableInt;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
@@ -80,6 +79,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The RemoteTaskRunner's primary responsibility is to assign tasks to worker nodes.
@@ -156,8 +156,8 @@ public class RemoteTaskRunner implements TaskRunner, TaskLogStreamer
         return;
       }
 
-      final MutableInt waitingFor = new MutableInt(1);
-      final Object waitingForMonitor = new Object();
+      // Effectively used as an up/down counting latch
+      final AtomicInteger waitingFor = new AtomicInteger(1);
 
       // Add listener for creation/deletion of workers
       workerPathCache.getListenable().addListener(
@@ -173,9 +173,7 @@ public class RemoteTaskRunner implements TaskRunner, TaskLogStreamer
                       event.getData().getData(),
                       Worker.class
                   );
-                  synchronized (waitingForMonitor) {
-                    waitingFor.increment();
-                  }
+                  waitingFor.incrementAndGet();
                   Futures.addCallback(
                       addWorker(worker),
                       new FutureCallback<ZkWorker>()
@@ -183,19 +181,13 @@ public class RemoteTaskRunner implements TaskRunner, TaskLogStreamer
                         @Override
                         public void onSuccess(ZkWorker zkWorker)
                         {
-                          synchronized (waitingForMonitor) {
-                            waitingFor.decrement();
-                            waitingForMonitor.notifyAll();
-                          }
+                          waitingFor.decrementAndGet();
                         }
 
                         @Override
                         public void onFailure(Throwable throwable)
                         {
-                          synchronized (waitingForMonitor) {
-                            waitingFor.decrement();
-                            waitingForMonitor.notifyAll();
-                          }
+                          waitingFor.decrementAndGet();
                         }
                       }
                   );
@@ -216,10 +208,7 @@ public class RemoteTaskRunner implements TaskRunner, TaskLogStreamer
                   removeWorker(worker);
                   break;
                 case INITIALIZED:
-                  synchronized (waitingForMonitor) {
-                    waitingFor.decrement();
-                    waitingForMonitor.notifyAll();
-                  }
+                  waitingFor.decrementAndGet();
                 default:
                   break;
               }
@@ -227,10 +216,11 @@ public class RemoteTaskRunner implements TaskRunner, TaskLogStreamer
           }
       );
       workerPathCache.start(PathChildrenCache.StartMode.POST_INITIALIZED_EVENT);
-      synchronized (waitingForMonitor) {
-        while (waitingFor.intValue() > 0) {
-          waitingForMonitor.wait();
+      while (true) {
+        if (waitingFor.get() <= 0) {
+          break;
         }
+        Thread.sleep(1);
       }
       started = true;
     }
