@@ -439,56 +439,46 @@ public class SchemalessIndex
       }
 
       final List<IndexableAdapter> adapters = Lists.newArrayList(
-          Iterables.transform(
-              Iterables.concat(
-                  Iterables.transform(
-                      timeline.lookup(new Interval("1000-01-01/3000-01-01")),
-                      new Function<TimelineObjectHolder<Integer, File>, Iterable<Pair<File, Interval>>>()
-                      {
-                        @Override
-                        public Iterable<Pair<File, Interval>> apply(final TimelineObjectHolder<Integer, File> timelineObjectHolder)
-                        {
-                          return Iterables.transform(
-                              timelineObjectHolder.getObject(),
-                              new Function<PartitionChunk<File>, Pair<File, Interval>>()
-                              {
-                                @Override
-                                public Pair<File, Interval> apply(PartitionChunk<File> chunk)
-                                {
-                                  return new Pair<File, Interval>(
-                                      chunk.getObject(),
-                                      timelineObjectHolder.getInterval()
-                                  );
-                                }
-                              }
-                          );
-                        }
-                      }
-                  )
-              ),
-              new Function<Pair<File, Interval>, IndexableAdapter>()
-              {
-                @Override
-                public IndexableAdapter apply(final Pair<File, Interval> pair)
-                {
-                  try {
-                    return new RowboatFilteringIndexAdapter(
-                        new QueryableIndexIndexableAdapter(IndexIO.loadIndex(pair.lhs)),
-                        new Predicate<Rowboat>()
-                        {
-                          @Override
-                          public boolean apply(Rowboat input)
+          Iterables.concat(
+              // TimelineObjectHolder is actually an iterable of iterable of indexable adapters
+              Iterables.transform(
+                  timeline.lookup(new Interval("1000-01-01/3000-01-01")),
+                  new Function<TimelineObjectHolder<Integer, File>, Iterable<IndexableAdapter>>()
+                  {
+                    @Override
+                    public Iterable<IndexableAdapter> apply(final TimelineObjectHolder<Integer, File> timelineObjectHolder)
+                    {
+                      return Iterables.transform(
+                          timelineObjectHolder.getObject(),
+
+                          // Each chunk can be used to build the actual IndexableAdapter
+                          new Function<PartitionChunk<File>, IndexableAdapter>()
                           {
-                            return pair.rhs.contains(input.getTimestamp());
+                            @Override
+                            public IndexableAdapter apply(PartitionChunk<File> chunk)
+                            {
+                              try {
+                                return new RowboatFilteringIndexAdapter(
+                                    new QueryableIndexIndexableAdapter(IndexIO.loadIndex(chunk.getObject())),
+                                    new Predicate<Rowboat>()
+                                    {
+                                      @Override
+                                      public boolean apply(Rowboat input)
+                                      {
+                                        return timelineObjectHolder.getInterval().contains(input.getTimestamp());
+                                      }
+                                    }
+                                );
+                              }
+                              catch (IOException e) {
+                                throw Throwables.propagate(e);
+                              }
+                            }
                           }
-                        }
-                    );
+                      );
+                    }
                   }
-                  catch (IOException e) {
-                    throw Throwables.propagate(e);
-                  }
-                }
-              }
+              )
           )
       );
 

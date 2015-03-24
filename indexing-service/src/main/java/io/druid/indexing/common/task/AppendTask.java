@@ -68,37 +68,35 @@ public class AppendTask extends MergeTaskBase
       timeline.add(segment.getInterval(), segment.getVersion(), segment.getShardSpec().createChunk(segment));
     }
 
-    final List<SegmentToMergeHolder> segmentsToMerge = Lists.newArrayList(
-        Iterables.concat(
-            Iterables.transform(
-                timeline.lookup(new Interval("1000-01-01/3000-01-01")),
-                new Function<TimelineObjectHolder<String, DataSegment>, Iterable<SegmentToMergeHolder>>()
-                {
-                  @Override
-                  public Iterable<SegmentToMergeHolder> apply(final TimelineObjectHolder<String, DataSegment> input)
-                  {
-                    return Iterables.transform(
-                        input.getObject(),
-                        new Function<PartitionChunk<DataSegment>, SegmentToMergeHolder>()
-                        {
-                          @Nullable
-                          @Override
-                          public SegmentToMergeHolder apply(PartitionChunk<DataSegment> chunkInput)
-                          {
-                            DataSegment segment = chunkInput.getObject();
-                            return new SegmentToMergeHolder(
-                                segment, input.getInterval(),
-                                Preconditions.checkNotNull(
-                                    segments.get(segment),
-                                    "File for segment %s", segment.getIdentifier()
-                                )
-                            );
-                          }
-                        }
-                    );
-                  }
-                }
-            )
+    final Iterable<SegmentToMergeHolder> segmentsToMerge = Iterables.concat(
+        Iterables.transform(
+            timeline.lookup(new Interval("1000-01-01/3000-01-01")),
+            new Function<TimelineObjectHolder<String, DataSegment>, Iterable<SegmentToMergeHolder>>()
+            {
+              @Override
+              public Iterable<SegmentToMergeHolder> apply(final TimelineObjectHolder<String, DataSegment> input)
+              {
+                return Iterables.transform(
+                    input.getObject(),
+                    new Function<PartitionChunk<DataSegment>, SegmentToMergeHolder>()
+                    {
+                      @Nullable
+                      @Override
+                      public SegmentToMergeHolder apply(PartitionChunk<DataSegment> chunkInput)
+                      {
+                        DataSegment segment = chunkInput.getObject();
+                        return new SegmentToMergeHolder(
+                            segment, input.getInterval(),
+                            Preconditions.checkNotNull(
+                                segments.get(segment),
+                                "File for segment %s", segment.getIdentifier()
+                            )
+                        );
+                      }
+                    }
+                );
+              }
+            }
         )
     );
 
