@@ -117,6 +117,7 @@ public abstract class QueryToolChest<ResultType, QueryType extends Query<ResultT
    * @param fn The function that should be applied to all metrics in the results
    * @return A function that will apply the provided fn to all metrics in the input ResultType object
    */
+  @Deprecated
   public Function<ResultType, ResultType> makePostComputeManipulatorFn(QueryType query, MetricManipulationFn fn)
   {
     return makePreComputeManipulatorFn(query, fn);
@@ -157,6 +158,7 @@ public abstract class QueryToolChest<ResultType, QueryType extends Query<ResultT
    * @param runner The runner to be wrapped
    * @return The wrapped runner
    */
+  @Deprecated
   public QueryRunner<ResultType> preMergeQueryDecoration(QueryRunner<ResultType> runner)
   {
     return runner;
@@ -174,6 +176,7 @@ public abstract class QueryToolChest<ResultType, QueryType extends Query<ResultT
    * @param runner The runner to be wrapped
    * @return The wrapped runner
    */
+  @Deprecated
   public QueryRunner<ResultType> postMergeQueryDecoration(QueryRunner<ResultType> runner)
   {
     return runner;

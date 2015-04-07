@@ -115,6 +115,12 @@ public class JavascriptExtractionFn implements ExtractionFn
   }
 
   @Override
+  public ExtractionType getExtractionType()
+  {
+    return ExtractionType.MANY_TO_ONE;
+  }
+
+  @Override
   public String toString()
   {
     return "JavascriptDimExtractionFn{" +

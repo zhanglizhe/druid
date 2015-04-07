@@ -19,6 +19,7 @@ package io.druid.query.topn;
 
 import com.google.common.base.Function;
 import io.druid.query.Result;
+import io.druid.query.extraction.ExtractionFn;
 import io.druid.segment.Cursor;
 import io.druid.segment.DimensionSelector;
 
@@ -26,7 +27,8 @@ public class TopNMapFn implements Function<Cursor, Result<TopNResultValue>>
 {
   private final TopNQuery query;
   private final TopNAlgorithm topNAlgorithm;
-
+  private final String dimension;
+  private final ExtractionFn extractionFn;
 
   public TopNMapFn(
       TopNQuery query,
@@ -35,6 +37,8 @@ public class TopNMapFn implements Function<Cursor, Result<TopNResultValue>>
   {
     this.query = query;
     this.topNAlgorithm = topNAlgorithm;
+    this.dimension = query.getDimensionSpec().getDimension();
+    this.extractionFn = query.getDimensionSpec().getExtractionFn();
   }
 
   @Override
@@ -42,8 +46,8 @@ public class TopNMapFn implements Function<Cursor, Result<TopNResultValue>>
   public Result<TopNResultValue> apply(Cursor cursor)
   {
     final DimensionSelector dimSelector = cursor.makeDimensionSelector(
-        query.getDimensionSpec().getDimension(),
-        query.getDimensionSpec().getExtractionFn()
+        this.dimension,
+        this.extractionFn
     );
     if (dimSelector == null) {
       return null;

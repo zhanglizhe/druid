@@ -41,22 +41,25 @@ import java.util.Map;
 public class ExtractionDimFilterTest
 {
   private static final Map<String, String[]> DIM_VALS = ImmutableMap.<String, String[]>of(
-      "foo", new String[]{"foo1","foo2","foo3"},
+      "foo", new String[]{"foo1", "foo2", "foo3"},
       "bar", new String[]{"bar1"},
       "baz", new String[]{"foo1"}
   );
 
   private static final Map<String, String> EXTRACTION_VALUES = ImmutableMap.of(
-      "foo1","extractDimVal"
+      "foo1", "extractDimVal"
   );
 
   private static ImmutableBitmap foo1BitMap;
+
   @BeforeClass
-  public static void setupStatic(){
+  public static void setupStatic()
+  {
     final ConciseSet conciseSet = new ConciseSet();
     conciseSet.add(1);
     foo1BitMap = new WrappedConciseBitmap(conciseSet);
   }
+
   private static final BitmapIndexSelector BITMAP_INDEX_SELECTOR = new BitmapIndexSelector()
   {
     @Override
@@ -110,10 +113,17 @@ public class ExtractionDimFilterTest
     {
       return false;
     }
+
+    @Override
+    public ExtractionType getExtractionType()
+    {
+      return ExtractionType.MANY_TO_ONE;
+    }
   };
 
   @Test
-  public void testEmpty(){
+  public void testEmpty()
+  {
     ExtractionFilter extractionFilter = new ExtractionFilter(
         "foo", "NFDJUKFNDSJFNS", DIM_EXTRACTION_FN
     );
@@ -122,7 +132,8 @@ public class ExtractionDimFilterTest
   }
 
   @Test
-  public void testNull(){
+  public void testNull()
+  {
     ExtractionFilter extractionFilter = new ExtractionFilter(
         "FDHJSFFHDS", "extractDimVal", DIM_EXTRACTION_FN
     );
@@ -131,7 +142,8 @@ public class ExtractionDimFilterTest
   }
 
   @Test
-  public void testNormal(){
+  public void testNormal()
+  {
     ExtractionFilter extractionFilter = new ExtractionFilter(
         "foo", "extractDimVal", DIM_EXTRACTION_FN
     );

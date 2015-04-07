@@ -154,3 +154,29 @@ Example for the `__time` dimension:
   "function" : "function(t) { return 'Second ' + Math.floor((t % 60000) / 1000); }"
 }
 ```
+
+### Explicit lookup extraction function
+Explicit lookups allow you to specify a set of keys and values to use when performing the extraction
+```json
+{
+  "type":"explicitLookup",
+  "lookup":{"foo":"bar", "baz":"bat"},
+  "retainMissingValue":true,
+  "injective":true
+}
+```
+
+```json
+{
+  "type":"explicitLookup",
+  "lookup":{"foo":"bar", "baz":"bar"},
+  "retainMissingValue":false,
+  "injective":false,
+  "replaceMissingValueWith":"MISSING"
+}
+```
+A property of `retainMissingValue` and `replaceMissingValueWith` can be specified at query time to hint how to handle missing values. Setting `replaceMissingValueWith` to `""` has the same effect of setting it to `null` or omitting the property. Setting `retainMissingValue` to true will use the dimension's original value if it is not found in the namespace. The default values are `replaceMissingValueWith = null` and `retainMissingValue = false` which causes missing values to be treated as missing.
+ 
+It is illegal to set `retainMissingValue = true` and also specify a `replaceMissingValueWith`
+
+A property of `injective` specifies if optimizations can be used which assume there is no combining of multiple names into one. For example: If ABC123 is the only key that maps to SomeCompany, that can be optimized since it is a unique lookup. But if both ABC123 and DEF456 BOTH map to SomeCompany, then that is NOT a unique lookup. Setting this value to true and setting `retainMissingValue` to FALSE (the default) may cause undesired behavior.

@@ -35,10 +35,10 @@ import io.druid.collections.OrderedMergeSequence;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.BySegmentResultValue;
 import io.druid.query.CacheStrategy;
+import io.druid.query.DruidMetrics;
 import io.druid.query.IntervalChunkingQueryRunnerDecorator;
 import io.druid.query.Query;
 import io.druid.query.QueryCacheHelper;
-import io.druid.query.DruidMetrics;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryToolChest;
 import io.druid.query.Result;
@@ -47,12 +47,17 @@ import io.druid.query.ResultMergeQueryRunner;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.AggregatorUtil;
 import io.druid.query.aggregation.MetricManipulationFn;
+import io.druid.query.aggregation.MetricManipulatorFns;
 import io.druid.query.aggregation.PostAggregator;
+import io.druid.query.dimension.DefaultDimensionSpec;
+import io.druid.query.dimension.DimensionSpec;
+import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.DimFilter;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -106,37 +111,112 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
   }
 
   @Override
-  public QueryRunner<Result<TopNResultValue>> mergeResults(QueryRunner<Result<TopNResultValue>> runner)
+  public QueryRunner<Result<TopNResultValue>> mergeResults(final QueryRunner<Result<TopNResultValue>> baseRunner)
   {
-    return new ResultMergeQueryRunner<Result<TopNResultValue>>(runner)
-    {
-      @Override
-      protected Ordering<Result<TopNResultValue>> makeOrdering(Query<Result<TopNResultValue>> query)
-      {
-        return Ordering.from(
-            new ResultGranularTimestampComparator<TopNResultValue>(
-                ((TopNQuery) query).getGranularity()
-            )
-        );
-      }
+    return new ThresholdAdjustingQueryRunner(
+        new ResultMergeQueryRunner<Result<TopNResultValue>>(
+            new QueryRunner<Result<TopNResultValue>>()
+            {
+              @Override
+              public Sequence<Result<TopNResultValue>> run(
+                  Query<Result<TopNResultValue>> query, Map<String, Object> responseContext
+              )
+              {
+                TopNQuery topNQuery = (TopNQuery) query;
+                final String dimKey = topNQuery.getDimensionSpec().getOutputName();
+                final ExtractionFn postExtractionFn;
+                if (TopNQueryEngine.canApplyExtractionInPost(topNQuery)) {
+                  final DimensionSpec oldSpec = ((TopNQuery) query).getDimensionSpec();
+                  postExtractionFn = topNQuery.getDimensionSpec().getExtractionFn();
+                  topNQuery = topNQuery.withDimensionSpec(
+                      new DefaultDimensionSpec(oldSpec.getDimension(), oldSpec.getDimension())
+                  );
 
-      @Override
-      protected BinaryFn<Result<TopNResultValue>, Result<TopNResultValue>, Result<TopNResultValue>> createMergeFn(
-          Query<Result<TopNResultValue>> input
-      )
-      {
-        TopNQuery query = (TopNQuery) input;
-        return new TopNBinaryFn(
-            TopNResultMerger.identity,
-            query.getGranularity(),
-            query.getDimensionSpec(),
-            query.getTopNMetricSpec(),
-            query.getThreshold(),
-            query.getAggregatorSpecs(),
-            query.getPostAggregatorSpecs()
-        );
-      }
-    };
+                } else {
+                  postExtractionFn = null;
+                }
+                final Function<Result<TopNResultValue>, Result<TopNResultValue>> postAggComputator = makeResultComputator(
+                    topNQuery,
+                    MetricManipulatorFns.identity(),
+                    false
+                );
+                if(postExtractionFn == null) {
+                  // We did not do any optimizations or query rewrites, so pass the result straight up.
+                  return Sequences.map(
+                      baseRunner.run(topNQuery, responseContext),
+                      postAggComputator
+                  );
+                } else {
+                  return Sequences.map(
+                      baseRunner.run(topNQuery, responseContext),
+                      new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
+                      {
+                        @Override
+                        public Result<TopNResultValue> apply(Result<TopNResultValue> input)
+                        {
+                          input = postAggComputator.apply(input);
+                          if (input == null) {
+                            return null;
+                          }
+                          return new Result<>(
+                              input.getTimestamp(),
+                              new TopNResultValue(
+                                  Lists.transform(
+                                      input.getValue().getValue(),
+                                      new Function<DimensionAndMetricValueExtractor, DimensionAndMetricValueExtractor>()
+                                      {
+                                        @Override
+                                        public DimensionAndMetricValueExtractor apply(
+                                            DimensionAndMetricValueExtractor input
+                                        )
+                                        {
+                                          final String oldDimVal = input.getStringDimensionValue(dimKey);
+                                          final Map<String, Object> map = new HashMap<>(input.getBaseObject());
+                                          map.remove(dimKey);
+                                          map.put(dimKey, postExtractionFn.apply(oldDimVal));
+                                          return new DimensionAndMetricValueExtractor(map);
+                                        }
+                                      }
+                                  )
+                              )
+                          );
+                        }
+                      }
+                  );
+                }
+              }
+            }
+        )
+        {
+          @Override
+          protected Ordering<Result<TopNResultValue>> makeOrdering(Query<Result<TopNResultValue>> query)
+          {
+            return Ordering.from(
+                new ResultGranularTimestampComparator<TopNResultValue>(
+                    ((TopNQuery) query).getGranularity()
+                )
+            );
+          }
+
+          @Override
+          protected BinaryFn<Result<TopNResultValue>, Result<TopNResultValue>, Result<TopNResultValue>> createMergeFn(
+              Query<Result<TopNResultValue>> input
+          )
+          {
+            TopNQuery query = (TopNQuery) input;
+            return new TopNBinaryFn(
+                TopNResultMerger.identity,
+                query.getGranularity(),
+                query.getDimensionSpec(),
+                query.getTopNMetricSpec(),
+                query.getThreshold(),
+                query.getAggregatorSpecs(),
+                query.getPostAggregatorSpecs()
+            );
+          }
+        },
+        config.getMinTopNThreshold()
+    );
   }
 
   @Override
@@ -175,74 +255,32 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
       final TopNQuery query, final MetricManipulationFn fn
   )
   {
-    return new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
-    {
-      private String dimension = query.getDimensionSpec().getOutputName();
-      private final List<PostAggregator> prunedAggs = prunePostAggregators(query);
-      private final AggregatorFactory[] aggregatorFactories = query.getAggregatorSpecs()
-                                                                   .toArray(new AggregatorFactory[0]);
-      private final String[] aggFactoryNames = extractFactoryName(query.getAggregatorSpecs());
-
-      @Override
-      public Result<TopNResultValue> apply(Result<TopNResultValue> result)
-      {
-        List<Map<String, Object>> serializedValues = Lists.newArrayList(
-            Iterables.transform(
-                result.getValue(),
-                new Function<DimensionAndMetricValueExtractor, Map<String, Object>>()
-                {
-                  @Override
-                  public Map<String, Object> apply(DimensionAndMetricValueExtractor input)
-                  {
-                    final Map<String, Object> values = Maps.newHashMapWithExpectedSize(
-                        aggregatorFactories.length
-                        + prunedAggs.size()
-                        + 1
-                    );
-
-                    for (int i = 0; i < aggregatorFactories.length; ++i) {
-                      final String aggName = aggFactoryNames[i];
-                      values.put(aggName, fn.manipulate(aggregatorFactories[i], input.getMetric(aggName)));
-                    }
-
-                    for (PostAggregator postAgg : prunedAggs) {
-                      final String name = postAgg.getName();
-                      Object calculatedPostAgg = input.getMetric(name);
-                      if (calculatedPostAgg != null) {
-                        values.put(name, calculatedPostAgg);
-                      } else {
-                        values.put(name, postAgg.compute(values));
-                      }
-                    }
-                    values.put(dimension, input.getDimensionValue(dimension));
-
-                    return values;
-                  }
-                }
-            )
-        );
-
-        return new Result<TopNResultValue>(
-            result.getTimestamp(),
-            new TopNResultValue(serializedValues)
-        );
-      }
-    };
+    return makeResultComputator(
+        query.withPostAggregatorSpecs(prunePostAggregators(query)),
+        fn,
+        false
+    );
   }
 
-  @Override
-  public Function<Result<TopNResultValue>, Result<TopNResultValue>> makePostComputeManipulatorFn(
-      final TopNQuery query, final MetricManipulationFn fn
+  /**
+   * Make a function which will calculate the post aggs properly
+   */
+
+  protected Function<Result<TopNResultValue>, Result<TopNResultValue>> makeResultComputator(
+      TopNQuery query,
+      final MetricManipulationFn fn,
+      final boolean applyManipulatorFirst
   )
   {
+    final List<PostAggregator> postAggregatorSpecs = query.getPostAggregatorSpecs();
+    final PostAggregator[] postAggregators = postAggregatorSpecs.toArray(new PostAggregator[postAggregatorSpecs.size()]);
+    final AggregatorFactory[] aggregatorFactories = query
+        .getAggregatorSpecs()
+        .toArray(new AggregatorFactory[query.getAggregatorSpecs().size()]);
+    final String[] aggFactoryNames = extractFactoryName(query.getAggregatorSpecs());
+    final DimensionSpec dimensionSpec = query.getDimensionSpec();
     return new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
     {
-      private String dimension = query.getDimensionSpec().getOutputName();
-      private final AggregatorFactory[] aggregatorFactories = query.getAggregatorSpecs()
-                                                                   .toArray(new AggregatorFactory[0]);
-      private final String[] aggFactoryNames = extractFactoryName(query.getAggregatorSpecs());
-      private final PostAggregator[] postAggregators = query.getPostAggregatorSpecs().toArray(new PostAggregator[0]);
-
       @Override
       public Result<TopNResultValue> apply(Result<TopNResultValue> result)
       {
@@ -256,29 +294,37 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
                   {
                     final Map<String, Object> values = Maps.newHashMapWithExpectedSize(
                         aggregatorFactories.length
-                        + query.getPostAggregatorSpecs().size()
+                        + postAggregators.length
                         + 1
                     );
-
                     for (int i = 0; i < aggFactoryNames.length; ++i) {
                       final String name = aggFactoryNames[i];
-                      values.put(name, input.getMetric(name));
+                      values.put(
+                          name,
+                          applyManipulatorFirst ?
+                          fn.manipulate(aggregatorFactories[i], input.getMetric(name)) :
+                          input.getMetric(name)
+                      );
                     }
 
                     for (PostAggregator postAgg : postAggregators) {
-                      Object calculatedPostAgg = input.getMetric(postAgg.getName());
+                      final String postAggName = postAgg.getName();
+                      Object calculatedPostAgg = input.getMetric(postAggName);
                       if (calculatedPostAgg != null) {
-                        values.put(postAgg.getName(), calculatedPostAgg);
+                        values.put(postAggName, calculatedPostAgg);
                       } else {
-                        values.put(postAgg.getName(), postAgg.compute(values));
+                        values.put(postAggName, postAgg.compute(values));
                       }
                     }
-                    for (int i = 0; i < aggFactoryNames.length; ++i) {
-                      final String name = aggFactoryNames[i];
-                      values.put(name, fn.manipulate(aggregatorFactories[i], input.getMetric(name)));
+                    if (!applyManipulatorFirst) {
+                      for (int i = 0; i < aggFactoryNames.length; ++i) {
+                        final String name = aggFactoryNames[i];
+                        values.put(name, fn.manipulate(aggregatorFactories[i], input.getMetric(name)));
+                      }
                     }
 
-                    values.put(dimension, input.getDimensionValue(dimension));
+                    final Object dimValue = input.getDimensionValue(dimensionSpec.getDimension());
+                    values.put(dimensionSpec.getOutputName(), dimValue);
 
                     return values;
                   }
@@ -298,6 +344,14 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
   public TypeReference<Result<TopNResultValue>> getResultTypeReference()
   {
     return TYPE_REFERENCE;
+  }
+
+  @Override
+  public Function<Result<TopNResultValue>, Result<TopNResultValue>> makePostComputeManipulatorFn(
+      final TopNQuery query, final MetricManipulationFn fn
+  )
+  {
+    return makeResultComputator(query, fn, false);
   }
 
   @Override
@@ -423,20 +477,84 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
   }
 
   @Override
-  public QueryRunner<Result<TopNResultValue>> preMergeQueryDecoration(QueryRunner<Result<TopNResultValue>> runner)
+  public QueryRunner<Result<TopNResultValue>> preMergeQueryDecoration(final QueryRunner<Result<TopNResultValue>> runner)
   {
     return intervalChunkingQueryRunnerDecorator.decorate(runner, this);
-  }
-
-  @Override
-  public QueryRunner<Result<TopNResultValue>> postMergeQueryDecoration(final QueryRunner<Result<TopNResultValue>> runner)
-  {
-    return new ThresholdAdjustingQueryRunner(runner, config.getMinTopNThreshold());
   }
 
   public Ordering<Result<TopNResultValue>> getOrdering()
   {
     return Ordering.natural();
+  }
+
+  private static Function<Result<TopNResultValue>, Result<TopNResultValue>> bySegmentTransformer(
+      final int threshold
+  )
+  {
+    return new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
+    {
+      @Nullable
+      @Override
+      public Result<TopNResultValue> apply(@Nullable Result<TopNResultValue> input)
+      {
+
+        BySegmentResultValue<Result<TopNResultValue>> value = (BySegmentResultValue<Result<TopNResultValue>>) input
+            .getValue();
+
+        return new Result<TopNResultValue>(
+            input.getTimestamp(),
+            new BySegmentTopNResultValue(
+                Lists.transform(
+                    value.getResults(),
+                    new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
+                    {
+                      @Override
+                      public Result<TopNResultValue> apply(Result<TopNResultValue> input)
+                      {
+                        return new Result<>(
+                            input.getTimestamp(),
+                            new TopNResultValue(
+                                Lists.<Object>newArrayList(
+                                    Iterables.limit(
+                                        input.getValue(),
+                                        threshold
+                                    )
+                                )
+                            )
+                        );
+                      }
+                    }
+                ),
+                value.getSegmentId(),
+                value.getInterval()
+            )
+        );
+      }
+    };
+  }
+
+  private static Function<Result<TopNResultValue>, Result<TopNResultValue>> limitResultsTransformer(
+      final int threshold
+  )
+  {
+    return new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
+    {
+      @Override
+      public Result<TopNResultValue> apply(Result<TopNResultValue> input)
+      {
+        return new Result<>(
+            input.getTimestamp(),
+            new TopNResultValue(
+                Lists.<Object>newArrayList(
+                    Iterables.limit(
+                        input.getValue(),
+                        threshold
+                    )
+                )
+            )
+        );
+      }
+    };
   }
 
   private static class ThresholdAdjustingQueryRunner implements QueryRunner<Result<TopNResultValue>>
@@ -467,63 +585,11 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
       if (query.getThreshold() > minTopNThreshold) {
         return runner.run(query, responseContext);
       }
-
-      final boolean isBySegment = query.getContextBySegment(false);
-
       return Sequences.map(
           runner.run(query.withThreshold(minTopNThreshold), responseContext),
-          new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
-          {
-            @Override
-            public Result<TopNResultValue> apply(Result<TopNResultValue> input)
-            {
-              if (isBySegment) {
-                BySegmentResultValue<Result<TopNResultValue>> value = (BySegmentResultValue<Result<TopNResultValue>>) input
-                    .getValue();
-
-                return new Result<TopNResultValue>(
-                    input.getTimestamp(),
-                    new BySegmentTopNResultValue(
-                        Lists.transform(
-                            value.getResults(),
-                            new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
-                            {
-                              @Override
-                              public Result<TopNResultValue> apply(Result<TopNResultValue> input)
-                              {
-                                return new Result<>(
-                                    input.getTimestamp(),
-                                    new TopNResultValue(
-                                        Lists.<Object>newArrayList(
-                                            Iterables.limit(
-                                                input.getValue(),
-                                                query.getThreshold()
-                                            )
-                                        )
-                                    )
-                                );
-                              }
-                            }
-                        ),
-                        value.getSegmentId(),
-                        value.getInterval()
-                    )
-                );
-              }
-
-              return new Result<>(
-                  input.getTimestamp(),
-                  new TopNResultValue(
-                      Lists.<Object>newArrayList(
-                          Iterables.limit(
-                              input.getValue(),
-                              query.getThreshold()
-                          )
-                      )
-                  )
-              );
-            }
-          }
+          query.getContextBySegment(false)
+          ? bySegmentTransformer(query.getThreshold())
+          : limitResultsTransformer(query.getThreshold())
       );
     }
   }

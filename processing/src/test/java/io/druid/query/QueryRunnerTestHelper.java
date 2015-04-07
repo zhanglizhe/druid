@@ -18,6 +18,7 @@
 package io.druid.query;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -48,6 +49,7 @@ import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -202,9 +204,23 @@ public class QueryRunnerTestHelper
       Arrays.asList(new Interval("2020-04-02T00:00:00.000Z/P1D"))
   );
 
-  @SuppressWarnings("unchecked")
-  public static Collection<?> makeQueryRunners(
-      QueryRunnerFactory factory
+  public static Iterable<Object[]> transformToConstructionFeeder(Iterable<?> in)
+  {
+    return Iterables.transform(
+        in, new Function<Object, Object[]>()
+        {
+          @Nullable
+          @Override
+          public Object[] apply(@Nullable Object input)
+          {
+            return new Object[]{input};
+          }
+        }
+    );
+  }
+
+  public static <T, QueryType extends Query<T>> List<QueryRunner<T>> makeQueryRunners(
+      QueryRunnerFactory<T, QueryType> factory
   )
       throws IOException
   {
@@ -212,21 +228,11 @@ public class QueryRunnerTestHelper
     final QueryableIndex mMappedTestIndex = TestIndex.getMMappedTestIndex();
     final QueryableIndex mergedRealtimeIndex = TestIndex.mergedRealtimeIndex();
     final IncrementalIndex rtIndexOffheap = TestIndex.getIncrementalTestIndex(true);
-    return Arrays.asList(
-        new Object[][]{
-            {
-                makeQueryRunner(factory, new IncrementalIndexSegment(rtIndex, segmentId))
-            },
-            {
-                makeQueryRunner(factory, new QueryableIndexSegment(segmentId, mMappedTestIndex))
-            },
-            {
-                makeQueryRunner(factory, new QueryableIndexSegment(segmentId, mergedRealtimeIndex))
-            },
-            {
-                makeQueryRunner(factory, new IncrementalIndexSegment(rtIndexOffheap, segmentId))
-            }
-        }
+    return ImmutableList.of(
+        makeQueryRunner(factory, new IncrementalIndexSegment(rtIndex, segmentId)),
+        makeQueryRunner(factory, new QueryableIndexSegment(segmentId, mMappedTestIndex)),
+        makeQueryRunner(factory, new QueryableIndexSegment(segmentId, mergedRealtimeIndex)),
+        makeQueryRunner(factory, new IncrementalIndexSegment(rtIndexOffheap, segmentId))
     );
   }
 
@@ -264,8 +270,8 @@ public class QueryRunnerTestHelper
     );
   }
 
-  public static <T> QueryRunner<T> makeQueryRunner(
-      QueryRunnerFactory<T, Query<T>> factory,
+  public static <T, QueryType extends Query<T>> QueryRunner<T> makeQueryRunner(
+      QueryRunnerFactory<T, QueryType> factory,
       Segment adapter
   )
   {
@@ -274,7 +280,7 @@ public class QueryRunnerTestHelper
             segmentId, adapter.getDataInterval().getStart(),
             factory.createRunner(adapter)
         ),
-        factory.getToolchest()
+        (QueryToolChest<T, Query<T>>)factory.getToolchest()
     );
   }
 
