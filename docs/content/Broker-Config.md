@@ -14,9 +14,9 @@ The broker node uses several of the global configs in [Configuration](Configurat
 
 |Property|Description|Default|
 |--------|-----------|-------|
-|`druid.host`|The host for the current node. This is used to advertise the current processes location as reachable from another node and should generally be specified such that `http://${druid.host}/` could actually talk to this process|none|
-|`druid.port`|This is the port to actually listen on; unless port mapping is used, this will be the same port as is on `druid.host`|none|
-|`druid.service`|The name of the service. This is used as a dimension when emitting metrics and alerts to differentiate between the various services|none|
+|`druid.host`|The host for the current node. This is used to advertise the current processes location as reachable from another node and should generally be specified such that `http://${druid.host}/` could actually talk to this process|InetAddress.getLocalHost().getCanonicalHostName()|
+|`druid.port`|This is the port to actually listen on; unless port mapping is used, this will be the same port as is on `druid.host`|8082|
+|`druid.service`|The name of the service. This is used as a dimension when emitting metrics and alerts to differentiate between the various services|druid/broker|
 
 ### Query Configs
 
@@ -38,6 +38,14 @@ Druid uses Jetty to serve HTTP requests.
 |`druid.server.http.maxIdleTime`|The Jetty max idle time for a connection.|PT5m|
 |`druid.broker.http.numConnections`|Size of connection pool for the Broker to connect to historical and real-time nodes. If there are more queries than this number that all need to speak to the same node, then they will queue up.|5|
 |`druid.broker.http.readTimeout`|The timeout for data reads.|PT15M|
+
+#### Retry Policy
+
+Druid broker can optionally retry queries internally for transient errors.
+
+|Property|Description|Default|
+|--------|-----------|-------|
+|`druid.broker.retryPolicy.numTries`|Number of tries.|1|
 
 #### Processing
 
