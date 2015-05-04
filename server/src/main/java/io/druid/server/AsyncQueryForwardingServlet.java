@@ -29,11 +29,12 @@ import io.druid.guice.annotations.Json;
 import io.druid.guice.annotations.Smile;
 import io.druid.guice.http.DruidHttpClientConfig;
 import io.druid.query.Query;
-import io.druid.query.DruidMetrics;
+import io.druid.query.QueryMetricUtil;
 import io.druid.server.log.RequestLogger;
 import io.druid.server.router.QueryHostFinder;
 import io.druid.server.router.Router;
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.api.ContentProvider;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.api.Response;
 import org.eclipse.jetty.client.api.Result;
@@ -260,8 +261,8 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet
       final long requestTime = System.currentTimeMillis() - start;
       try {
         emitter.emit(
-            DruidMetrics.makeQueryTimeMetric(jsonMapper, query, req.getRemoteAddr())
-                           .build("query/time", requestTime)
+            QueryMetricUtil.makeRequestTimeMetric(jsonMapper, query, req.getRemoteAddr())
+                           .build("request/time", requestTime)
         );
 
         requestLogger.log(
@@ -271,7 +272,7 @@ public class AsyncQueryForwardingServlet extends AsyncProxyServlet
                 query,
                 new QueryStats(
                     ImmutableMap.<String, Object>of(
-                        "query/time",
+                        "request/time",
                         requestTime,
                         "success",
                         true

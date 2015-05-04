@@ -34,7 +34,7 @@ import io.druid.guice.annotations.Json;
 import io.druid.guice.annotations.Smile;
 import io.druid.query.Query;
 import io.druid.query.QueryInterruptedException;
-import io.druid.query.DruidMetrics;
+import io.druid.query.QueryMetricUtil;
 import io.druid.query.QuerySegmentWalker;
 import io.druid.server.initialization.ServerConfig;
 import io.druid.server.log.RequestLogger;
@@ -184,10 +184,10 @@ public class QueryResource
                     jsonWriter.writeValue(outputStream, yielder);
                     outputStream.close();
 
-                    final long queryTime = System.currentTimeMillis() - start;
+                    final long requestTime = System.currentTimeMillis() - start;
                     emitter.emit(
-                        DruidMetrics.makeQueryTimeMetric(jsonMapper, theQuery, req.getRemoteAddr())
-                                       .build("query/time", queryTime)
+                        QueryMetricUtil.makeRequestTimeMetric(jsonMapper, theQuery, req.getRemoteAddr())
+                                       .build("request/time", requestTime)
                     );
 
                     requestLogger.log(
@@ -197,7 +197,7 @@ public class QueryResource
                             theQuery,
                             new QueryStats(
                                 ImmutableMap.<String, Object>of(
-                                    "query/time", queryTime,
+                                    "request/time", requestTime,
                                     "success", true
                                 )
                             )

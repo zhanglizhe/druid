@@ -43,8 +43,6 @@ import com.metamx.common.guava.LazySequence;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.emitter.EmittingLogger;
-import com.metamx.emitter.service.ServiceEmitter;
-import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.client.cache.Cache;
 import io.druid.client.cache.CacheConfig;
 import io.druid.client.selector.QueryableDruidServer;
@@ -53,7 +51,6 @@ import io.druid.guice.annotations.BackgroundCaching;
 import io.druid.guice.annotations.Smile;
 import io.druid.query.BySegmentResultValueClass;
 import io.druid.query.CacheStrategy;
-import io.druid.query.MetricsEmittingQueryRunner;
 import io.druid.query.Query;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryToolChest;
@@ -69,7 +66,6 @@ import io.druid.timeline.TimelineObjectHolder;
 import io.druid.timeline.partition.PartitionChunk;
 import org.joda.time.Interval;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -94,7 +90,6 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
   private final ObjectMapper objectMapper;
   private final CacheConfig cacheConfig;
   private final ListeningExecutorService backgroundExecutorService;
-  private final ServiceEmitter emitter;
 
   @Inject
   public CachingClusteredClient(
@@ -103,8 +98,7 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
       Cache cache,
       @Smile ObjectMapper objectMapper,
       @BackgroundCaching ExecutorService backgroundExecutorService,
-      CacheConfig cacheConfig,
-      ServiceEmitter emitter
+      CacheConfig cacheConfig
   )
   {
     this.warehouse = warehouse;
@@ -113,7 +107,6 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
     this.objectMapper = objectMapper;
     this.cacheConfig = cacheConfig;
     this.backgroundExecutorService = MoreExecutors.listeningDecorator(backgroundExecutorService);
-    this.emitter = emitter;
 
     serverView.registerSegmentCallback(
         Executors.newFixedThreadPool(
@@ -332,21 +325,7 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
               final DruidServer server = entry.getKey();
               final List<SegmentDescriptor> descriptors = entry.getValue();
 
-              final QueryRunner clientQueryable = new MetricsEmittingQueryRunner(
-                  emitter,
-                  new Function<Query<T>, ServiceMetricEvent.Builder>()
-                  {
-                    @Override
-                    public ServiceMetricEvent.Builder apply(@Nullable final Query<T> input)
-                    {
-                      return toolChest.makeMetricBuilder(input);
-                    }
-                  },
-                  serverView.getQueryRunner(server),
-                  "query/node/time",
-                  ImmutableMap.of("server",server.getName())
-              );
-
+              final QueryRunner clientQueryable = serverView.getQueryRunner(server);
               if (clientQueryable == null) {
                 log.error("WTF!? server[%s] doesn't have a client Queryable?", server);
                 continue;

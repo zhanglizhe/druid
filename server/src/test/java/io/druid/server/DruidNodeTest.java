@@ -17,7 +17,6 @@
 
 package io.druid.server;
 
-import com.google.common.net.HostAndPort;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -33,9 +32,7 @@ public class DruidNodeTest
     node = new DruidNode(service, null, null);
     Assert.assertEquals(DruidNode.getDefaultHost(), node.getHost());
     Assert.assertEquals(-1, node.getPort());
-    // Hosts which report only ipv6 will have getDefaultHost() report something like fe80::6e40:8ff:fe93:9230
-    // but getHostAndPort() reports [fe80::6e40:8ff:fe93:9230]
-    Assert.assertEquals(HostAndPort.fromString(DruidNode.getDefaultHost()).toString(), node.getHostAndPort());
+    Assert.assertEquals(DruidNode.getDefaultHost(), node.getHostAndPort());
 
     node = new DruidNode(service, "2001:db8:85a3::8a2e:370:7334", -1);
     Assert.assertEquals("2001:db8:85a3::8a2e:370:7334", node.getHost());

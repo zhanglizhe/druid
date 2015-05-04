@@ -23,46 +23,18 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.metamx.emitter.service.ServiceMetricEvent;
-import io.druid.query.aggregation.AggregatorFactory;
 import org.joda.time.Interval;
-
-import java.util.List;
 
 /**
  */
-public class DruidMetrics
+public class QueryMetricUtil
 {
-  public final static String DATASOURCE = "dataSource";
-  public final static String TYPE = "type";
-  public final static String INTERVAL = "interval";
-  public final static String ID = "id";
-  public final static String STATUS = "status";
-
-  // task metrics
-  public final static String TASK_TYPE = "taskType";
-  public final static String TASK_STATUS = "taskStatus";
-
-  public final static String SERVER = "server";
-
-  public static int findNumComplexAggs(List<AggregatorFactory> aggs)
-  {
-    int retVal = 0;
-    for (AggregatorFactory agg : aggs) {
-      // This needs to change when we have support column types better
-      if (!agg.getTypeName().equals("float") && !agg.getTypeName().equals("long")) {
-        retVal++;
-      }
-    }
-    return retVal;
-  }
-
-  public static <T> ServiceMetricEvent.Builder makePartialQueryTimeMetric(Query<T> query)
+  public static <T> ServiceMetricEvent.Builder makeQueryTimeMetric(Query<T> query)
   {
     return new ServiceMetricEvent.Builder()
-        .setDimension(DATASOURCE, DataSourceUtil.getMetricName(query.getDataSource()))
-        .setDimension(TYPE, query.getType())
-        .setDimension(
-            INTERVAL,
+        .setUser2(DataSourceUtil.getMetricName(query.getDataSource()))
+        .setUser4(query.getType())
+        .setUser5(
             Lists.transform(
                 query.getIntervals(),
                 new Function<Interval, String>()
@@ -75,24 +47,23 @@ public class DruidMetrics
                 }
             ).toArray(new String[query.getIntervals().size()])
         )
-        .setDimension("hasFilters", String.valueOf(query.hasFilters()))
-        .setDimension("duration", query.getDuration().toPeriod().toStandardMinutes().toString());
+        .setUser6(String.valueOf(query.hasFilters()))
+        .setUser9(query.getDuration().toPeriod().toStandardMinutes().toString());
   }
 
-  public static <T> ServiceMetricEvent.Builder makeQueryTimeMetric(
+  public static <T> ServiceMetricEvent.Builder makeRequestTimeMetric(
       final ObjectMapper jsonMapper, final Query<T> query, final String remoteAddr
   ) throws JsonProcessingException
   {
-    return makePartialQueryTimeMetric(query)
-        .setDimension(
-            "context",
+    return makeQueryTimeMetric(query)
+        .setUser3(
             jsonMapper.writeValueAsString(
                 query.getContext() == null
                 ? ImmutableMap.of()
                 : query.getContext()
             )
         )
-        .setDimension("remoteAddress", remoteAddr)
-        .setDimension(ID, query.getId());
+        .setUser7(remoteAddr)
+        .setUser8(query.getId());
   }
 }

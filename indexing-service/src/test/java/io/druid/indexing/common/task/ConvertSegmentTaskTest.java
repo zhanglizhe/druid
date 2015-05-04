@@ -39,7 +39,7 @@ public class ConvertSegmentTaskTest
 
     DefaultObjectMapper jsonMapper = new DefaultObjectMapper();
 
-    ConvertSegmentTask task = ConvertSegmentTask.create(dataSource, interval, null, false, true);
+    ConvertSegmentTask task = ConvertSegmentTask.create(dataSource, interval, null, false);
 
     Task task2 = jsonMapper.readValue(jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(task), Task.class);
     Assert.assertEquals(task, task2);
@@ -56,7 +56,7 @@ public class ConvertSegmentTaskTest
         102937
     );
 
-    task = ConvertSegmentTask.create(segment, null, false, true);
+    task = ConvertSegmentTask.create(segment, null, false);
 
     task2 = jsonMapper.readValue(jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(task), Task.class);
     Assert.assertEquals(task, task2);

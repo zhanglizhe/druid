@@ -17,7 +17,6 @@
 
 package io.druid.client;
 
-import com.amazonaws.services.support.model.Service;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.dataformat.smile.SmileFactory;
@@ -49,7 +48,6 @@ import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.guava.nary.TrinaryFn;
 
-import com.metamx.emitter.service.ServiceEmitter;
 import io.druid.client.cache.Cache;
 import io.druid.client.cache.CacheConfig;
 import io.druid.client.cache.MapCache;
@@ -217,7 +215,6 @@ public class CachingClusteredClientTest
   protected VersionedIntervalTimeline<String, ServerSelector> timeline;
   protected TimelineServerView serverView;
   protected Cache cache;
-  protected ServiceEmitter emitter;
   DruidServer[] servers;
 
   public CachingClusteredClientTest(int randomSeed)
@@ -247,7 +244,6 @@ public class CachingClusteredClientTest
     timeline = new VersionedIntervalTimeline<>(Ordering.<String>natural());
     serverView = EasyMock.createStrictMock(TimelineServerView.class);
     cache = MapCache.create(100000);
-    emitter = EasyMock.createStrictMock(ServiceEmitter.class);
     client = makeClient(MoreExecutors.sameThreadExecutor());
 
     servers = new DruidServer[]{
@@ -2097,8 +2093,7 @@ public class CachingClusteredClientTest
           {
             return true;
           }
-        },
-        emitter
+        }
     );
   }
 
@@ -2299,71 +2294,5 @@ public class CachingClusteredClientTest
     {
       return expectations.iterator();
     }
-  }
-
-  @Test
-  public void testTimeBoundaryCachingWhenTimeIsInteger() throws Exception
-  {
-    testQueryCaching(
-        client,
-        Druids.newTimeBoundaryQueryBuilder()
-              .dataSource(CachingClusteredClientTest.DATA_SOURCE)
-              .intervals(CachingClusteredClientTest.SEG_SPEC)
-              .context(CachingClusteredClientTest.CONTEXT)
-              .build(),
-        new Interval("1970-01-01/1970-01-02"),
-        makeTimeBoundaryResult(new DateTime("1970-01-01"), new DateTime("1970-01-01"), new DateTime("1970-01-02")),
-
-        new Interval("1970-01-01/2011-01-03"),
-        makeTimeBoundaryResult(new DateTime("1970-01-02"), new DateTime("1970-01-02"), new DateTime("1970-01-03")),
-
-        new Interval("1970-01-01/2011-01-10"),
-        makeTimeBoundaryResult(new DateTime("1970-01-05"), new DateTime("1970-01-05"), new DateTime("1970-01-10")),
-
-        new Interval("1970-01-01/2011-01-10"),
-        makeTimeBoundaryResult(new DateTime("1970-01-05T01"), new DateTime("1970-01-05T01"), new DateTime("1970-01-10"))
-    );
-
-    testQueryCaching(
-        client,
-        Druids.newTimeBoundaryQueryBuilder()
-              .dataSource(CachingClusteredClientTest.DATA_SOURCE)
-              .intervals(CachingClusteredClientTest.SEG_SPEC)
-              .context(CachingClusteredClientTest.CONTEXT)
-              .bound(TimeBoundaryQuery.MAX_TIME)
-              .build(),
-        new Interval("1970-01-01/2011-01-02"),
-        makeTimeBoundaryResult(new DateTime("1970-01-01"), null, new DateTime("1970-01-02")),
-
-        new Interval("1970-01-01/2011-01-03"),
-        makeTimeBoundaryResult(new DateTime("1970-01-02"), null, new DateTime("1970-01-03")),
-
-        new Interval("1970-01-01/2011-01-10"),
-        makeTimeBoundaryResult(new DateTime("1970-01-05"), null, new DateTime("1970-01-10")),
-
-        new Interval("1970-01-01/2011-01-10"),
-        makeTimeBoundaryResult(new DateTime("1970-01-05T01"), null, new DateTime("1970-01-10"))
-    );
-
-    testQueryCaching(
-        client,
-        Druids.newTimeBoundaryQueryBuilder()
-              .dataSource(CachingClusteredClientTest.DATA_SOURCE)
-              .intervals(CachingClusteredClientTest.SEG_SPEC)
-              .context(CachingClusteredClientTest.CONTEXT)
-              .bound(TimeBoundaryQuery.MIN_TIME)
-              .build(),
-        new Interval("1970-01-01/2011-01-02"),
-        makeTimeBoundaryResult(new DateTime("1970-01-01"), new DateTime("1970-01-01"), null),
-
-        new Interval("1970-01-01/2011-01-03"),
-        makeTimeBoundaryResult(new DateTime("1970-01-02"), new DateTime("1970-01-02"), null),
-
-        new Interval("1970-01-01/1970-01-10"),
-        makeTimeBoundaryResult(new DateTime("1970-01-05"), new DateTime("1970-01-05"), null),
-
-        new Interval("1970-01-01/2011-01-10"),
-        makeTimeBoundaryResult(new DateTime("1970-01-05T01"), new DateTime("1970-01-05T01"), null)
-    );
   }
 }

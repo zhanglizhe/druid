@@ -24,7 +24,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableSet;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.indexing.common.task.Task;
-import io.druid.query.DruidMetrics;
 import io.druid.timeline.DataSegment;
 
 import java.io.IOException;
@@ -51,9 +50,7 @@ public class SegmentNukeAction implements TaskAction<Void>
 
   public TypeReference<Void> getReturnTypeReference()
   {
-    return new TypeReference<Void>()
-    {
-    };
+    return new TypeReference<Void>() {};
   }
 
   @Override
@@ -64,12 +61,12 @@ public class SegmentNukeAction implements TaskAction<Void>
 
     // Emit metrics
     final ServiceMetricEvent.Builder metricBuilder = new ServiceMetricEvent.Builder()
-        .setDimension(DruidMetrics.DATASOURCE, task.getDataSource())
-        .setDimension(DruidMetrics.TASK_TYPE, task.getType());
+        .setUser2(task.getDataSource())
+        .setUser4(task.getType());
 
     for (DataSegment segment : segments) {
-      metricBuilder.setDimension(DruidMetrics.INTERVAL, segment.getInterval().toString());
-      toolbox.getEmitter().emit(metricBuilder.build("segment/nuked/bytes", segment.getSize()));
+      metricBuilder.setUser5(segment.getInterval().toString());
+      toolbox.getEmitter().emit(metricBuilder.build("indexer/segmentNuked/bytes", segment.getSize()));
     }
 
     return null;

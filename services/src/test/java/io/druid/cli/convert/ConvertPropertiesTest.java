@@ -20,6 +20,7 @@
 package io.druid.cli.convert;
 
 import org.apache.commons.io.FileUtils;
+
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -30,42 +31,52 @@ import io.airlift.command.Cli;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Properties;
+import java.nio.charset.StandardCharsets;
 
 public class ConvertPropertiesTest
 {
   @Rule
   public TemporaryFolder tmpFolder = new TemporaryFolder();
-
   @Test
   public void testConvertProperties() throws IOException
   {
-    String oldPropertiesFile = this.getClass().getResource("/convertProps/old.properties").getFile();
-
-    File convertedPropertiesFile = tmpFolder.newFile();
-
+    File inputFile = tmpFolder.newFile();
+    File outputFile = tmpFolder.newFile();
+    String oldVersionPropertiesString = "druid.database.rules.defaultDatasource 1"
+        + System.lineSeparator()
+        + "druid.indexer.chathandler.publishDiscovery true"
+        + System.lineSeparator()
+        + "druid.database.segmentTable table"
+        + System.lineSeparator()
+        + "druid.pusher.local false"
+        + System.lineSeparator()
+        + "druid.paths.indexCache hdfs://path"
+        + System.lineSeparator()
+        + "notHandled";
+    String newVersionPropertiesString;
+    FileUtils.writeStringToFile(inputFile, oldVersionPropertiesString, StandardCharsets.UTF_8.toString());
     Cli<?> parser = Cli.builder("convertProps")
         .withCommand(ConvertProperties.class)
         .build();
-    Object command = parser.parse("convertProps","-f", oldPropertiesFile,"-o", convertedPropertiesFile.getAbsolutePath());
+    Object command = parser.parse("convertProps","-f", inputFile.getAbsolutePath(),"-o", outputFile.getAbsolutePath());
     Assert.assertNotNull(command);
     ConvertProperties convertProperties = (ConvertProperties) command;
     convertProperties.run();
 
-    Properties actualConvertedProperties = new Properties();
-    actualConvertedProperties.load(new FileInputStream(convertedPropertiesFile));
-
-    Properties expectedConvertedProperties = new Properties();
-    expectedConvertedProperties.load(this.getClass().getResourceAsStream("/convertProps/new.properties"));
-
-    Assert.assertEquals(expectedConvertedProperties, actualConvertedProperties);
+    newVersionPropertiesString = FileUtils.readFileToString(outputFile, StandardCharsets.UTF_8.toString());
+    System.out.printf(newVersionPropertiesString);
+    Assert.assertTrue(newVersionPropertiesString.contains("druid.manager.rules.defaultTier=1"));
+    Assert.assertTrue(newVersionPropertiesString.contains("druid.db.tables.segments=table"));
+    Assert.assertTrue(newVersionPropertiesString.contains("druid.indexer.task.chathandler.type=curator"));
+    Assert.assertTrue(newVersionPropertiesString.contains("druid.storage.local=false"));
+    Assert.assertTrue(newVersionPropertiesString.contains("druid.segmentCache.locations=[{\"path\": \"hdfs://path\", \"maxSize\": null}]"));
+    Assert.assertTrue(newVersionPropertiesString.contains("notHandled"));
   }
 
   @After
-  public void tearDown() throws IOException
+  public void tearDown()
   {
-    FileUtils.deleteDirectory(tmpFolder.getRoot());
+    tmpFolder.delete();
   }
 }

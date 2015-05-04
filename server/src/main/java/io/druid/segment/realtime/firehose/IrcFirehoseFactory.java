@@ -66,7 +66,7 @@ public class IrcFirehoseFactory implements FirehoseFactory<IrcInputRowParser>
 
   @JsonCreator
   public IrcFirehoseFactory(
-      @JsonProperty("nick") String nick,
+      @JsonProperty("name") String nick,
       @JsonProperty("host") String host,
       @JsonProperty("channels") List<String> channels
   )

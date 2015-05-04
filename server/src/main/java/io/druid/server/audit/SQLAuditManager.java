@@ -92,9 +92,12 @@ public class SQLAuditManager implements AuditManager
   {
     emitter.emit(
         new ServiceMetricEvent.Builder()
-            .setDimension("key", auditEntry.getKey())
-            .setDimension("type", auditEntry.getType())
-            .setDimension("author", auditEntry.getAuditInfo().getAuthor())
+            .setUser1(auditEntry.getKey())
+            .setUser2(auditEntry.getType())
+            .setUser3(auditEntry.getAuditInfo().getAuthor())
+            .setUser5(jsonMapper.writeValueAsString(auditEntry.getPayload()))
+            .setUser6(auditEntry.getAuditInfo().getComment())
+            .setUser7(auditEntry.getAuditTime().toString())
             .build("config/audit", 1)
     );
 
