@@ -41,6 +41,25 @@ public class MetadataStorageConnectorConfig
   @JsonProperty("password")
   private PasswordProvider passwordProvider;
 
+  public MetadataStorageConnectorConfig(){
+    // NOOP
+  }
+  public MetadataStorageConnectorConfig(
+      boolean createTables,
+      String host,
+      int port,
+      String connectURI,
+      String user,
+      PasswordProvider passwordProvider
+  ){
+    this.createTables = createTables;
+    this.host = host;
+    this.port = port;
+    this.connectURI = connectURI;
+    this.user = user;
+    this.passwordProvider = passwordProvider;
+  }
+
   public boolean isCreateTables()
   {
     return createTables;
