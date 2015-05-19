@@ -28,6 +28,7 @@ import io.druid.query.FinalizeResultsQueryRunner;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryRunnerFactory;
 import io.druid.query.QueryToolChest;
+import io.druid.query.aggregation.MetricManipulatorFns;
 import org.joda.time.DateTime;
 
 import java.util.Map;
@@ -39,11 +40,14 @@ public class GroupByQueryRunnerTestHelper
   public static Iterable<Row> runQuery(QueryRunnerFactory factory, QueryRunner runner, GroupByQuery query)
   {
 
-    QueryToolChest toolChest = factory.getToolchest();
-    QueryRunner theRunner = new FinalizeResultsQueryRunner<>(
-        toolChest.mergeResults(toolChest.preMergeQueryDecoration(runner)),
-        toolChest
-    );
+    final QueryToolChest toolChest = factory.getToolchest();
+    runner = toolChest.mergeResults(runner);
+    QueryRunner theRunner = (runner instanceof FinalizeResultsQueryRunner)
+                            ? runner
+                            : new FinalizeResultsQueryRunner<>(
+                                runner,
+                                toolChest
+                            );
 
     Sequence<Row> queryResult = theRunner.run(query, Maps.newHashMap());
     return Sequences.toList(queryResult, Lists.<Row>newArrayList());

@@ -18,6 +18,7 @@
 package io.druid.segment.incremental;
 
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -57,6 +58,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -575,6 +577,38 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
     return getFacts().subMap(start, end);
   }
 
+  public static Function<MapBasedRow, MapBasedRow> postAggregateFunction(final List<PostAggregator> postAggs){
+    if(postAggs == null || postAggs.isEmpty()){
+      return Functions.identity();
+    } else {
+      return new Function<MapBasedRow, MapBasedRow>()
+      {
+        @Nullable
+        @Override
+        public MapBasedRow apply(@Nullable MapBasedRow input)
+        {
+          if (input == null) {
+            return null;
+          }
+          final Map<String, Object> event = Maps.newLinkedHashMap();
+          event.putAll(input.getEvent());
+          for(PostAggregator postAggregator : postAggs){
+            final String name = postAggregator.getName();
+            // This allows the post aggregator function to be called many times and only update ones that have not been updated yet
+            if(!event.containsKey(name))
+            {
+              event.put(name, postAggregator.compute(event));
+            } else {
+              // Preserve desired linked hash map ordering
+              event.put(name, event.get(name));
+            }
+          }
+          return new MapBasedRow(input.getTimestamp(), event);
+        }
+      };
+    }
+  }
+
   @Override
   public Iterator<Row> iterator()
   {
@@ -583,6 +617,7 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
 
   public Iterable<Row> iterableWithPostAggregations(final List<PostAggregator> postAggs)
   {
+    final Function<MapBasedRow, MapBasedRow> postAggregator = postAggregateFunction( postAggs);
     return new Iterable<Row>()
     {
       @Override
@@ -616,13 +651,7 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
                   theVals.put(metrics[i].getName(), getAggVal(aggs[i], rowOffset, i));
                 }
 
-                if (postAggs != null) {
-                  for (PostAggregator postAgg : postAggs) {
-                    theVals.put(postAgg.getName(), postAgg.compute(theVals));
-                  }
-                }
-
-                return new MapBasedRow(timeAndDims.getTimestamp(), theVals);
+                return postAggregator.apply(new MapBasedRow(timeAndDims.getTimestamp(), theVals));
               }
             }
         );

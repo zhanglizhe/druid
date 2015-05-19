@@ -41,6 +41,7 @@ import io.druid.query.aggregation.MetricManipulationFn;
 import io.druid.timeline.LogicalSegment;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -94,7 +95,9 @@ public class TimeBoundaryQueryQueryToolChest
     {
       @Override
       protected Sequence<Result<TimeBoundaryResultValue>> doRun(
-          QueryRunner<Result<TimeBoundaryResultValue>> baseRunner, Query<Result<TimeBoundaryResultValue>> input, Map<String, Object> context
+          QueryRunner<Result<TimeBoundaryResultValue>> baseRunner,
+          Query<Result<TimeBoundaryResultValue>> input,
+          Map<String, Object> context
       )
       {
         TimeBoundaryQuery query = (TimeBoundaryQuery) input;
@@ -105,6 +108,14 @@ public class TimeBoundaryQueryQueryToolChest
         );
       }
     };
+  }
+
+  @Override
+  protected Result<TimeBoundaryResultValue> manipulateMetrics(
+      TimeBoundaryQuery query, Result<TimeBoundaryResultValue> result, @Nullable MetricManipulationFn manipulator
+  )
+  {
+    return result;
   }
 
   @Override
@@ -123,16 +134,8 @@ public class TimeBoundaryQueryQueryToolChest
   public ServiceMetricEvent.Builder makeMetricBuilder(TimeBoundaryQuery query)
   {
     return new ServiceMetricEvent.Builder()
-            .setDimension(DruidMetrics.DATASOURCE, DataSourceUtil.getMetricName(query.getDataSource()))
-            .setDimension(DruidMetrics.TYPE, query.getType());
-  }
-
-  @Override
-  public Function<Result<TimeBoundaryResultValue>, Result<TimeBoundaryResultValue>> makePreComputeManipulatorFn(
-      TimeBoundaryQuery query, MetricManipulationFn fn
-  )
-  {
-    return Functions.identity();
+        .setDimension(DruidMetrics.DATASOURCE, DataSourceUtil.getMetricName(query.getDataSource()))
+        .setDimension(DruidMetrics.TYPE, query.getType());
   }
 
   @Override
@@ -187,7 +190,7 @@ public class TimeBoundaryQueryQueryToolChest
             List<Object> result = (List<Object>) input;
 
             return new Result<>(
-                new DateTime(((Number)result.get(0)).longValue()),
+                new DateTime(((Number) result.get(0)).longValue()),
                 new TimeBoundaryResultValue(result.get(1))
             );
           }

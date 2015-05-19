@@ -67,6 +67,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -570,6 +571,14 @@ public class ServerManagerTest
     }
 
     @Override
+    protected T manipulateMetrics(
+        QueryType query, T result, @Nullable MetricManipulationFn manipulator
+    )
+    {
+      return result;
+    }
+
+    @Override
     public Sequence<T> mergeSequences(Sequence<Sequence<T>> seqOfSequences)
     {
       return new ConcatSequence<T>(seqOfSequences);
@@ -587,11 +596,6 @@ public class ServerManagerTest
       return new ServiceMetricEvent.Builder();
     }
 
-    @Override
-    public Function<T, T> makePreComputeManipulatorFn(QueryType query, MetricManipulationFn fn)
-    {
-      return Functions.identity();
-    }
 
     @Override
     public TypeReference<T> getResultTypeReference()

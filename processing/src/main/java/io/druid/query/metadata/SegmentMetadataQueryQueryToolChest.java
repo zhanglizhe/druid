@@ -130,6 +130,14 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
   }
 
   @Override
+  protected SegmentAnalysis manipulateMetrics(
+      SegmentMetadataQuery query, SegmentAnalysis result, @Nullable MetricManipulationFn manipulator
+  )
+  {
+    return result;
+  }
+
+  @Override
   public Sequence<SegmentAnalysis> mergeSequences(Sequence<Sequence<SegmentAnalysis>> seqOfSequences)
   {
     return new OrderedMergeSequence<>(getOrdering(), seqOfSequences);
@@ -147,13 +155,6 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
     return DruidMetrics.makePartialQueryTimeMetric(query);
   }
 
-  @Override
-  public Function<SegmentAnalysis, SegmentAnalysis> makePreComputeManipulatorFn(
-      SegmentMetadataQuery query, MetricManipulationFn fn
-  )
-  {
-    return Functions.identity();
-  }
 
   @Override
   public TypeReference<SegmentAnalysis> getResultTypeReference()

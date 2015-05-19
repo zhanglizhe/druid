@@ -386,13 +386,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
     // bySegment queries are de-serialized after caching results in order to
     // avoid the cost of de-serializing and then re-serializing again when adding to cache
     if (!isBySegment) {
-      retVal = Sequences.map(
-          retVal,
-          toolChest.makePreComputeManipulatorFn(
-              query,
-              MetricManipulatorFns.deserializing()
-          )
-      );
+      retVal = toolChest.manipulateMetrics(query, retVal, MetricManipulatorFns.deserializing());
     }
 
     return retVal;

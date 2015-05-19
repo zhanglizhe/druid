@@ -59,15 +59,17 @@ public class TimeSeriesUnionQueryRunnerTest
   }
 
   @Parameterized.Parameters
-  public static Collection<?> constructorFeeder() throws IOException
+  public static Iterable<Object[]> constructorFeeder() throws IOException
   {
-    return QueryRunnerTestHelper.makeUnionQueryRunners(
-        new TimeseriesQueryRunnerFactory(
-            new TimeseriesQueryQueryToolChest(QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()),
-            new TimeseriesQueryEngine(),
-            QueryRunnerTestHelper.NOOP_QUERYWATCHER
-        ),
-        QueryRunnerTestHelper.unionDataSource
+    return QueryRunnerTestHelper.transformToConstructionFeeder(
+        QueryRunnerTestHelper.makeUnionQueryRunners(
+            new TimeseriesQueryRunnerFactory(
+                new TimeseriesQueryQueryToolChest(QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()),
+                new TimeseriesQueryEngine(),
+                QueryRunnerTestHelper.NOOP_QUERYWATCHER
+            ),
+            QueryRunnerTestHelper.unionDataSource
+        )
     );
   }
 

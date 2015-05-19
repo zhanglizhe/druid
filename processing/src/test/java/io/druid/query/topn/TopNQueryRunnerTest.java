@@ -18,22 +18,19 @@
 package io.druid.query.topn;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.metamx.common.IAE;
-import com.metamx.common.ISE;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import io.druid.collections.StupidPool;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.BySegmentResultValue;
-import io.druid.query.BySegmentResultValueClass;
 import io.druid.query.Druids;
+import io.druid.query.FinalizeResultsQueryRunner;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryRunnerTestHelper;
 import io.druid.query.Result;
@@ -156,8 +153,7 @@ public class TopNQueryRunnerTest
         new TopNQueryConfig(),
         QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()
     );
-    final QueryRunner<Result<TopNResultValue>> mergeRunner = chest.mergeResults(runner);
-    return mergeRunner.run(
+    return new FinalizeResultsQueryRunner(chest.mergeResults(runner), chest).run(
         query, context
     );
   }
@@ -445,57 +441,24 @@ public class TopNQueryRunnerTest
         query,
         specialContext
     );
-    List<Result<BySegmentTopNResultValue>> resultList = Sequences.toList(
-        Sequences.map(
-            results,
-            new Function<Result<TopNResultValue>, Result<BySegmentTopNResultValue>>()
+
+    Assert.assertEquals(
+        expectedResults,
+        Lists.transform(
+            Sequences.toList(results, new ArrayList<Result<TopNResultValue>>()),
+            new Function<Object, Object>()
             {
               @Nullable
               @Override
-              public Result<BySegmentTopNResultValue> apply(
-                  Result<TopNResultValue> input
-              )
+              public Object apply(@Nullable Object input)
               {
-                // Stupid type erasure
-                Object val = input.getValue();
-                if (val instanceof BySegmentResultValue) {
-                  BySegmentResultValue bySegVal = (BySegmentResultValue) val;
-                  List<?> results = bySegVal.getResults();
-                  return new Result<BySegmentTopNResultValue>(
-                      input.getTimestamp(),
-                      new BySegmentTopNResultValue(
-                          Lists.transform(
-                              results,
-                              new Function<Object, Result<TopNResultValue>>()
-                              {
-                                @Nullable
-                                @Override
-                                public Result<TopNResultValue> apply(@Nullable Object input)
-                                {
-                                  if(Preconditions.checkNotNull(input) instanceof Result){
-                                    Result result = (Result)input;
-                                    Object resVal = result.getValue();
-                                    if(resVal instanceof TopNResultValue){
-                                      return new Result<TopNResultValue>(result.getTimestamp(), (TopNResultValue)resVal);
-                                    }
-                                  }
-                                  throw new IAE("Bad input: [%s]", input);
-                                }
-                              }
-                          ),
-                          bySegVal.getSegmentId(),
-                          bySegVal.getInterval()
-                      )
-                  );
-                }
-                throw new ISE("Bad type");
+                Result result = (Result) input;
+                BySegmentResultValue bySegmentTopNResultValue = (BySegmentResultValue) result.getValue();
+                return bySegmentTopNResultValue.getResults().get(0);
               }
             }
-        ),
-        Lists.<Result<BySegmentTopNResultValue>>newArrayList()
+        )
     );
-    Result<BySegmentTopNResultValue> result = resultList.get(0);
-    TestHelper.assertExpectedResults(expectedResults, result.getValue().getResults());
   }
 
   @Test
@@ -2655,10 +2618,10 @@ public class TopNQueryRunnerTest
         )
     );
 
-    List<Result<BySegmentResultValueClass>> expectedResults = Collections.singletonList(
-        new Result<BySegmentResultValueClass>(
+    List<Result<BySegmentTopNResultValue>> expectedResults = Collections.singletonList(
+        new Result<BySegmentTopNResultValue>(
             new DateTime("2011-01-12T00:00:00.000Z"),
-            new BySegmentResultValueClass(
+            new BySegmentTopNResultValue(
                 Collections.singletonList(
                     new Result<TopNResultValue>(
                         new DateTime("2011-01-12T00:00:00.000Z"),
@@ -2671,9 +2634,43 @@ public class TopNQueryRunnerTest
         )
     );
     Sequence<Result<TopNResultValue>> results = runWithMerge(query);
-    for(Result<TopNResultValue> result : Sequences.toList(results, new ArrayList<Result<TopNResultValue>>())){
-      Assert.assertEquals(result.getValue(), result.getValue()); // TODO: fix this test
-    }
+    Assert.assertEquals(
+        expectedResults,
+        Lists.transform(
+            Sequences.toList(results, new ArrayList<Result<TopNResultValue>>()),
+            new Function<Object, Object>()
+            {
+              @Nullable
+              @Override
+              public Object apply(@Nullable Object input)
+              {
+                Result result = (Result) input;
+                BySegmentResultValue bySegmentResultValue = (BySegmentResultValue) result.getValue();
+                return new Result<TopNResultValue>(
+                    result.getTimestamp(), new BySegmentTopNResultValue(
+                    Lists.transform(
+                        bySegmentResultValue.getResults(), new Function<Object, Result<TopNResultValue>>()
+                        {
+                          @Nullable
+                          @Override
+                          public Result<TopNResultValue> apply(@Nullable Object input)
+                          {
+                            Result result = (Result) input;
+                            return new Result<TopNResultValue>(
+                                result.getTimestamp(),
+                                (TopNResultValue) result.getValue()
+                            );
+                          }
+                        }
+                    ),
+                    bySegmentResultValue.getSegmentId(),
+                    bySegmentResultValue.getInterval()
+                )
+                );
+              }
+            }
+        )
+    );
   }
 
   @Test

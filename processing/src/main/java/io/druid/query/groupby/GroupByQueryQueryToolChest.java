@@ -20,6 +20,7 @@ package io.druid.query.groupby;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +28,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
+import com.metamx.common.IAE;
 import com.metamx.common.ISE;
 import com.metamx.common.Pair;
 import com.metamx.common.guava.Accumulator;
@@ -111,27 +113,116 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
   }
 
   @Override
-  public QueryRunner<Row> mergeResults(final QueryRunner<Row> runner)
+  public QueryRunner<Row> mergeResults(
+      final QueryRunner<Row> runner
+  )
   {
+    final SubqueryQueryRunner<Row> subQuery = new SubqueryQueryRunner<Row>(
+        intervalChunkingQueryRunnerDecorator.decorate(
+            new QueryRunner<Row>()
+            {
+              @Override
+              public Sequence<Row> run(Query<Row> query, Map<String, Object> responseContext)
+              {
+                if (!(query instanceof GroupByQuery)) {
+                  return runner.run(query, responseContext);
+                }
+                GroupByQuery groupByQuery = (GroupByQuery) query;
+                ArrayList<DimensionSpec> dimensionSpecs = new ArrayList<>();
+                Set<String> optimizedDimensions = extractionsToRewrite(groupByQuery, true);
+                for (DimensionSpec dimensionSpec : groupByQuery.getDimensions()) {
+                  if (optimizedDimensions.contains(dimensionSpec.getDimension())) {
+                    dimensionSpecs.add(
+                        new DefaultDimensionSpec(dimensionSpec.getDimension(), dimensionSpec.getOutputName())
+                    );
+                  } else {
+                    dimensionSpecs.add(dimensionSpec);
+                  }
+                }
+                return runner.run(
+                    groupByQuery.withDimensionSpecs(dimensionSpecs),
+                    responseContext
+                );
+              }
+            }, this
+        )
+    );
+
     return new QueryRunner<Row>()
     {
       @Override
-      public Sequence<Row> run(Query<Row> input, Map<String, Object> responseContext)
+      public Sequence<Row> run(Query<Row> query, Map<String, Object> responseContext)
       {
-        if (input.getContextBySegment(false)) {
-          return runner.run(input, responseContext);
-        }
+        GroupByQuery groupByQuery = (GroupByQuery) query;
+        final Set<String> rewritableDims = extractionsToRewrite(groupByQuery, false);
+        final Map<String, ExtractionFn> extractionFnMap = new HashMap<>();
 
-        if (Boolean.valueOf(input.getContextValue(GROUP_BY_MERGE_KEY, "true"))) {
-          return mergeGroupByResults(
-              (GroupByQuery) input,
-              runner,
+        if (!rewritableDims.isEmpty()) {
+          final List<DimensionSpec> newSpecs = new ArrayList<>(groupByQuery.getDimensions().size());
+          // If we have optimizations that can be done at this level, we apply them here
+          for (DimensionSpec dimensionSpec : groupByQuery.getDimensions()) {
+            final String dimensionOut = dimensionSpec.getOutputName();
+            if (rewritableDims.contains(dimensionOut)) {
+              extractionFnMap.put(dimensionOut, dimensionSpec.getExtractionFn());
+              newSpecs.add(new DefaultDimensionSpec(dimensionSpec.getDimension(), dimensionOut));
+            } else {
+              newSpecs.add(dimensionSpec);
+            }
+          }
+          groupByQuery = groupByQuery.withDimensionSpecs(newSpecs);
+        }
+        final Function<Row, Row> rowTransformer = new Function<Row, Row>()
+        {
+          @Nullable
+          @Override
+          public Row apply(@Nullable Row input)
+          {
+            if (input instanceof MapBasedRow) {
+              final MapBasedRow preMapRow = (MapBasedRow) input;
+              final Map<String, Object> event = Maps.newHashMap(preMapRow.getEvent());
+              for (String dim : rewritableDims) {
+                final Object eventVal = event.get(dim);
+                event.put(dim, extractionFnMap.get(dim).apply(eventVal == null ? "" : eventVal));
+              }
+              return new MapBasedRow(preMapRow.getTimestamp(), event);
+            } else {
+              return input;
+            }
+          }
+        };
+        final Sequence<Row> resultSeq;
+        if (groupByQuery.getContextBySegment(false)) {
+          return bySegmentRepackage(subQuery.run(groupByQuery, responseContext), rowTransformer);
+        } else if (Boolean.valueOf(groupByQuery.getContextValue(GROUP_BY_MERGE_KEY, "true"))) {
+          resultSeq = mergeGroupByResults(
+              groupByQuery,
+              subQuery,
               responseContext
           );
+        } else {
+          resultSeq = subQuery.run(groupByQuery, responseContext);
         }
-        return runner.run(input, responseContext);
+        return Sequences.map(
+            resultSeq,
+            rowTransformer
+        );
       }
     };
+  }
+
+  @Override
+  protected Row manipulateMetrics(
+      GroupByQuery query, Row result, @Nullable MetricManipulationFn manipulator
+  )
+  {
+    final MapBasedRow inputRow = (MapBasedRow) result;
+    final Map<String, Object> values = Maps.newHashMap(inputRow.getEvent());
+    if (manipulator != null) {
+      for (AggregatorFactory agg : query.getAggregatorSpecs()) {
+        values.put(agg.getName(), manipulator.manipulate(agg, inputRow.getEvent().get(agg.getName())));
+      }
+    }
+    return new MapBasedRow(inputRow.getTimestamp(), values);
   }
 
   private Sequence<Row> mergeGroupByResults(
@@ -185,6 +276,7 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
     } else {
       final IncrementalIndex index = makeIncrementalIndex(
           query, runner.run(
+
               new GroupByQuery(
                   query.getDataSource(),
                   query.getQuerySegmentSpec(),
@@ -206,28 +298,17 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
               , context
           )
       );
-      return new ResourceClosingSequence<>(query.applyLimit(postAggregate(query, index)), index);
+      Sequence<Row> sequence = Sequences.simple(index);
+      final List<PostAggregator> postAggregators = query.getPostAggregatorSpecs();
+      if (postAggregators != null && !postAggregators.isEmpty()) {
+        sequence = manipulateRows(
+            query,
+            sequence,
+            makeRowFromMapRowFunction(query, IncrementalIndex.postAggregateFunction(postAggregators))
+        );
+      }
+      return new ResourceClosingSequence<Row>(query.applyLimit(sequence), index);
     }
-  }
-
-  private Sequence<Row> postAggregate(final GroupByQuery query, IncrementalIndex index)
-  {
-    return Sequences.map(
-        Sequences.simple(index.iterableWithPostAggregations(query.getPostAggregatorSpecs())),
-        new Function<Row, Row>()
-        {
-          @Override
-          public Row apply(Row input)
-          {
-            final MapBasedRow row = (MapBasedRow) input;
-            return new MapBasedRow(
-                query.getGranularity()
-                     .toDateTime(row.getTimestampFromEpoch()),
-                row.getEvent()
-            );
-          }
-        }
-    );
   }
 
   private IncrementalIndex makeIncrementalIndex(GroupByQuery query, Sequence<Row> rows)
@@ -272,113 +353,9 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
   }
 
   @Override
-  public Function<Row, Row> makePreComputeManipulatorFn(
-      final GroupByQuery query,
-      final MetricManipulationFn fn
-  )
-  {
-    return new Function<Row, Row>()
-    {
-      @Override
-      public Row apply(Row input)
-      {
-        if (input instanceof MapBasedRow) {
-          final MapBasedRow inputRow = (MapBasedRow) input;
-          final Map<String, Object> values = Maps.newHashMap(inputRow.getEvent());
-          for (AggregatorFactory agg : query.getAggregatorSpecs()) {
-            values.put(agg.getName(), fn.manipulate(agg, inputRow.getEvent().get(agg.getName())));
-          }
-          return new MapBasedRow(inputRow.getTimestamp(), values);
-        }
-        return input;
-      }
-    };
-  }
-
-  @Override
-  public Function<Row, Row> makePostComputeManipulatorFn(
-      final GroupByQuery query,
-      final MetricManipulationFn fn
-  )
-  {
-    final Set<String> optimizedDims = extractionsToRewrite(query, false);
-    final Function<Row, Row> preCompute = makePreComputeManipulatorFn(query, fn);
-    if (optimizedDims.isEmpty()) {
-      return preCompute;
-    }
-
-    // If we have optimizations that can be done at this level, we apply them here
-
-    final Map<String, ExtractionFn> extractionFnMap = new HashMap<>();
-    for (DimensionSpec dimensionSpec : query.getDimensions()) {
-      final String dimension = dimensionSpec.getOutputName();
-      if (optimizedDims.contains(dimension)) {
-        extractionFnMap.put(dimension, dimensionSpec.getExtractionFn());
-      }
-    }
-
-    return new Function<Row, Row>()
-    {
-      @Nullable
-      @Override
-      public Row apply(Row input)
-      {
-        Row preRow = preCompute.apply(input);
-        if (preRow instanceof MapBasedRow) {
-          MapBasedRow preMapRow = (MapBasedRow) preRow;
-          Map<String, Object> event = Maps.newHashMap(preMapRow.getEvent());
-          for (String dim : optimizedDims) {
-            final Object eventVal = event.get(dim);
-            event.remove(dim);
-            event.put(dim, extractionFnMap.get(dim).apply(eventVal == null ? "" : eventVal));
-          }
-          return new MapBasedRow(preMapRow.getTimestamp(), event);
-        } else {
-          return preRow;
-        }
-      }
-    };
-  }
-
-  @Override
   public TypeReference<Row> getResultTypeReference()
   {
     return TYPE_REFERENCE;
-  }
-
-  @Override
-  public QueryRunner<Row> preMergeQueryDecoration(final QueryRunner<Row> runner)
-  {
-    return new SubqueryQueryRunner<>(
-        intervalChunkingQueryRunnerDecorator.decorate(
-            new QueryRunner<Row>()
-            {
-              @Override
-              public Sequence<Row> run(Query<Row> query, Map<String, Object> responseContext)
-              {
-                if (!(query instanceof GroupByQuery)) {
-                  return runner.run(query, responseContext);
-                }
-                GroupByQuery groupByQuery = (GroupByQuery) query;
-                ArrayList<DimensionSpec> dimensionSpecs = new ArrayList<>();
-                Set<String> optimizedDimensions = extractionsToRewrite(groupByQuery, true);
-                for (DimensionSpec dimensionSpec : groupByQuery.getDimensions()) {
-                  if (optimizedDimensions.contains(dimensionSpec.getDimension())) {
-                    dimensionSpecs.add(
-                        new DefaultDimensionSpec(dimensionSpec.getDimension(), dimensionSpec.getOutputName())
-                    );
-                  } else {
-                    dimensionSpecs.add(dimensionSpec);
-                  }
-                }
-                return runner.run(
-                    groupByQuery.withDimensionSpecs(dimensionSpecs),
-                    responseContext
-                );
-              }
-            }, this
-        )
-    );
   }
 
   @Override
@@ -522,5 +499,89 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
       }
     }
     return rewriteSet;
+  }
+
+
+  private Sequence<Row> manipulateRows(GroupByQuery query, Sequence<Row> sequence, Function<Row, Row> manipulator)
+  {
+    if (manipulator == null) {
+      return sequence;
+    }
+    if (query.getContextBySegment(false)) {
+      return bySegmentRepackage(
+          sequence,
+          manipulator
+      );
+    } else {
+      return Sequences.map(
+          sequence,
+          manipulator
+      );
+    }
+  }
+
+  private static Function<Row, Row> makeRowFromMapRowFunction(
+      final GroupByQuery query,
+      final Function<MapBasedRow, MapBasedRow> fn
+  )
+  {
+    return new Function<Row, Row>()
+    {
+      @Nullable
+      @Override
+      public Row apply(@Nullable Row input)
+      {
+        if (input == null) {
+          return null;
+        }
+        if (input instanceof MapBasedRow) {
+          return fn.apply((MapBasedRow) input);
+        } else {
+          throw new IAE(
+              "Expected argument of class [%s] found [%s]",
+              MapBasedRow.class.getCanonicalName(),
+              input.getClass().getCanonicalName()
+          );
+        }
+      }
+    };
+  }
+
+  @Override
+  public Sequence<Row> finalizeSequence(final GroupByQuery query, Sequence<Row> sequence)
+  {
+    final List<PostAggregator> postAggregators = query.getPostAggregatorSpecs();
+    final Function<MapBasedRow, MapBasedRow> postAggFn;
+    if (postAggregators == null || postAggregators.isEmpty()) {
+      postAggFn = null;
+    } else {
+      postAggFn = IncrementalIndex.postAggregateFunction(postAggregators);
+    }
+    return super.finalizeSequence(
+        query,
+        manipulateRows(
+            query,
+            sequence,
+            makeRowFromMapRowFunction(
+                query,
+                new Function<MapBasedRow, MapBasedRow>()
+                {
+                  @Nullable
+                  @Override
+                  public MapBasedRow apply(@Nullable MapBasedRow input)
+                  {
+                    final MapBasedRow row = postAggFn == null ? input : postAggFn.apply(input);
+                    if(row == null){
+                      return null;
+                    }
+                    return new MapBasedRow(
+                        query.getGranularity().toDateTime(row.getTimestampFromEpoch()),
+                        row.getEvent()
+                    );
+                  }
+                }
+            )
+        )
+    );
   }
 }

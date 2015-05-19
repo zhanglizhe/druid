@@ -28,17 +28,17 @@ import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
 import com.metamx.common.IAE;
 import com.metamx.common.ISE;
+import com.metamx.common.StringUtils;
 import com.metamx.common.guava.MergeSequence;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.guava.nary.BinaryFn;
-import com.metamx.common.StringUtils;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.collections.OrderedMergeSequence;
 import io.druid.query.CacheStrategy;
+import io.druid.query.DruidMetrics;
 import io.druid.query.IntervalChunkingQueryRunnerDecorator;
 import io.druid.query.Query;
-import io.druid.query.DruidMetrics;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryToolChest;
 import io.druid.query.Result;
@@ -84,9 +84,16 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
   }
 
   @Override
-  public QueryRunner<Result<SearchResultValue>> mergeResults(QueryRunner<Result<SearchResultValue>> runner)
+  public QueryRunner<Result<SearchResultValue>> mergeResults(
+      QueryRunner<Result<SearchResultValue>> runner
+  )
   {
-    return new ResultMergeQueryRunner<Result<SearchResultValue>>(runner)
+    return new ResultMergeQueryRunner<Result<SearchResultValue>>(
+        new SearchThresholdAdjustingQueryRunner(
+            intervalChunkingQueryRunnerDecorator.decorate(runner, this),
+            config
+        )
+    )
     {
       @Override
       protected Ordering<Result<SearchResultValue>> makeOrdering(Query<Result<SearchResultValue>> query)
@@ -108,6 +115,14 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
   }
 
   @Override
+  protected Result<SearchResultValue> manipulateMetrics(
+      SearchQuery query, Result<SearchResultValue> result, @Nullable MetricManipulationFn manipulator
+  )
+  {
+    return result;
+  }
+
+  @Override
   public Sequence<Result<SearchResultValue>> mergeSequences(Sequence<Sequence<Result<SearchResultValue>>> seqOfSequences)
   {
     return new OrderedMergeSequence<>(getOrdering(), seqOfSequences);
@@ -123,14 +138,6 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
   public ServiceMetricEvent.Builder makeMetricBuilder(SearchQuery query)
   {
     return DruidMetrics.makePartialQueryTimeMetric(query);
-  }
-
-  @Override
-  public Function<Result<SearchResultValue>, Result<SearchResultValue>> makePreComputeManipulatorFn(
-      SearchQuery query, MetricManipulationFn fn
-  )
-  {
-    return Functions.identity();
   }
 
   @Override
@@ -215,7 +222,7 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
             List<Object> result = (List<Object>) input;
 
             return new Result<>(
-                new DateTime(((Number)result.get(0)).longValue()),
+                new DateTime(((Number) result.get(0)).longValue()),
                 new SearchResultValue(
                     Lists.transform(
                         (List) result.get(1),
@@ -249,15 +256,6 @@ public class SearchQueryQueryToolChest extends QueryToolChest<Result<SearchResul
         return new MergeSequence<Result<SearchResultValue>>(getOrdering(), seqOfSequences);
       }
     };
-  }
-
-  @Override
-  public QueryRunner<Result<SearchResultValue>> preMergeQueryDecoration(QueryRunner<Result<SearchResultValue>> runner)
-  {
-    return new SearchThresholdAdjustingQueryRunner(
-        intervalChunkingQueryRunnerDecorator.decorate(runner, this),
-        config
-    );
   }
 
   public Ordering<Result<SearchResultValue>> getOrdering()

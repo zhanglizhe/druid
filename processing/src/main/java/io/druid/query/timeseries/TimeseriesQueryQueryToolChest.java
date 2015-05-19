@@ -19,21 +19,23 @@ package io.druid.query.timeseries;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Function;
+import com.google.common.base.Functions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import com.metamx.common.guava.MergeSequence;
 import com.metamx.common.guava.Sequence;
+import com.metamx.common.guava.Sequences;
 import com.metamx.common.guava.nary.BinaryFn;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.collections.OrderedMergeSequence;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.CacheStrategy;
+import io.druid.query.DruidMetrics;
 import io.druid.query.IntervalChunkingQueryRunnerDecorator;
 import io.druid.query.Query;
 import io.druid.query.QueryCacheHelper;
-import io.druid.query.DruidMetrics;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryToolChest;
 import io.druid.query.Result;
@@ -74,9 +76,23 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
   }
 
   @Override
-  public QueryRunner<Result<TimeseriesResultValue>> mergeResults(QueryRunner<Result<TimeseriesResultValue>> queryRunner)
+  public QueryRunner<Result<TimeseriesResultValue>> mergeResults(final QueryRunner<Result<TimeseriesResultValue>> queryRunner)
   {
-    return new ResultMergeQueryRunner<Result<TimeseriesResultValue>>(queryRunner)
+    return new ResultMergeQueryRunner<Result<TimeseriesResultValue>>(
+        new QueryRunner<Result<TimeseriesResultValue>>()
+        {
+          @Override
+          public Sequence<Result<TimeseriesResultValue>> run(
+              Query<Result<TimeseriesResultValue>> query, Map<String, Object> responseContext
+          )
+          {
+              return Sequences.map(
+                  queryRunner.run(query, responseContext),
+                  makeComputeManipulatorFn((TimeseriesQuery)query)
+              );
+          }
+        }
+    )
     {
       @Override
       protected Ordering<Result<TimeseriesResultValue>> makeOrdering(Query<Result<TimeseriesResultValue>> query)
@@ -100,6 +116,35 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
         );
       }
     };
+  }
+
+  @Override
+  protected Result<TimeseriesResultValue> manipulateMetrics(
+      TimeseriesQuery query, Result<TimeseriesResultValue> result, MetricManipulationFn manipulator
+  )
+  {
+    final Map<String, Object> values = Maps.newHashMap();
+    final TimeseriesResultValue holder = result.getValue();
+
+    // put non finalized aggregators for calculating dependent post Aggregators
+    for (AggregatorFactory agg : query.getAggregatorSpecs()) {
+      values.put(agg.getName(), holder.getMetric(agg.getName()));
+    }
+
+    for (PostAggregator postAgg : query.getPostAggregatorSpecs()) {
+      values.put(postAgg.getName(), postAgg.compute(values));
+    }
+
+    if(manipulator != null){
+      for(AggregatorFactory agg : query.getAggregatorSpecs()){
+        values.put(agg.getName(), manipulator.manipulate(agg, holder.getMetric(agg.getName())));
+      }
+    }
+
+    return new Result<TimeseriesResultValue>(
+        result.getTimestamp(),
+        new TimeseriesResultValue(values)
+    );
   }
 
   @Override
@@ -224,35 +269,13 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
     };
   }
 
-  @Override
-  public QueryRunner<Result<TimeseriesResultValue>> preMergeQueryDecoration(QueryRunner<Result<TimeseriesResultValue>> runner)
-  {
-    return intervalChunkingQueryRunnerDecorator.decorate(runner, this);
-  }
-
   public Ordering<Result<TimeseriesResultValue>> getOrdering()
   {
     return Ordering.natural();
   }
 
-  @Override
-  public Function<Result<TimeseriesResultValue>, Result<TimeseriesResultValue>> makePreComputeManipulatorFn(
-      final TimeseriesQuery query, final MetricManipulationFn fn
-  )
-  {
-    return makeComputeManipulatorFn(query, fn, false);
-  }
-
-  @Override
-  public Function<Result<TimeseriesResultValue>, Result<TimeseriesResultValue>> makePostComputeManipulatorFn(
-      TimeseriesQuery query, MetricManipulationFn fn
-  )
-  {
-    return makeComputeManipulatorFn(query, fn, true);
-  }
-
   private Function<Result<TimeseriesResultValue>, Result<TimeseriesResultValue>> makeComputeManipulatorFn(
-      final TimeseriesQuery query, final MetricManipulationFn fn, final boolean calculatePostAggs
+      final TimeseriesQuery query
   )
   {
     return new Function<Result<TimeseriesResultValue>, Result<TimeseriesResultValue>>()
@@ -260,25 +283,7 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
       @Override
       public Result<TimeseriesResultValue> apply(Result<TimeseriesResultValue> result)
       {
-        final Map<String, Object> values = Maps.newHashMap();
-        final TimeseriesResultValue holder = result.getValue();
-        if (calculatePostAggs) {
-          // put non finalized aggregators for calculating dependent post Aggregators
-          for (AggregatorFactory agg : query.getAggregatorSpecs()) {
-            values.put(agg.getName(), holder.getMetric(agg.getName()));
-          }
-          for (PostAggregator postAgg : query.getPostAggregatorSpecs()) {
-            values.put(postAgg.getName(), postAgg.compute(values));
-          }
-        }
-        for (AggregatorFactory agg : query.getAggregatorSpecs()) {
-          values.put(agg.getName(), fn.manipulate(agg, holder.getMetric(agg.getName())));
-        }
-
-        return new Result<TimeseriesResultValue>(
-            result.getTimestamp(),
-            new TimeseriesResultValue(values)
-        );
+        return manipulateMetrics(query, result, null);
       }
     };
   }

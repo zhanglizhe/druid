@@ -155,7 +155,7 @@ import java.util.concurrent.Executor;
 @RunWith(Parameterized.class)
 public class CachingClusteredClientTest
 {
-  public static final ImmutableMap<String, Object> CONTEXT = ImmutableMap.<String, Object>of("finalize", false);
+  public static final ImmutableMap<String, Object> CONTEXT = ImmutableMap.<String, Object>of("finalize", true);
   public static final MultipleIntervalSegmentSpec SEG_SPEC = new MultipleIntervalSegmentSpec(ImmutableList.<Interval>of());
   public static final String DATA_SOURCE = "test";
   protected static final DefaultObjectMapper jsonMapper = new DefaultObjectMapper(new SmileFactory());
@@ -1110,7 +1110,7 @@ public class CachingClusteredClientTest
         .setDimensions(Arrays.<DimensionSpec>asList(new DefaultDimensionSpec("a", "a")))
         .setAggregatorSpecs(aggsWithUniques)
         .setPostAggregatorSpecs(POST_AGGS)
-        .setContext(CONTEXT);
+        .setContext(ImmutableMap.<String, Object>of("finalize", false));
 
     final HyperLogLogCollector collector = HyperLogLogCollector.makeLatestCollector();
     collector.add(hashFn.hashString("abc123", Charsets.UTF_8).asBytes());

@@ -39,6 +39,7 @@ import io.druid.query.Result;
 import io.druid.query.aggregation.MetricManipulationFn;
 import io.druid.timeline.LogicalSegment;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
@@ -103,6 +104,16 @@ public class DataSourceQueryQueryToolChest
   }
 
   @Override
+  protected Result<DataSourceMetadataResultValue> manipulateMetrics(
+      DataSourceMetadataQuery query,
+      Result<DataSourceMetadataResultValue> result,
+      @Nullable MetricManipulationFn manipulator
+  )
+  {
+    return result;
+  }
+
+  @Override
   public Sequence<Result<DataSourceMetadataResultValue>> mergeSequences(Sequence<Sequence<Result<DataSourceMetadataResultValue>>> seqOfSequences)
   {
     return new OrderedMergeSequence<>(getOrdering(), seqOfSequences);
@@ -120,14 +131,6 @@ public class DataSourceQueryQueryToolChest
     return new ServiceMetricEvent.Builder()
         .setDimension("dataSource", DataSourceUtil.getMetricName(query.getDataSource()))
         .setDimension("type", query.getType());
-  }
-
-  @Override
-  public Function<Result<DataSourceMetadataResultValue>, Result<DataSourceMetadataResultValue>> makePreComputeManipulatorFn(
-      DataSourceMetadataQuery query, MetricManipulationFn fn
-  )
-  {
-    return Functions.identity();
   }
 
   @Override

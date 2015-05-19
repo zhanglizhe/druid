@@ -17,6 +17,7 @@
 
 package io.druid.query.timeseries;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -30,10 +31,10 @@ import io.druid.query.QueryRunnerTestHelper;
 import io.druid.query.Result;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.CountAggregatorFactory;
-import io.druid.query.aggregation.FilteredAggregatorFactory;
-import io.druid.query.aggregation.LongSumAggregatorFactory;
 import io.druid.query.aggregation.DoubleMaxAggregatorFactory;
 import io.druid.query.aggregation.DoubleMinAggregatorFactory;
+import io.druid.query.aggregation.FilteredAggregatorFactory;
+import io.druid.query.aggregation.LongSumAggregatorFactory;
 import io.druid.query.aggregation.PostAggregator;
 import io.druid.query.filter.AndDimFilter;
 import io.druid.query.filter.DimFilter;
@@ -51,9 +52,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,14 +68,17 @@ public class TimeseriesQueryRunnerTest
   public static final Map<String, Object> CONTEXT = ImmutableMap.of();
 
   @Parameterized.Parameters
-  public static Collection<?> constructorFeeder() throws IOException
+  public static Iterable<Object[]> constructorFeeder() throws IOException
   {
-    return QueryRunnerTestHelper.makeQueryRunners(
-        new TimeseriesQueryRunnerFactory(
-            new TimeseriesQueryQueryToolChest(
-                QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()),
-            new TimeseriesQueryEngine(),
-            QueryRunnerTestHelper.NOOP_QUERYWATCHER
+    return QueryRunnerTestHelper.transformToConstructionFeeder(
+        QueryRunnerTestHelper.makeQueryRunners(
+            new TimeseriesQueryRunnerFactory(
+                new TimeseriesQueryQueryToolChest(
+                    QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()
+                ),
+                new TimeseriesQueryEngine(),
+                QueryRunnerTestHelper.NOOP_QUERYWATCHER
+            )
         )
     );
   }
@@ -1292,14 +1296,14 @@ public class TimeseriesQueryRunnerTest
   public void testTimeseriesWithFilterOnNonExistentDimensionSkipBuckets()
   {
     TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
-        .dataSource(QueryRunnerTestHelper.dataSource)
-        .granularity(QueryRunnerTestHelper.dayGran)
-        .filters("bobby", "billy")
-        .intervals(QueryRunnerTestHelper.firstToThird)
-        .aggregators(QueryRunnerTestHelper.commonAggregators)
-        .postAggregators(Arrays.<PostAggregator>asList(QueryRunnerTestHelper.addRowsIndexConstant))
-        .context(ImmutableMap.<String, Object>of("skipEmptyBuckets", "true"))
-        .build();
+                                  .dataSource(QueryRunnerTestHelper.dataSource)
+                                  .granularity(QueryRunnerTestHelper.dayGran)
+                                  .filters("bobby", "billy")
+                                  .intervals(QueryRunnerTestHelper.firstToThird)
+                                  .aggregators(QueryRunnerTestHelper.commonAggregators)
+                                  .postAggregators(Arrays.<PostAggregator>asList(QueryRunnerTestHelper.addRowsIndexConstant))
+                                  .context(ImmutableMap.<String, Object>of("skipEmptyBuckets", "true"))
+                                  .build();
 
     List<Result<TimeseriesResultValue>> expectedResults = Arrays.asList();
 
@@ -1314,13 +1318,13 @@ public class TimeseriesQueryRunnerTest
   public void testTimeseriesWithNullFilterOnNonExistentDimension()
   {
     TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
-        .dataSource(QueryRunnerTestHelper.dataSource)
-        .granularity(QueryRunnerTestHelper.dayGran)
-        .filters("bobby", null)
-        .intervals(QueryRunnerTestHelper.firstToThird)
-        .aggregators(QueryRunnerTestHelper.commonAggregators)
-        .postAggregators(Arrays.<PostAggregator>asList(QueryRunnerTestHelper.addRowsIndexConstant))
-        .build();
+                                  .dataSource(QueryRunnerTestHelper.dataSource)
+                                  .granularity(QueryRunnerTestHelper.dayGran)
+                                  .filters("bobby", null)
+                                  .intervals(QueryRunnerTestHelper.firstToThird)
+                                  .aggregators(QueryRunnerTestHelper.commonAggregators)
+                                  .postAggregators(Arrays.<PostAggregator>asList(QueryRunnerTestHelper.addRowsIndexConstant))
+                                  .build();
 
     List<Result<TimeseriesResultValue>> expectedResults = Arrays.asList(
         new Result<>(
@@ -1358,13 +1362,13 @@ public class TimeseriesQueryRunnerTest
   public void testTimeseriesWithInvertedFilterOnNonExistentDimension()
   {
     TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
-        .dataSource(QueryRunnerTestHelper.dataSource)
-        .granularity(QueryRunnerTestHelper.dayGran)
-        .filters(new NotDimFilter(new SelectorDimFilter("bobby", "sally")))
-        .intervals(QueryRunnerTestHelper.firstToThird)
-        .aggregators(QueryRunnerTestHelper.commonAggregators)
-        .postAggregators(Arrays.<PostAggregator>asList(QueryRunnerTestHelper.addRowsIndexConstant))
-        .build();
+                                  .dataSource(QueryRunnerTestHelper.dataSource)
+                                  .granularity(QueryRunnerTestHelper.dayGran)
+                                  .filters(new NotDimFilter(new SelectorDimFilter("bobby", "sally")))
+                                  .intervals(QueryRunnerTestHelper.firstToThird)
+                                  .aggregators(QueryRunnerTestHelper.commonAggregators)
+                                  .postAggregators(Arrays.<PostAggregator>asList(QueryRunnerTestHelper.addRowsIndexConstant))
+                                  .build();
 
     List<Result<TimeseriesResultValue>> expectedResults = Arrays.asList(
         new Result<>(
@@ -2022,17 +2026,17 @@ public class TimeseriesQueryRunnerTest
   public void testTimeseriesWithTimeColumn()
   {
     TimeseriesQuery query = Druids.newTimeseriesQueryBuilder()
-        .dataSource(QueryRunnerTestHelper.dataSource)
-        .intervals(QueryRunnerTestHelper.firstToThird)
-        .aggregators(
-            Arrays.asList(
-                QueryRunnerTestHelper.rowsCount,
-                QueryRunnerTestHelper.jsCountIfTimeGreaterThan,
-                QueryRunnerTestHelper.__timeLongSum
-            )
-        )
-        .granularity(QueryRunnerTestHelper.allGran)
-        .build();
+                                  .dataSource(QueryRunnerTestHelper.dataSource)
+                                  .intervals(QueryRunnerTestHelper.firstToThird)
+                                  .aggregators(
+                                      Arrays.asList(
+                                          QueryRunnerTestHelper.rowsCount,
+                                          QueryRunnerTestHelper.jsCountIfTimeGreaterThan,
+                                          QueryRunnerTestHelper.__timeLongSum
+                                      )
+                                  )
+                                  .granularity(QueryRunnerTestHelper.allGran)
+                                  .build();
 
     List<Result<TimeseriesResultValue>> expectedResults = Arrays.asList(
         new Result<>(

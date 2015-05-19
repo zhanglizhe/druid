@@ -47,7 +47,6 @@ import io.druid.query.ResultMergeQueryRunner;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.AggregatorUtil;
 import io.druid.query.aggregation.MetricManipulationFn;
-import io.druid.query.aggregation.MetricManipulatorFns;
 import io.druid.query.aggregation.PostAggregator;
 import io.druid.query.dimension.DefaultDimensionSpec;
 import io.druid.query.dimension.DimensionSpec;
@@ -111,81 +110,88 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
   }
 
   @Override
-  public QueryRunner<Result<TopNResultValue>> mergeResults(final QueryRunner<Result<TopNResultValue>> baseRunner)
+  public QueryRunner<Result<TopNResultValue>> mergeResults(
+      final QueryRunner<Result<TopNResultValue>> baseRunner
+  )
   {
     return new ThresholdAdjustingQueryRunner(
         new ResultMergeQueryRunner<Result<TopNResultValue>>(
-            new QueryRunner<Result<TopNResultValue>>()
-            {
-              @Override
-              public Sequence<Result<TopNResultValue>> run(
-                  Query<Result<TopNResultValue>> query, Map<String, Object> responseContext
-              )
-              {
-                TopNQuery topNQuery = (TopNQuery) query;
-                final String dimKey = topNQuery.getDimensionSpec().getOutputName();
-                final ExtractionFn postExtractionFn;
-                if (TopNQueryEngine.canApplyExtractionInPost(topNQuery)) {
-                  final DimensionSpec oldSpec = ((TopNQuery) query).getDimensionSpec();
-                  postExtractionFn = topNQuery.getDimensionSpec().getExtractionFn();
-                  topNQuery = topNQuery.withDimensionSpec(
-                      new DefaultDimensionSpec(oldSpec.getDimension(), oldSpec.getDimension())
-                  );
+            intervalChunkingQueryRunnerDecorator.decorate(
+                new QueryRunner<Result<TopNResultValue>>()
+                {
+                  @Override
+                  public Sequence<Result<TopNResultValue>> run(
+                      Query<Result<TopNResultValue>> query, Map<String, Object> responseContext
+                  )
+                  {
+                    TopNQuery topNQuery = (TopNQuery) query;
+                    topNQuery = topNQuery.withPostAggregatorSpecs(prunePostAggregators(topNQuery));
+                    final String dimKey = topNQuery.getDimensionSpec().getOutputName();
+                    final ExtractionFn postExtractionFn;
+                    if (TopNQueryEngine.canApplyExtractionInPost(topNQuery)) {
+                      final DimensionSpec oldSpec = ((TopNQuery) query).getDimensionSpec();
+                      postExtractionFn = topNQuery.getDimensionSpec().getExtractionFn();
+                      topNQuery = topNQuery.withDimensionSpec(
+                          // Preserve dimension name in subqueries
+                          new DefaultDimensionSpec(oldSpec.getDimension(), oldSpec.getOutputName())
+                      );
 
-                } else {
-                  postExtractionFn = null;
-                }
-                final Function<Result<TopNResultValue>, Result<TopNResultValue>> postAggComputator = makeResultComputator(
-                    topNQuery,
-                    MetricManipulatorFns.identity(),
-                    false
-                );
-                if(postExtractionFn == null) {
-                  // We did not do any optimizations or query rewrites, so pass the result straight up.
-                  return Sequences.map(
-                      baseRunner.run(topNQuery, responseContext),
-                      postAggComputator
-                  );
-                } else {
-                  return Sequences.map(
-                      baseRunner.run(topNQuery, responseContext),
-                      new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
+                    } else {
+                      postExtractionFn = null;
+                    }
+                    Function<Result<TopNResultValue>, Result<TopNResultValue>> postAggComputator = makePostAggComputator(
+                        topNQuery
+                    );
+
+                    if (postExtractionFn != null) {
+                      final Function<Result<TopNResultValue>, Result<TopNResultValue>> baseComputator = postAggComputator;
+                      postAggComputator = new Function<Result<TopNResultValue>, Result<TopNResultValue>>()
                       {
+                        @Nullable
                         @Override
-                        public Result<TopNResultValue> apply(Result<TopNResultValue> input)
+                        public Result<TopNResultValue> apply(@Nullable Result<TopNResultValue> input)
                         {
-                          input = postAggComputator.apply(input);
                           if (input == null) {
                             return null;
                           }
-                          return new Result<>(
-                              input.getTimestamp(),
-                              new TopNResultValue(
-                                  Lists.transform(
-                                      input.getValue().getValue(),
-                                      new Function<DimensionAndMetricValueExtractor, DimensionAndMetricValueExtractor>()
-                                      {
-                                        @Override
-                                        public DimensionAndMetricValueExtractor apply(
-                                            DimensionAndMetricValueExtractor input
-                                        )
-                                        {
-                                          final String oldDimVal = input.getStringDimensionValue(dimKey);
-                                          final Map<String, Object> map = new HashMap<>(input.getBaseObject());
-                                          map.remove(dimKey);
-                                          map.put(dimKey, postExtractionFn.apply(oldDimVal));
-                                          return new DimensionAndMetricValueExtractor(map);
-                                        }
-                                      }
-                                  )
-                              )
+                          return manipulateDims(
+                              baseComputator.apply(input),
+                              new Function<DimensionAndMetricValueExtractor, DimensionAndMetricValueExtractor>()
+                              {
+                                @Nullable
+                                @Override
+                                public DimensionAndMetricValueExtractor apply(
+                                    @Nullable DimensionAndMetricValueExtractor input
+                                )
+                                {
+                                  if (input == null) {
+                                    return null;
+                                  }
+                                  final String oldDimVal = input.getStringDimensionValue(dimKey);
+                                  final Map<String, Object> map = new HashMap<>(input.getBaseObject());
+                                  map.put(dimKey, postExtractionFn.apply(oldDimVal));
+                                  return new DimensionAndMetricValueExtractor(map);
+                                }
+                              }
                           );
                         }
-                      }
-                  );
+                      };
+                    }
+                    if (query.getContextBySegment(false)) {
+                      return bySegmentRepackage(
+                          baseRunner.run(topNQuery, responseContext),
+                          postAggComputator
+                      );
+                    } else {
+                      return Sequences.map(
+                          baseRunner.run(topNQuery, responseContext),
+                          postAggComputator
+                      );
+                    }
+                  }
                 }
-              }
-            }
+                , this
+            )
         )
         {
           @Override
@@ -220,6 +226,81 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
   }
 
   @Override
+  public Sequence<Result<TopNResultValue>> finalizeSequence(TopNQuery query, Sequence<Result<TopNResultValue>> sequence)
+  {
+    final Function<Result<TopNResultValue>, Result<TopNResultValue>> postAggComputator = makePostAggComputator(
+        (TopNQuery) query
+    );
+    if (query.getContextBySegment(false)) {
+      return super.finalizeSequence(
+          query,
+          bySegmentRepackage(sequence, postAggComputator)
+      );
+    } else {
+      return super.finalizeSequence(
+          query,
+          Sequences.map(sequence, postAggComputator)
+      );
+    }
+  }
+
+  private static Result<TopNResultValue> manipulateDims(
+      Result<TopNResultValue> input,
+      Function<DimensionAndMetricValueExtractor, DimensionAndMetricValueExtractor> fn
+  )
+  {
+    if (input == null) {
+      return null;
+    }
+    return new Result<>(
+        input.getTimestamp(),
+        new TopNResultValue(
+            Lists.transform(
+                input.getValue().getValue(),
+                fn
+            )
+        )
+    );
+  }
+
+  @Override
+  protected Result<TopNResultValue> manipulateMetrics(
+      final TopNQuery query, Result<TopNResultValue> result, final @Nullable MetricManipulationFn manipulator
+  )
+  {
+    if (result == null) {
+      return null;
+    }
+    if (manipulator == null) {
+      return result;
+    }
+    return new Result<>(
+        result.getTimestamp(),
+        new TopNResultValue(
+            Lists.transform(
+                result.getValue().getValue(),
+                new Function<DimensionAndMetricValueExtractor, DimensionAndMetricValueExtractor>()
+                {
+                  @Override
+                  public DimensionAndMetricValueExtractor apply(
+                      DimensionAndMetricValueExtractor input
+                  )
+                  {
+                    final Map<String, Object> map = new HashMap<>(input.getBaseObject());
+                    for (AggregatorFactory agg : query.getAggregatorSpecs()) {
+                      final String aggName = agg.getName();
+                      final Object oldVal = map.get(aggName);
+                      map.put(aggName, manipulator.manipulate(agg, oldVal));
+                    }
+                    return new DimensionAndMetricValueExtractor(map);
+                  }
+                }
+            )
+        )
+    );
+  }
+
+  @Override
   public Sequence<Result<TopNResultValue>> mergeSequences(Sequence<Sequence<Result<TopNResultValue>>> seqOfSequences)
   {
     return new OrderedMergeSequence<>(getOrdering(), seqOfSequences);
@@ -250,26 +331,12 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
                        );
   }
 
-  @Override
-  public Function<Result<TopNResultValue>, Result<TopNResultValue>> makePreComputeManipulatorFn(
-      final TopNQuery query, final MetricManipulationFn fn
-  )
-  {
-    return makeResultComputator(
-        query.withPostAggregatorSpecs(prunePostAggregators(query)),
-        fn,
-        false
-    );
-  }
-
   /**
    * Make a function which will calculate the post aggs properly
    */
 
-  protected Function<Result<TopNResultValue>, Result<TopNResultValue>> makeResultComputator(
-      TopNQuery query,
-      final MetricManipulationFn fn,
-      final boolean applyManipulatorFirst
+  protected Function<Result<TopNResultValue>, Result<TopNResultValue>> makePostAggComputator(
+      final TopNQuery query
   )
   {
     final List<PostAggregator> postAggregatorSpecs = query.getPostAggregatorSpecs();
@@ -284,57 +351,50 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
       @Override
       public Result<TopNResultValue> apply(Result<TopNResultValue> result)
       {
-        List<Map<String, Object>> serializedValues = Lists.newArrayList(
-            Iterables.transform(
-                result.getValue(),
-                new Function<DimensionAndMetricValueExtractor, Map<String, Object>>()
-                {
-                  @Override
-                  public Map<String, Object> apply(DimensionAndMetricValueExtractor input)
-                  {
-                    final Map<String, Object> values = Maps.newHashMapWithExpectedSize(
-                        aggregatorFactories.length
-                        + postAggregators.length
-                        + 1
-                    );
-                    for (int i = 0; i < aggFactoryNames.length; ++i) {
-                      final String name = aggFactoryNames[i];
-                      values.put(
-                          name,
-                          applyManipulatorFirst ?
-                          fn.manipulate(aggregatorFactories[i], input.getMetric(name)) :
-                          input.getMetric(name)
-                      );
-                    }
+        final Function<DimensionAndMetricValueExtractor, Map<String, Object>> resultMutator = new Function<DimensionAndMetricValueExtractor, Map<String, Object>>()
+        {
 
-                    for (PostAggregator postAgg : postAggregators) {
-                      final String postAggName = postAgg.getName();
-                      Object calculatedPostAgg = input.getMetric(postAggName);
-                      if (calculatedPostAgg != null) {
-                        values.put(postAggName, calculatedPostAgg);
-                      } else {
-                        values.put(postAggName, postAgg.compute(values));
-                      }
-                    }
-                    if (!applyManipulatorFirst) {
-                      for (int i = 0; i < aggFactoryNames.length; ++i) {
-                        final String name = aggFactoryNames[i];
-                        values.put(name, fn.manipulate(aggregatorFactories[i], input.getMetric(name)));
-                      }
-                    }
+          @Override
+          public Map<String, Object> apply(DimensionAndMetricValueExtractor input)
+          {
+            final Map<String, Object> values = Maps.newHashMapWithExpectedSize(
+                aggregatorFactories.length
+                + postAggregators.length
+                + 1
+            );
+            for (final String name : aggFactoryNames) {
+              values.put(
+                  name,
+                  input.getMetric(name)
+              );
+            }
 
-                    final Object dimValue = input.getDimensionValue(dimensionSpec.getDimension());
-                    values.put(dimensionSpec.getOutputName(), dimValue);
+            for (PostAggregator postAgg : postAggregators) {
+              final String postAggName = postAgg.getName();
+              Object calculatedPostAgg = input.getMetric(postAggName);
+              if (calculatedPostAgg != null) {
+                values.put(postAggName, calculatedPostAgg);
+              } else {
+                values.put(postAggName, postAgg.compute(values));
+              }
+            }
 
-                    return values;
-                  }
-                }
-            )
-        );
+            final Object dimValue = input.getDimensionValue(dimensionSpec.getOutputName());
+            values.put(dimensionSpec.getOutputName(), dimValue);
 
+            return values;
+          }
+        };
         return new Result<>(
             result.getTimestamp(),
-            new TopNResultValue(serializedValues)
+            new TopNResultValue(
+                Lists.newArrayList(
+                    Iterables.transform(
+                        result.getValue(),
+                        resultMutator
+                    )
+                )
+            )
         );
       }
     };
@@ -344,14 +404,6 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
   public TypeReference<Result<TopNResultValue>> getResultTypeReference()
   {
     return TYPE_REFERENCE;
-  }
-
-  @Override
-  public Function<Result<TopNResultValue>, Result<TopNResultValue>> makePostComputeManipulatorFn(
-      final TopNQuery query, final MetricManipulationFn fn
-  )
-  {
-    return makeResultComputator(query, fn, false);
   }
 
   @Override
@@ -474,12 +526,6 @@ public class TopNQueryQueryToolChest extends QueryToolChest<Result<TopNResultVal
         return new MergeSequence<>(getOrdering(), seqOfSequences);
       }
     };
-  }
-
-  @Override
-  public QueryRunner<Result<TopNResultValue>> preMergeQueryDecoration(final QueryRunner<Result<TopNResultValue>> runner)
-  {
-    return intervalChunkingQueryRunnerDecorator.decorate(runner, this);
   }
 
   public Ordering<Result<TopNResultValue>> getOrdering()

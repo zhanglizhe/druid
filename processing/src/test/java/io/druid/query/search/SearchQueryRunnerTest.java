@@ -17,6 +17,7 @@
 
 package io.druid.query.search;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -37,9 +38,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,13 +53,17 @@ import java.util.Set;
 public class SearchQueryRunnerTest
 {
   @Parameterized.Parameters
-  public static Collection<?> constructorFeeder() throws IOException
+  public static Iterable<Object[]> constructorFeeder() throws IOException
   {
-    return QueryRunnerTestHelper.makeQueryRunners(
-        new SearchQueryRunnerFactory(
-            new SearchQueryQueryToolChest(new SearchQueryConfig(),
-                QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()),
-            QueryRunnerTestHelper.NOOP_QUERYWATCHER
+    return QueryRunnerTestHelper.transformToConstructionFeeder(
+        QueryRunnerTestHelper.makeQueryRunners(
+            new SearchQueryRunnerFactory(
+                new SearchQueryQueryToolChest(
+                    new SearchQueryConfig(),
+                    QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()
+                ),
+                QueryRunnerTestHelper.NOOP_QUERYWATCHER
+            )
         )
     );
   }
@@ -409,7 +414,7 @@ public class SearchQueryRunnerTest
 
   private void checkSearchQuery(SearchQuery searchQuery, Map<String, Set<String>> expectedResults)
   {
-    HashMap<String,List> context = new HashMap<String, List>();
+    HashMap<String, List> context = new HashMap<String, List>();
     Iterable<Result<SearchResultValue>> results = Sequences.toList(
         runner.run(searchQuery, context),
         Lists.<Result<SearchResultValue>>newArrayList()

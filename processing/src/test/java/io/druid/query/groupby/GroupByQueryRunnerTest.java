@@ -93,8 +93,8 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -103,6 +103,7 @@ import java.util.concurrent.Executors;
 @RunWith(Parameterized.class)
 public class GroupByQueryRunnerTest
 {
+  private static final Map<String, Object> CONTEXT_FINALIZE = ImmutableMap.<String, Object>of("finalize", true);
   private final QueryRunner<Row> runner;
   private GroupByQueryRunnerFactory factory;
   private Supplier<GroupByQueryConfig> configSupplier;
@@ -170,12 +171,13 @@ public class GroupByQueryRunnerTest
     );
 
 
-    Function<Object, Object> function = new Function<Object, Object>()
+    Function<QueryRunner, Object[]> function = new Function<QueryRunner, Object[]>()
     {
+      @Nullable
       @Override
-      public Object apply(@Nullable Object input)
+      public Object[] apply(@Nullable QueryRunner input)
       {
-        return new Object[]{factory, ((Object[]) input)[0]};
+        return new Object[]{factory, input};
       }
     };
 
@@ -214,6 +216,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -273,6 +276,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -348,6 +352,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -406,6 +411,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.allGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -444,6 +450,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.allGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -474,6 +481,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.allGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -523,6 +531,7 @@ public class GroupByQueryRunnerTest
                 new ExtractionDimensionSpec("quality", "alias", nullExtractionFn, null)
             )
         )
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -591,6 +600,7 @@ public class GroupByQueryRunnerTest
                 new ExtractionDimensionSpec("quality", "alias", emptyStringExtractionFn, null)
             )
         )
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -625,34 +635,36 @@ public class GroupByQueryRunnerTest
   {
     DateTimeZone tz = DateTimeZone.forID("America/Los_Angeles");
 
-    GroupByQuery query = GroupByQuery.builder()
-                                     .setDataSource(QueryRunnerTestHelper.dataSource)
-                                     .setInterval("2011-03-31T00:00:00-07:00/2011-04-02T00:00:00-07:00")
-                                     .setDimensions(
-                                         Lists.newArrayList(
-                                             (DimensionSpec) new DefaultDimensionSpec(
-                                                 "quality",
-                                                 "alias"
-                                             )
-                                         )
-                                     )
-                                     .setAggregatorSpecs(
-                                         Arrays.asList(
-                                             QueryRunnerTestHelper.rowsCount,
-                                             new LongSumAggregatorFactory(
-                                                 "idx",
-                                                 "index"
-                                             )
-                                         )
-                                     )
-                                     .setGranularity(
-                                         new PeriodGranularity(
-                                             new Period("P1D"),
-                                             null,
-                                             tz
-                                         )
-                                     )
-                                     .build();
+    GroupByQuery query = GroupByQuery
+        .builder()
+        .setDataSource(QueryRunnerTestHelper.dataSource)
+        .setInterval("2011-03-31T00:00:00-07:00/2011-04-02T00:00:00-07:00")
+        .setDimensions(
+            Lists.newArrayList(
+                (DimensionSpec) new DefaultDimensionSpec(
+                    "quality",
+                    "alias"
+                )
+            )
+        )
+        .setAggregatorSpecs(
+            Arrays.asList(
+                QueryRunnerTestHelper.rowsCount,
+                new LongSumAggregatorFactory(
+                    "idx",
+                    "index"
+                )
+            )
+        )
+        .setGranularity(
+            new PeriodGranularity(
+                new Period("P1D"),
+                null,
+                tz
+            )
+        )
+        .setContext(CONTEXT_FINALIZE)
+        .build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow(
@@ -840,8 +852,11 @@ public class GroupByQueryRunnerTest
         )
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null));
 
-    final GroupByQuery fullQuery = builder.build();
-    final GroupByQuery allGranQuery = builder.copy().setGranularity(QueryGranularity.ALL).build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
+    final GroupByQuery allGranQuery = builder.copy()
+                                             .setGranularity(QueryGranularity.ALL)
+                                             .setContext(CONTEXT_FINALIZE)
+                                             .build();
 
     QueryRunner mergedRunner = factory.getToolchest().mergeResults(
         new QueryRunner<Row>()
@@ -919,7 +934,7 @@ public class GroupByQueryRunnerTest
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setLimit(Integer.valueOf(limit));
 
-    final GroupByQuery fullQuery = builder.build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow("2011-04-01", "alias", "automotive", "rows", 2L, "idx", 269L),
@@ -960,7 +975,7 @@ public class GroupByQueryRunnerTest
         .setLimit(limit)
         .addOrderByColumn("idx", OrderByColumnSpec.Direction.DESCENDING);
 
-    final GroupByQuery fullQuery = builder.build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow("2011-04-01", "alias", "premium", "rows", 3L, "idx", 2900L),
@@ -1006,7 +1021,7 @@ public class GroupByQueryRunnerTest
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setLimit(Integer.valueOf(-1));
 
-    builder.build();
+    builder.setContext(CONTEXT_FINALIZE).build();
   }
 
   @Test
@@ -1085,7 +1100,7 @@ public class GroupByQueryRunnerTest
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
         .setLimitSpec(orderBySpec);
 
-    final GroupByQuery fullQuery = builder.build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
 
     QueryRunner mergedRunner = factory.getToolchest().mergeResults(
         new QueryRunner<Row>()
@@ -1129,7 +1144,7 @@ public class GroupByQueryRunnerTest
         .addOrderByColumn("alias", OrderByColumnSpec.Direction.DESCENDING)
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null));
 
-    final GroupByQuery query = builder.build();
+    final GroupByQuery query = builder.setContext(CONTEXT_FINALIZE).build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow("2011-04-01", "alias", "travel", "rows", 2L, "idx", 243L),
@@ -1148,7 +1163,9 @@ public class GroupByQueryRunnerTest
     TestHelper.assertExpectedObjects(expectedResults, mergeRunner.run(query, context), "no-limit");
 
     TestHelper.assertExpectedObjects(
-        Iterables.limit(expectedResults, 5), mergeRunner.run(builder.limit(5).build(), context), "limited"
+        Iterables.limit(expectedResults, 5),
+        mergeRunner.run(builder.limit(5).setContext(CONTEXT_FINALIZE).build(), context),
+        "limited"
     );
   }
 
@@ -1170,7 +1187,7 @@ public class GroupByQueryRunnerTest
         .addOrderByColumn("alias", "d")
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null));
 
-    final GroupByQuery query = builder.build();
+    final GroupByQuery query = builder.setContext(CONTEXT_FINALIZE).build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow("2011-04-01", "alias", "premium", "rows", 6L, "idx", 4416L),
@@ -1188,7 +1205,9 @@ public class GroupByQueryRunnerTest
     QueryRunner<Row> mergeRunner = factory.getToolchest().mergeResults(runner);
     TestHelper.assertExpectedObjects(expectedResults, mergeRunner.run(query, context), "no-limit");
     TestHelper.assertExpectedObjects(
-        Iterables.limit(expectedResults, 5), mergeRunner.run(builder.limit(5).build(), context), "limited"
+        Iterables.limit(expectedResults, 5),
+        mergeRunner.run(builder.limit(5).setContext(CONTEXT_FINALIZE).build(), context),
+        "limited"
     );
   }
 
@@ -1210,7 +1229,7 @@ public class GroupByQueryRunnerTest
         .addOrderByColumn("alias", "d")
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null));
 
-    final GroupByQuery query = builder.build();
+    final GroupByQuery query = builder.setContext(CONTEXT_FINALIZE).build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow(
@@ -1300,7 +1319,9 @@ public class GroupByQueryRunnerTest
     QueryRunner<Row> mergeRunner = factory.getToolchest().mergeResults(runner);
     TestHelper.assertExpectedObjects(expectedResults, mergeRunner.run(query, context), "no-limit");
     TestHelper.assertExpectedObjects(
-        Iterables.limit(expectedResults, 5), mergeRunner.run(builder.limit(5).build(), context), "limited"
+        Iterables.limit(expectedResults, 5),
+        mergeRunner.run(builder.limit(5).setContext(CONTEXT_FINALIZE).build(), context),
+        "limited"
     );
   }
 
@@ -1334,6 +1355,7 @@ public class GroupByQueryRunnerTest
                 QueryRunnerTestHelper.rowsCount
             )
         )
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -1394,6 +1416,7 @@ public class GroupByQueryRunnerTest
                 QueryRunnerTestHelper.rowsCount
             )
         )
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -1447,6 +1470,7 @@ public class GroupByQueryRunnerTest
                 QueryRunnerTestHelper.rowsCount
             )
         )
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -1516,7 +1540,7 @@ public class GroupByQueryRunnerTest
             )
         );
 
-    final GroupByQuery fullQuery = builder.build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
 
     QueryRunner mergedRunner = factory.getToolchest().mergeResults(
         new QueryRunner<Row>()
@@ -1591,7 +1615,7 @@ public class GroupByQueryRunnerTest
             )
         );
 
-    final GroupByQuery fullQuery = builder.build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
     TestHelper.assertExpectedObjects(
         expectedResults,
         GroupByQueryRunnerTestHelper.runQuery(factory, runner, fullQuery),
@@ -1630,7 +1654,7 @@ public class GroupByQueryRunnerTest
             )
         );
 
-    final GroupByQuery fullQuery = builder.build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
     TestHelper.assertExpectedObjects(
         expectedResults,
         GroupByQueryRunnerTestHelper.runQuery(factory, runner, fullQuery),
@@ -1668,7 +1692,7 @@ public class GroupByQueryRunnerTest
             )
         );
 
-    final GroupByQuery fullQuery = builder.build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
 
     QueryRunner mergedRunner = factory.getToolchest().mergeResults(
         new QueryRunner<Row>()
@@ -1772,7 +1796,7 @@ public class GroupByQueryRunnerTest
             )
         );
 
-    final GroupByQuery fullQuery = builder.build();
+    final GroupByQuery fullQuery = builder.setContext(CONTEXT_FINALIZE).build();
 
     QueryRunner mergedRunner = factory.getToolchest().mergeResults(
         new QueryRunner<Row>()
@@ -1801,11 +1825,7 @@ public class GroupByQueryRunnerTest
     // add an extra layer of merging, simulate broker forwarding query to historical
     TestHelper.assertExpectedObjects(
         expectedResults,
-        factory.getToolchest().postMergeQueryDecoration(
-            factory.getToolchest().mergeResults(
-                factory.getToolchest().preMergeQueryDecoration(mergedRunner)
-            )
-        ).run(fullQuery, context),
+        factory.getToolchest().mergeResults(mergedRunner).run(fullQuery, context),
         "merged"
     );
   }
@@ -1826,7 +1846,7 @@ public class GroupByQueryRunnerTest
         )
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null));
 
-    final GroupByQuery query = builder.build();
+    final GroupByQuery query = builder.setContext(CONTEXT_FINALIZE).build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow("2011-04-01", "quality", "automotive", "rows", 2L)
@@ -1873,7 +1893,7 @@ public class GroupByQueryRunnerTest
         )
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null));
 
-    final GroupByQuery query = builder.build();
+    final GroupByQuery query = builder.setContext(CONTEXT_FINALIZE).build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow(
@@ -1953,7 +1973,7 @@ public class GroupByQueryRunnerTest
         )
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null));
 
-    final GroupByQuery query = builder.build();
+    final GroupByQuery query = builder.setContext(CONTEXT_FINALIZE).build();
 
     List<Row> expectedResults = Arrays.asList(
         GroupByQueryRunnerTestHelper.createExpectedRow(
@@ -2034,6 +2054,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     GroupByQuery query = GroupByQuery
@@ -2048,6 +2069,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -2092,6 +2114,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     GroupByQuery query = GroupByQuery
@@ -2104,6 +2127,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -2130,6 +2154,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     GroupByQuery query = GroupByQuery
@@ -2142,6 +2167,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -2167,6 +2193,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     GroupByQuery query = GroupByQuery
@@ -2179,6 +2206,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     Iterable<Row> results = GroupByQueryRunnerTestHelper.runQuery(factory, runner, query);
@@ -2212,6 +2240,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     final GroupByQuery query = GroupByQuery
@@ -2237,6 +2266,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -2492,6 +2522,7 @@ public class GroupByQueryRunnerTest
         )
         .addOrderByColumn("alias")
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     final GroupByQuery query = GroupByQuery
@@ -2517,6 +2548,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -2757,6 +2789,7 @@ public class GroupByQueryRunnerTest
         )
         .addOrderByColumn("alias")
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     final GroupByQuery query = GroupByQuery
@@ -2794,6 +2827,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -2885,6 +2919,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.dayGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     GroupByQuery query = GroupByQuery
@@ -2900,6 +2935,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.allGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -3024,6 +3060,7 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(QueryRunnerTestHelper.allGran)
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -3076,6 +3113,7 @@ public class GroupByQueryRunnerTest
                 )
             )
         )
+        .setContext(CONTEXT_FINALIZE)
         .build();
 
     List<Row> expectedResults = Arrays.asList(
@@ -3303,27 +3341,32 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
-        .setDimFilter(new SelectorDimFilter("quality", "mezzanine"))
-        .setContext(ImmutableMap.<String, Object>of("bySegment", true));
-    final GroupByQuery fullQuery = builder.build();
+        .setDimFilter(new SelectorDimFilter("quality", "mezzanine"));
+    final GroupByQuery fullQuery = builder
+        .setContext(CONTEXT_FINALIZE)
+        .build()
+        .withOverriddenContext(
+            ImmutableMap.<String, Object>of(
+                "bySegment",
+                true
+            )
+        );
     QueryToolChest toolChest = factory.getToolchest();
 
     List<QueryRunner<Row>> singleSegmentRunners = Lists.newArrayList();
     for (int i = 0; i < segmentCount; i++) {
-      singleSegmentRunners.add(toolChest.preMergeQueryDecoration(runner));
+      singleSegmentRunners.add(toolChest.mergeResults(runner));
     }
     ExecutorService exec = Executors.newCachedThreadPool();
-    QueryRunner theRunner = toolChest.postMergeQueryDecoration(
+    QueryRunner theRunner =
         new FinalizeResultsQueryRunner<>(
             toolChest.mergeResults(factory.mergeRunners(Executors.newCachedThreadPool(), singleSegmentRunners)),
             toolChest
-        )
-    );
+        );
 
     TestHelper.assertExpectedObjects(bySegmentResults, theRunner.run(fullQuery, Maps.newHashMap()), "");
     exec.shutdownNow();
   }
-
 
 
   @Test
@@ -3379,23 +3422,28 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
-        .setDimFilter(new SelectorDimFilter("quality", "mezzanine"))
-        .setContext(ImmutableMap.<String, Object>of("bySegment", true));
-    final GroupByQuery fullQuery = builder.build();
+        .setDimFilter(new SelectorDimFilter("quality", "mezzanine"));
+    final GroupByQuery fullQuery = builder
+        .setContext(CONTEXT_FINALIZE)
+        .build()
+        .withOverriddenContext(
+            ImmutableMap.<String, Object>of(
+                "bySegment",
+                true
+            )
+        );
     QueryToolChest toolChest = factory.getToolchest();
 
     List<QueryRunner<Row>> singleSegmentRunners = Lists.newArrayList();
     for (int i = 0; i < segmentCount; i++) {
-      singleSegmentRunners.add(toolChest.preMergeQueryDecoration(runner));
+      singleSegmentRunners.add(toolChest.mergeResults(runner));
     }
     ExecutorService exec = Executors.newCachedThreadPool();
-    QueryRunner theRunner = toolChest.postMergeQueryDecoration(
+    QueryRunner theRunner =
         new FinalizeResultsQueryRunner<>(
             toolChest.mergeResults(factory.mergeRunners(Executors.newCachedThreadPool(), singleSegmentRunners)),
             toolChest
-        )
-    );
-
+        );
     TestHelper.assertExpectedObjects(bySegmentResults, theRunner.run(fullQuery, Maps.newHashMap()), "");
     exec.shutdownNow();
   }
@@ -3453,23 +3501,23 @@ public class GroupByQueryRunnerTest
             )
         )
         .setGranularity(new PeriodGranularity(new Period("P1M"), null, null))
-        .setDimFilter(new SelectorDimFilter("quality", "mezzanine"))
-        .setContext(ImmutableMap.<String, Object>of("bySegment", true));
-    final GroupByQuery fullQuery = builder.build();
+        .setDimFilter(new SelectorDimFilter("quality", "mezzanine"));
+    final GroupByQuery fullQuery = builder
+        .setContext(CONTEXT_FINALIZE)
+        .build()
+        .withOverriddenContext(ImmutableMap.<String, Object>of("bySegment", true));
     QueryToolChest toolChest = factory.getToolchest();
 
     List<QueryRunner<Row>> singleSegmentRunners = Lists.newArrayList();
     for (int i = 0; i < segmentCount; i++) {
-      singleSegmentRunners.add(toolChest.preMergeQueryDecoration(runner));
+      singleSegmentRunners.add(toolChest.mergeResults(runner));
     }
     ExecutorService exec = Executors.newCachedThreadPool();
-    QueryRunner theRunner = toolChest.postMergeQueryDecoration(
+    QueryRunner theRunner =
         new FinalizeResultsQueryRunner<>(
-            toolChest.mergeResults(factory.mergeRunners(Executors.newCachedThreadPool(), singleSegmentRunners)),
+            toolChest.mergeResults(factory.mergeRunners(exec, singleSegmentRunners)),
             toolChest
-        )
-    );
-
+        );
     TestHelper.assertExpectedObjects(bySegmentResults, theRunner.run(fullQuery, Maps.newHashMap()), "");
     exec.shutdownNow();
   }

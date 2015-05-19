@@ -31,6 +31,7 @@ import io.druid.query.SegmentDescriptor;
 
 import java.util.Map;
 
+import io.druid.query.aggregation.MetricManipulatorFns;
 import org.joda.time.Interval;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -80,17 +81,15 @@ public class ClientQuerySegmentWalker implements QuerySegmentWalker
   {
     final QueryToolChest<T, Query<T>> toolChest = warehouse.getToolChest(query);
     final FinalizeResultsQueryRunner<T> baseRunner = new FinalizeResultsQueryRunner<T>(
-        toolChest.postMergeQueryDecoration(
-            toolChest.mergeResults(
-                toolChest.preMergeQueryDecoration(
-                    new RetryQueryRunner<T>(
-                            baseClient,
-                            toolChest,
-                            retryConfig,
-                            objectMapper)
-                )
+        toolChest.mergeResults(
+            new RetryQueryRunner<T>(
+                baseClient,
+                toolChest,
+                retryConfig,
+                objectMapper
             )
-        ),
+        )
+        ,
         toolChest
     );
 

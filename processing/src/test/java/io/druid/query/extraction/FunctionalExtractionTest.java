@@ -36,9 +36,9 @@ public class FunctionalExtractionTest
   {
     public SimpleFunctionExtraction(
         Function<String, String> extractionFunction,
-        Boolean retainMissingValue,
+        boolean retainMissingValue,
         String replaceMissingValueWith,
-        Boolean uniqueProjections
+        boolean uniqueProjections
     )
     {
       super(extractionFunction, retainMissingValue, replaceMissingValueWith, uniqueProjections);
@@ -132,7 +132,7 @@ public class FunctionalExtractionTest
         fn,
         true,
         null,
-        null
+        false
     );
     final String out = fn.apply(in);
     Assert.assertEquals(Strings.isNullOrEmpty(out) ? in : out, exFn.apply(in));
@@ -146,7 +146,7 @@ public class FunctionalExtractionTest
         fn,
         false,
         MISSING,
-        null
+        false
     );
     final String out = fn.apply(in);
     Assert.assertEquals(Strings.isNullOrEmpty(out) ? MISSING : out, exFn.apply(in));
@@ -161,7 +161,7 @@ public class FunctionalExtractionTest
         fn,
         false,
         "",
-        null
+        false
     );
     final String out = fn.apply(in);
     Assert.assertEquals(Strings.isNullOrEmpty(out) ? null : out, exFn.apply(in));
@@ -175,7 +175,7 @@ public class FunctionalExtractionTest
         fn,
         false,
         "",
-        null
+        false
     );
     final String out = fn.apply(in);
     Assert.assertEquals(Strings.isNullOrEmpty(out) ? null : out, exFn.apply(in));
@@ -188,7 +188,7 @@ public class FunctionalExtractionTest
         fn,
         true,
         null,
-        null
+        false
     );
     if (Strings.isNullOrEmpty(fn.apply(null))) {
       Assert.assertEquals(null, exFn.apply(null));
@@ -202,7 +202,7 @@ public class FunctionalExtractionTest
         fn,
         true,
         MISSING,
-        null
+        false
     );
   }
 
@@ -214,7 +214,7 @@ public class FunctionalExtractionTest
             fn,
             true,
             null,
-            null
+            false
         ).getExtractionType()
     );
     Assert.assertEquals(

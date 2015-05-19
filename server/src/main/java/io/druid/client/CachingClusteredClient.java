@@ -344,7 +344,7 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
                   },
                   serverView.getQueryRunner(server),
                   "query/node/time",
-                  ImmutableMap.of("server",server.getName())
+                  ImmutableMap.of("server", server.getName())
               );
 
               if (clientQueryable == null) {
@@ -371,30 +371,10 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
                       responseContext
                   );
 
-                  resultSeqToAdd = (Sequence) Sequences.map(
-                      resultSequence,
-                      new Function<Result<BySegmentResultValueClass<T>>, Result<BySegmentResultValueClass<T>>>()
-                      {
-                        @Override
-                        public Result<BySegmentResultValueClass<T>> apply(Result<BySegmentResultValueClass<T>> input)
-                        {
-                          final BySegmentResultValueClass<T> bySegmentValue = input.getValue();
-                          return new Result<>(
-                              input.getTimestamp(),
-                              new BySegmentResultValueClass<T>(
-                                  Lists.transform(
-                                      bySegmentValue.getResults(),
-                                      toolChest.makePreComputeManipulatorFn(
-                                          query,
-                                          MetricManipulatorFns.deserializing()
-                                      )
-                                  ),
-                                  bySegmentValue.getSegmentId(),
-                                  bySegmentValue.getInterval()
-                              )
-                          );
-                        }
-                      }
+                  resultSeqToAdd = toolChest.manipulateMetrics(
+                      query,
+                      (Sequence)resultSequence,
+                      MetricManipulatorFns.deserializing()
                   );
                 }
               } else { // Requires some manipulation on broker side
@@ -422,8 +402,9 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
                             final Queue<ListenableFuture<Object>> cacheFutures = new ConcurrentLinkedQueue<>();
 
                             return Sequences.<T>withEffect(
-                                Sequences.<T, T>map(
-                                    Sequences.<T, T>map(
+                                toolChest.manipulateMetrics(
+                                    query,
+                                    Sequences.map(
                                         Sequences.<T>simple(value.getResults()),
                                         new Function<T, T>()
                                         {
@@ -449,12 +430,7 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
                                           }
                                         }
                                     ),
-                                    toolChest.makePreComputeManipulatorFn(
-                                        // Ick... most makePreComputeManipulatorFn directly cast to their ToolChest query type of choice
-                                        // This casting is sub-optimal, but hasn't caused any major problems yet...
-                                        (Query) rewrittenQuery,
-                                        MetricManipulatorFns.deserializing()
-                                    )
+                                    MetricManipulatorFns.deserializing()
                                 ),
                                 new Runnable()
                                 {

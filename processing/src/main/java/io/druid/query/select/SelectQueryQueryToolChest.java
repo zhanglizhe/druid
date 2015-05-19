@@ -24,17 +24,17 @@ import com.google.common.base.Functions;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
+import com.metamx.common.StringUtils;
 import com.metamx.common.guava.MergeSequence;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.nary.BinaryFn;
-import com.metamx.common.StringUtils;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.collections.OrderedMergeSequence;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.CacheStrategy;
+import io.druid.query.DruidMetrics;
 import io.druid.query.IntervalChunkingQueryRunnerDecorator;
 import io.druid.query.Query;
-import io.druid.query.DruidMetrics;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryToolChest;
 import io.druid.query.Result;
@@ -44,6 +44,7 @@ import io.druid.query.aggregation.MetricManipulationFn;
 import io.druid.query.filter.DimFilter;
 import org.joda.time.DateTime;
 
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -70,17 +71,23 @@ public class SelectQueryQueryToolChest extends QueryToolChest<Result<SelectResul
   private final IntervalChunkingQueryRunnerDecorator intervalChunkingQueryRunnerDecorator;
 
   @Inject
-  public SelectQueryQueryToolChest(ObjectMapper jsonMapper,
-      IntervalChunkingQueryRunnerDecorator intervalChunkingQueryRunnerDecorator)
+  public SelectQueryQueryToolChest(
+      ObjectMapper jsonMapper,
+      IntervalChunkingQueryRunnerDecorator intervalChunkingQueryRunnerDecorator
+  )
   {
     this.jsonMapper = jsonMapper;
     this.intervalChunkingQueryRunnerDecorator = intervalChunkingQueryRunnerDecorator;
   }
 
   @Override
-  public QueryRunner<Result<SelectResultValue>> mergeResults(QueryRunner<Result<SelectResultValue>> queryRunner)
+  public QueryRunner<Result<SelectResultValue>> mergeResults(
+      final QueryRunner<Result<SelectResultValue>> queryRunner
+  )
   {
-    return new ResultMergeQueryRunner<Result<SelectResultValue>>(queryRunner)
+    return new ResultMergeQueryRunner<Result<SelectResultValue>>(
+        intervalChunkingQueryRunnerDecorator.decorate(queryRunner,this)
+    )
     {
       @Override
       protected Ordering<Result<SelectResultValue>> makeOrdering(Query<Result<SelectResultValue>> query)
@@ -107,6 +114,14 @@ public class SelectQueryQueryToolChest extends QueryToolChest<Result<SelectResul
   }
 
   @Override
+  protected Result<SelectResultValue> manipulateMetrics(
+      SelectQuery query, Result<SelectResultValue> result, @Nullable MetricManipulationFn manipulator
+  )
+  {
+    return result;
+  }
+
+  @Override
   public Sequence<Result<SelectResultValue>> mergeSequences(Sequence<Sequence<Result<SelectResultValue>>> seqOfSequences)
   {
     return new OrderedMergeSequence<>(getOrdering(), seqOfSequences);
@@ -122,14 +137,6 @@ public class SelectQueryQueryToolChest extends QueryToolChest<Result<SelectResul
   public ServiceMetricEvent.Builder makeMetricBuilder(SelectQuery query)
   {
     return DruidMetrics.makePartialQueryTimeMetric(query);
-  }
-
-  @Override
-  public Function<Result<SelectResultValue>, Result<SelectResultValue>> makePreComputeManipulatorFn(
-      final SelectQuery query, final MetricManipulationFn fn
-  )
-  {
-    return Functions.identity();
   }
 
   @Override
@@ -266,12 +273,6 @@ public class SelectQueryQueryToolChest extends QueryToolChest<Result<SelectResul
         return new MergeSequence<Result<SelectResultValue>>(getOrdering(), seqOfSequences);
       }
     };
-  }
-
-  @Override
-  public QueryRunner<Result<SelectResultValue>> preMergeQueryDecoration(QueryRunner<Result<SelectResultValue>> runner)
-  {
-    return intervalChunkingQueryRunnerDecorator.decorate(runner, this);
   }
 
   public Ordering<Result<SelectResultValue>> getOrdering()

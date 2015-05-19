@@ -19,11 +19,16 @@ package io.druid.query;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Function;
+import com.google.common.collect.Lists;
+import com.metamx.common.IAE;
 import com.metamx.common.guava.Sequence;
+import com.metamx.common.guava.Sequences;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.query.aggregation.MetricManipulationFn;
+import io.druid.query.aggregation.MetricManipulatorFns;
 import io.druid.timeline.LogicalSegment;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -39,22 +44,94 @@ public abstract class QueryToolChest<ResultType, QueryType extends Query<ResultT
    * potentially merges the stream of ordered ResultType objects.
    *
    * @param runner A QueryRunner that provides a series of ResultType objects in time order (ascending)
+   *
    * @return a QueryRunner that potentialy merges the stream of ordered ResultType objects
    */
   public abstract QueryRunner<ResultType> mergeResults(QueryRunner<ResultType> runner);
 
   /**
+   * Manipulate the metrics in a sequence by applying the MetricManipulatorFn to each of the metrics.
+   * <p/>
+   * This exists because the QueryToolChest is the only thing that understands the internal serialization
+   * format of ResultType, so it's primary responsibility is to "decompose" that structure and apply the
+   * given function to all metrics.
+   *
+   * @param query       The query which was used to create the Sequence. This query defines which metrics will be manipulated
+   * @param sequence    The original sequence. May actually be a `Sequence<Result<BySegmentResultValue>>` and any impl
+   *                    must account for that
+   * @param manipulator The manipulation to perform on the metrics in the sequence.
+   *
+   * @return A sequence with the appropriate manipulators applied to the input sequence's metrics
+   */
+  public Sequence<ResultType> manipulateMetrics(
+      final QueryType query,
+      final Sequence<ResultType> sequence,
+      final MetricManipulationFn manipulator
+  )
+  {
+    if (manipulator == null) {
+      return sequence;
+    }
+    final Function<ResultType, ResultType> resultManipulator = new Function<ResultType, ResultType>()
+    {
+      @Nullable
+      @Override
+      public ResultType apply(@Nullable ResultType input)
+      {
+        return manipulateMetrics(query, input, manipulator);
+      }
+    };
+    if (query.getContextBySegment(false)) {
+      return bySegmentRepackage(
+          sequence,
+          resultManipulator
+      );
+    } else {
+      return Sequences.map(
+          sequence,
+          resultManipulator
+      );
+    }
+  }
+
+  /**
+   * Finalize the sequence for this query. May be overridden if the subclass has special things it needs to do.
+   * @param query The query which generated the sequence
+   * @param sequence The sequence that needs finalizing
+   * @return A Sequence which has results finalized.
+   */
+  public Sequence<ResultType> finalizeSequence(QueryType query, Sequence<ResultType> sequence){
+    return manipulateMetrics(query, sequence, MetricManipulatorFns.finalizing());
+  }
+
+  /**
+   * Manipulate the metrics in a result by applying the MetricManipulatorFn to each of the metrics.
+   * <p/>
+   * This exists because the QueryToolChest is the only thing that understands the internal serialization
+   * format of ResultType, so it's primary responsibility is to "decompose" that structure and apply the
+   * given function to all metrics.
+   *
+   * @param query       The query which was used to create the Sequence. This query defines which metrics will be manipulated
+   * @param result      The original result. Is expected to be actual result type and not a by segment result
+   * @param manipulator The manipulation to perform on the metrics in the sequence. A null value should not manipulate the metrics.
+   *
+   * @return A sequence with the appropriate manipulators applied to the input sequence's metrics
+   */
+  protected abstract ResultType manipulateMetrics(QueryType query, ResultType result, @Nullable MetricManipulationFn manipulator);
+
+  /**
    * This method doesn't belong here, but it's here for now just to make it work.  The method needs to
    * take a Sequence of Sequences and return a single Sequence of ResultType objects in time-order (ascending)
-   *
+   * <p/>
    * This method assumes that its input sequences provide values already in sorted order.
    * Even more specifically, it assumes that the individual sequences are also ordered by their first element.
-   *
+   * <p/>
    * In the vast majority of cases, this should just be implemented with:
-   *
-   *     return new OrderedMergeSequence<>(getOrdering(), seqOfSequences);
+   * <p/>
+   * return new OrderedMergeSequence<>(getOrdering(), seqOfSequences);
    *
    * @param seqOfSequences sequence of sequences to be merged
+   *
    * @return the sequence of merged results
    */
   public abstract Sequence<ResultType> mergeSequences(Sequence<Sequence<ResultType>> seqOfSequences);
@@ -62,15 +139,16 @@ public abstract class QueryToolChest<ResultType, QueryType extends Query<ResultT
   /**
    * This method doesn't belong here, but it's here for now just to make it work.  The method needs to
    * take a Sequence of Sequences and return a single Sequence of ResultType objects in time-order (ascending)
-   *
+   * <p/>
    * This method assumes that its input sequences provide values already in sorted order, but, unlike
    * mergeSequences, it does *not* assume that the individual sequences are also ordered by their first element.
-   *
+   * <p/>
    * In the vast majority if ocases, this hsould just be implemented with:
-   *
-   *     return new MergeSequence<>(getOrdering(), seqOfSequences);
+   * <p/>
+   * return new MergeSequence<>(getOrdering(), seqOfSequences);
    *
    * @param seqOfSequences sequence of sequences to be merged
+   *
    * @return the sequence of merged results
    */
   public abstract Sequence<ResultType> mergeSequencesUnordered(Sequence<Sequence<ResultType>> seqOfSequences);
@@ -83,45 +161,10 @@ public abstract class QueryToolChest<ResultType, QueryType extends Query<ResultT
    * a TopN query or the number of dimensions included for a groupBy query.
    *
    * @param query The query that is being processed
+   *
    * @return A MetricEvent.Builder that can be used to make metrics for the provided query
    */
   public abstract ServiceMetricEvent.Builder makeMetricBuilder(QueryType query);
-
-  /**
-   * Creates a Function that can take in a ResultType and return a new ResultType having applied
-   * the MetricManipulatorFn to each of the metrics.
-   *
-   * This exists because the QueryToolChest is the only thing that understands the internal serialization
-   * format of ResultType, so it's primary responsibility is to "decompose" that structure and apply the
-   * given function to all metrics.
-   *
-   * This function is called very early in the processing pipeline on the Broker.
-   *
-   * @param query The Query that is currently being processed
-   * @param fn The function that should be applied to all metrics in the results
-   * @return A function that will apply the provided fn to all metrics in the input ResultType object
-   */
-  public abstract Function<ResultType, ResultType> makePreComputeManipulatorFn(
-      QueryType query,
-      MetricManipulationFn fn
-  );
-
-  /**
-   * Generally speaking this is the exact same thing as makePreComputeManipulatorFn.  It is leveraged in
-   * order to compute PostAggregators on results after they have been completely merged together, which
-   * should actually be done in the mergeResults() call instead of here.
-   *
-   * This should never actually be overridden and it should be removed as quickly as possible.
-   *
-   * @param query The Query that is currently being processed
-   * @param fn The function that should be applied to all metrics in the results
-   * @return A function that will apply the provided fn to all metrics in the input ResultType object
-   */
-  @Deprecated
-  public Function<ResultType, ResultType> makePostComputeManipulatorFn(QueryType query, MetricManipulationFn fn)
-  {
-    return makePreComputeManipulatorFn(query, fn);
-  }
 
   /**
    * Returns a TypeReference object that is just passed through to Jackson in order to deserialize
@@ -133,11 +176,12 @@ public abstract class QueryToolChest<ResultType, QueryType extends Query<ResultT
 
   /**
    * Returns a CacheStrategy to be used to load data into the cache and remove it from the cache.
-   *
+   * <p/>
    * This is optional.  If it returns null, caching is effectively disabled for the query.
    *
    * @param query The query whose results might be cached
-   * @param <T> The type of object that will be stored in the cache
+   * @param <T>   The type of object that will be stored in the cache
+   *
    * @return A CacheStrategy that can be used to populate and read from the Cache
    */
   public <T> CacheStrategy<ResultType, T, QueryType> getCacheStrategy(QueryType query)
@@ -146,54 +190,80 @@ public abstract class QueryToolChest<ResultType, QueryType extends Query<ResultT
   }
 
   /**
-   * Wraps a QueryRunner.  The input QueryRunner is the QueryRunner as it exists *before* being passed to
-   * mergeResults().
-   *
-   * In fact, the return value of this method is always passed to mergeResults, so it is equivalent to
-   * just implement this functionality as extra decoration on the QueryRunner during mergeResults().
-   *
-   * In the interests of potentially simplifying these interfaces, the recommendation is to actually not
-   * override this method and instead apply anything that might be needed here in the mergeResults() call.
-   *
-   * @param runner The runner to be wrapped
-   * @return The wrapped runner
-   */
-  @Deprecated
-  public QueryRunner<ResultType> preMergeQueryDecoration(QueryRunner<ResultType> runner)
-  {
-    return runner;
-  }
-
-  /**
-   * Wraps a QueryRunner.  The input QueryRunner is the QueryRunner as it exists coming out of mergeResults()
-   *
-   * In fact, the input value of this method is always the return value from mergeResults, so it is equivalent
-   * to just implement this functionality as extra decoration on the QueryRunner during mergeResults().
-   *
-   * In the interests of potentially simplifying these interfaces, the recommendation is to actually not
-   * override this method and instead apply anything that might be needed here in the mergeResults() call.
-   *
-   * @param runner The runner to be wrapped
-   * @return The wrapped runner
-   */
-  @Deprecated
-  public QueryRunner<ResultType> postMergeQueryDecoration(QueryRunner<ResultType> runner)
-  {
-    return runner;
-  }
-
-  /**
    * This method is called to allow the query to prune segments that it does not believe need to actually
    * be queried.  It can use whatever criteria it wants in order to do the pruning, it just needs to
    * return the list of Segments it actually wants to see queried.
    *
-   * @param query The query being processed
+   * @param query    The query being processed
    * @param segments The list of candidate segments to be queried
-   * @param <T> A Generic parameter because Java is cool
+   * @param <T>      A Generic parameter because Java is cool
+   *
    * @return The list of segments to actually query
    */
   public <T extends LogicalSegment> List<T> filterSegments(QueryType query, List<T> segments)
   {
     return segments;
+  }
+
+  /**
+   * Repackages a bySegment sequence running each result through the resultManipulator
+   *
+   * @param bySegmentSequence The sequence that includes results by segment
+   * @param resultManipulator       The resultManipulator on the result
+   *
+   * @return A sequence of bySegment results `Sequence<Result<BySegmentValue>>`
+   */
+  protected final Sequence bySegmentRepackage(
+      Sequence bySegmentSequence,
+      final Function<ResultType, ResultType> resultManipulator
+  )
+  {
+    return Sequences.map(
+        bySegmentSequence,
+        new Function()
+        {
+          @Nullable
+          @Override
+          public Object apply(@Nullable Object input)
+          {
+            if (input == null) {
+              return null;
+            }
+            final Result result = (Result)input;
+            input = result.getValue();
+            if (input instanceof BySegmentResultValue) {
+              final BySegmentResultValue bySegmentResultValue = (BySegmentResultValue) input;
+
+              return new Result<>(
+                  result.getTimestamp(),
+                  new BySegmentResultValueClass(
+                      Lists.transform(
+                          bySegmentResultValue.getResults(), new Function()
+                          {
+                            @Nullable
+                            @Override
+                            public Object apply(@Nullable Object input)
+                            {
+                              if (input == null) {
+                                return null;
+                              }
+                              return resultManipulator.apply((ResultType) input);
+                            }
+                          }
+                      ),
+                      bySegmentResultValue.getSegmentId(),
+                      bySegmentResultValue.getInterval()
+                  )
+              );
+            } else {
+              throw new IAE(
+                  "Unknown result object class. Expected [%s] found [%s]",
+                  BySegmentResultValue.class.getCanonicalName(),
+                  input.getClass().getCanonicalName()
+              );
+            }
+          }
+        }
+    );
   }
 }

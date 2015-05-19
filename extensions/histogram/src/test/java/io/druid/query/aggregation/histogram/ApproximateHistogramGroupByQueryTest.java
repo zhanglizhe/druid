@@ -18,9 +18,9 @@
 package io.druid.query.aggregation.histogram;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Function;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.druid.collections.StupidPool;
@@ -44,11 +44,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -60,7 +58,7 @@ public class ApproximateHistogramGroupByQueryTest
   private GroupByQueryRunnerFactory factory;
 
   @Parameterized.Parameters
-  public static Collection<?> constructorFeeder() throws IOException
+  public static Iterable<Object[]> constructorFeeder() throws IOException
   {
     final ObjectMapper mapper = new DefaultObjectMapper();
     final StupidPool<ByteBuffer> pool = new StupidPool<ByteBuffer>(
@@ -114,27 +112,11 @@ public class ApproximateHistogramGroupByQueryTest
         ),
         pool
     );
-
-
-    Function<Object, Object> function = new Function<Object, Object>()
-    {
-      @Override
-      public Object apply(@Nullable Object input)
-      {
-        return new Object[]{factory, ((Object[]) input)[0]};
-      }
-    };
-
-    return Lists.newArrayList(
+    return QueryRunnerTestHelper.transformToConstructionFeeder(
+        ImmutableList.of(factory, singleThreadFactory),
         Iterables.concat(
-            Iterables.transform(
-                QueryRunnerTestHelper.makeQueryRunners(factory),
-                function
-            ),
-            Iterables.transform(
-                QueryRunnerTestHelper.makeQueryRunners(singleThreadFactory),
-                function
-            )
+            QueryRunnerTestHelper.makeQueryRunners(factory),
+            QueryRunnerTestHelper.makeQueryRunners(singleThreadFactory)
         )
     );
   }

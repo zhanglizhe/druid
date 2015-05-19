@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.metamx.common.UOE;
 import com.metamx.common.guava.Sequence;
-
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.CountAggregatorFactory;
@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -204,19 +204,59 @@ public class QueryRunnerTestHelper
       Arrays.asList(new Interval("2020-04-02T00:00:00.000Z/P1D"))
   );
 
-  public static Iterable<Object[]> transformToConstructionFeeder(Iterable<?> in)
+  /**
+   * Iterate through the iterables in a synchronous manner and return each step as an Object[]
+   * @param in The iterables to step through. (effectively columns)
+   * @return An iterable of Object[] containing the "rows" of the input (effectively rows)
+   */
+  public static Iterable<Object[]> transformToConstructionFeeder(Iterable<?>... in)
   {
-    return Iterables.transform(
-        in, new Function<Object, Object[]>()
+    if (in == null) {
+      return ImmutableList.<Object[]>of();
+    }
+    final List<Iterable<?>> iterables = Arrays.asList(in);
+    final int length = in.length;
+    final List<Iterator<?>> iterators = new ArrayList<>(in.length);
+    for (Iterable<?> iterable : iterables) {
+      iterators.add(iterable.iterator());
+    }
+    return new Iterable<Object[]>()
+    {
+      @Override
+      public Iterator<Object[]> iterator()
+      {
+        return new Iterator<Object[]>()
         {
-          @Nullable
           @Override
-          public Object[] apply(@Nullable Object input)
+          public boolean hasNext()
           {
-            return new Object[]{input};
+            int hasMore = 0;
+            for (Iterator<?> it : iterators) {
+              if (it.hasNext()) {
+                ++hasMore;
+              }
+            }
+            return hasMore == length;
           }
-        }
-    );
+
+          @Override
+          public Object[] next()
+          {
+            final ArrayList<Object> list = new ArrayList<Object>(length);
+            for (Iterator<?> it : iterators) {
+              list.add(it.next());
+            }
+            return list.toArray();
+          }
+
+          @Override
+          public void remove()
+          {
+            throw new UOE("Remove not supported");
+          }
+        };
+      }
+    };
   }
 
   public static <T, QueryType extends Query<T>> List<QueryRunner<T>> makeQueryRunners(
@@ -237,8 +277,8 @@ public class QueryRunnerTestHelper
   }
 
   @SuppressWarnings("unchecked")
-  public static Collection<?> makeUnionQueryRunners(
-      QueryRunnerFactory factory,
+  public static <T, QueryType extends Query<T>> List<QueryRunner<T>> makeUnionQueryRunners(
+      QueryRunnerFactory<T, QueryType> factory,
       DataSource unionDataSource
   )
       throws IOException
@@ -248,25 +288,27 @@ public class QueryRunnerTestHelper
     final QueryableIndex mergedRealtimeIndex = TestIndex.mergedRealtimeIndex();
     final IncrementalIndex rtIndexOffheap = TestIndex.getIncrementalTestIndex(true);
 
-    return Arrays.asList(
-        new Object[][]{
-            {
-                makeUnionQueryRunner(factory, new IncrementalIndexSegment(rtIndex, segmentId), unionDataSource)
-            },
-            {
-                makeUnionQueryRunner(factory, new QueryableIndexSegment(segmentId, mMappedTestIndex), unionDataSource)
-            },
-            {
-                makeUnionQueryRunner(
-                    factory,
-                    new QueryableIndexSegment(segmentId, mergedRealtimeIndex),
-                    unionDataSource
-                )
-            },
-            {
-                makeUnionQueryRunner(factory, new IncrementalIndexSegment(rtIndexOffheap, segmentId), unionDataSource)
-            }
-        }
+    return ImmutableList.<QueryRunner<T>>of(
+        makeUnionQueryRunner(
+            (QueryRunnerFactory) factory,
+            new IncrementalIndexSegment(rtIndex, segmentId),
+            unionDataSource
+        ),
+        makeUnionQueryRunner(
+            (QueryRunnerFactory) factory,
+            new QueryableIndexSegment(segmentId, mMappedTestIndex),
+            unionDataSource
+        ),
+        makeUnionQueryRunner(
+            (QueryRunnerFactory) factory,
+            new QueryableIndexSegment(segmentId, mergedRealtimeIndex),
+            unionDataSource
+        ),
+        makeUnionQueryRunner(
+            (QueryRunnerFactory) factory,
+            new IncrementalIndexSegment(rtIndexOffheap, segmentId),
+            unionDataSource
+        )
     );
   }
 
@@ -280,7 +322,7 @@ public class QueryRunnerTestHelper
             segmentId, adapter.getDataInterval().getStart(),
             factory.createRunner(adapter)
         ),
-        (QueryToolChest<T, Query<T>>)factory.getToolchest()
+        (QueryToolChest<T, Query<T>>) factory.getToolchest()
     );
   }
 
@@ -291,25 +333,23 @@ public class QueryRunnerTestHelper
   )
   {
     return new FinalizeResultsQueryRunner<T>(
-        factory.getToolchest().postMergeQueryDecoration(
-            factory.getToolchest().mergeResults(
-                new UnionQueryRunner<T>(
-                    Iterables.transform(
-                        unionDataSource.getNames(), new Function<String, QueryRunner>()
-                        {
-                          @Nullable
-                          @Override
-                          public QueryRunner apply(@Nullable String input)
-                          {
-                            return new BySegmentQueryRunner<T>(
-                                segmentId, adapter.getDataInterval().getStart(),
-                                factory.createRunner(adapter)
-                            );
-                          }
-                        }
-                    ),
-                    factory.getToolchest()
-                )
+        factory.getToolchest().mergeResults(
+            new UnionQueryRunner<T>(
+                Iterables.transform(
+                    unionDataSource.getNames(), new Function<String, QueryRunner>()
+                    {
+                      @Nullable
+                      @Override
+                      public QueryRunner apply(@Nullable String input)
+                      {
+                        return new BySegmentQueryRunner<T>(
+                            segmentId, adapter.getDataInterval().getStart(),
+                            factory.createRunner(adapter)
+                        );
+                      }
+                    }
+                ),
+                factory.getToolchest()
             )
         ),
         factory.getToolchest()
@@ -318,11 +358,16 @@ public class QueryRunnerTestHelper
 
   public static IntervalChunkingQueryRunnerDecorator NoopIntervalChunkingQueryRunnerDecorator()
   {
-    return new IntervalChunkingQueryRunnerDecorator(null, null, null) {
+    return new IntervalChunkingQueryRunnerDecorator(null, null, null)
+    {
       @Override
-      public <T> QueryRunner<T> decorate(final QueryRunner<T> delegate,
-          QueryToolChest<T, ? extends Query<T>> toolChest) {
-        return new QueryRunner<T>() {
+      public <T> QueryRunner<T> decorate(
+          final QueryRunner<T> delegate,
+          QueryToolChest<T, ? extends Query<T>> toolChest
+      )
+      {
+        return new QueryRunner<T>()
+        {
           @Override
           public Sequence<T> run(Query<T> query, Map<String, Object> responseContext)
           {

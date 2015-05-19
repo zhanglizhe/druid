@@ -22,13 +22,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.druid.collections.StupidPool;
+import io.druid.query.FinalizeResultsQueryRunner;
+import io.druid.query.Query;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryRunnerTestHelper;
+import io.druid.query.QueryToolChest;
 import io.druid.query.Result;
 import io.druid.query.TestQueryRunners;
 import io.druid.query.aggregation.AggregatorFactory;
-import io.druid.query.aggregation.DoubleMinAggregatorFactory;
 import io.druid.query.aggregation.DoubleMaxAggregatorFactory;
+import io.druid.query.aggregation.DoubleMinAggregatorFactory;
 import io.druid.query.aggregation.PostAggregator;
 import io.druid.segment.TestHelper;
 import org.joda.time.DateTime;
@@ -39,7 +42,6 @@ import org.junit.runners.Parameterized;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,45 +59,52 @@ public class TopNUnionQueryTest
   }
 
   @Parameterized.Parameters
-  public static Collection<?> constructorFeeder() throws IOException
+  public static Iterable<Object[]> constructorFeeder() throws IOException
   {
-    List<Object> retVal = Lists.newArrayList();
-    retVal.addAll(
-        QueryRunnerTestHelper.makeUnionQueryRunners(
-            new TopNQueryRunnerFactory(
-                TestQueryRunners.getPool(),
-                new TopNQueryQueryToolChest(new TopNQueryConfig(), QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()),
-                QueryRunnerTestHelper.NOOP_QUERYWATCHER
-            ),
-            QueryRunnerTestHelper.unionDataSource
-        )
+    final TopNQueryQueryToolChest chest = new TopNQueryQueryToolChest(
+        new TopNQueryConfig(),
+        QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()
     );
-    retVal.addAll(
-        QueryRunnerTestHelper.makeUnionQueryRunners(
-            new TopNQueryRunnerFactory(
-                new StupidPool<ByteBuffer>(
-                    new Supplier<ByteBuffer>()
-                    {
-                      @Override
-                      public ByteBuffer get()
-                      {
-                        return ByteBuffer.allocate(2000);
-                      }
-                    }
+    return Iterables.<Object[]>concat(
+        QueryRunnerTestHelper.transformToConstructionFeeder(
+            QueryRunnerTestHelper.makeUnionQueryRunners(
+                new TopNQueryRunnerFactory(
+                    TestQueryRunners.getPool(),
+                    chest,
+                    QueryRunnerTestHelper.NOOP_QUERYWATCHER
                 ),
-                new TopNQueryQueryToolChest(new TopNQueryConfig(), QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()),
-                QueryRunnerTestHelper.NOOP_QUERYWATCHER
-            ),
-            QueryRunnerTestHelper.unionDataSource
+                QueryRunnerTestHelper.unionDataSource
+            )
+        ),
+        QueryRunnerTestHelper.transformToConstructionFeeder(
+            QueryRunnerTestHelper.makeUnionQueryRunners(
+                new TopNQueryRunnerFactory(
+                    new StupidPool<ByteBuffer>(
+                        new Supplier<ByteBuffer>()
+                        {
+                          @Override
+                          public ByteBuffer get()
+                          {
+                            return ByteBuffer.allocate(2000);
+                          }
+                        }
+                    ),
+                    chest,
+                    QueryRunnerTestHelper.NOOP_QUERYWATCHER
+                ),
+                QueryRunnerTestHelper.unionDataSource
+            )
         )
     );
-
-    return retVal;
   }
 
   @Test
   public void testTopNUnionQuery()
   {
+    final TopNQueryQueryToolChest chest = new TopNQueryQueryToolChest(
+        new TopNQueryConfig(),
+        QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()
+    );
     TopNQuery query = new TopNQueryBuilder()
         .dataSource(QueryRunnerTestHelper.unionDataSource)
         .granularity(QueryRunnerTestHelper.allGran)
@@ -121,6 +130,7 @@ public class TopNUnionQueryTest
                 QueryRunnerTestHelper.hyperUniqueFinalizingPostAgg
             )
         )
+        .context(ImmutableMap.<String, Object>of("finalize", true))
         .build();
 
     List<Result<TopNResultValue>> expectedResults = Arrays.asList(
@@ -174,8 +184,14 @@ public class TopNUnionQueryTest
             )
         )
     );
-    HashMap<String,Object> context = new HashMap<String, Object>();
-    TestHelper.assertExpectedResults(expectedResults, runner.run(query, context));
+    HashMap<String, Object> context = new HashMap<String, Object>();
+    TestHelper.assertExpectedResults(
+        expectedResults,
+        new FinalizeResultsQueryRunner(runner, chest).run(
+            query,
+            context
+        )
+    );
   }
 
 
