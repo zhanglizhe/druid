@@ -20,6 +20,7 @@ package io.druid.indexing.overlord.setup;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Maps;
+import io.druid.indexing.common.task.Task;
 
 import java.util.List;
 import java.util.Map;
@@ -28,21 +29,36 @@ import java.util.Map;
  */
 public class FillCapacityWithAffinityConfig
 {
-  // key:Datasource, value:[nodeHostNames]
+  public static enum AffinityType {
+    DATASOURCE,
+    TASK_TYPE
+  }
+
+  // key, value:[nodeHostNames]
   private Map<String, List<String>> affinity = Maps.newHashMap();
+
+  private AffinityType affinityType;
 
   @JsonCreator
   public FillCapacityWithAffinityConfig(
-      @JsonProperty("affinity") Map<String, List<String>> affinity
+      @JsonProperty("affinity") Map<String, List<String>> affinity,
+      @JsonProperty("affinityType") AffinityType affinityType
   )
   {
     this.affinity = affinity;
+    this.affinityType = affinityType == null ? AffinityType.DATASOURCE : affinityType;
   }
 
   @JsonProperty
   public Map<String, List<String>> getAffinity()
   {
     return affinity;
+  }
+
+  @JsonProperty
+  public AffinityType getAffinityType()
+  {
+    return affinityType;
   }
 
   @Override
@@ -70,5 +86,13 @@ public class FillCapacityWithAffinityConfig
   public int hashCode()
   {
     return affinity != null ? affinity.hashCode() : 0;
+  }
+
+  public String extractKeyFromTask(Task task){
+    if(affinityType.equals(AffinityType.DATASOURCE)){
+      return task.getDataSource();
+    } else {
+      return task.getType();
+    }
   }
 }

@@ -71,7 +71,7 @@ public class FillCapacityWithAffinityWorkerSelectStrategy extends FillCapacityWo
     }
     ImmutableMap<String, ImmutableZkWorker> eligibleWorkers = builder.build();
 
-    List<String> workerHosts = affinityConfig.getAffinity().get(task.getDataSource());
+    List<String> workerHosts = affinityConfig.getAffinity().get(affinityConfig.extractKeyFromTask(task));
     if (workerHosts == null) {
       return super.findWorkerForTask(config, eligibleWorkers, task);
     }

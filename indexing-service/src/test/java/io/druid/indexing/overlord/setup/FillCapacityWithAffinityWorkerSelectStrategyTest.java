@@ -35,7 +35,8 @@ public class FillCapacityWithAffinityWorkerSelectStrategyTest
   public void testFindWorkerForTask() throws Exception
   {
     FillCapacityWorkerSelectStrategy strategy = new FillCapacityWithAffinityWorkerSelectStrategy(
-        new FillCapacityWithAffinityConfig(ImmutableMap.of("foo", Arrays.asList("localhost")))
+        new FillCapacityWithAffinityConfig(ImmutableMap.of("foo", Arrays.asList("localhost")),
+                                           FillCapacityWithAffinityConfig.AffinityType.DATASOURCE)
     );
 
     Optional<ImmutableZkWorker> optional = strategy.findWorkerForTask(
@@ -69,7 +70,8 @@ public class FillCapacityWithAffinityWorkerSelectStrategyTest
   public void testFindWorkerForTaskWithNulls() throws Exception
   {
     FillCapacityWorkerSelectStrategy strategy = new FillCapacityWithAffinityWorkerSelectStrategy(
-        new FillCapacityWithAffinityConfig(ImmutableMap.of("foo", Arrays.asList("localhost")))
+        new FillCapacityWithAffinityConfig(ImmutableMap.of("foo", Arrays.asList("localhost")),
+                                           FillCapacityWithAffinityConfig.AffinityType.DATASOURCE)
     );
 
     Optional<ImmutableZkWorker> optional = strategy.findWorkerForTask(
@@ -96,7 +98,8 @@ public class FillCapacityWithAffinityWorkerSelectStrategyTest
   public void testIsolation() throws Exception
   {
     FillCapacityWorkerSelectStrategy strategy = new FillCapacityWithAffinityWorkerSelectStrategy(
-        new FillCapacityWithAffinityConfig(ImmutableMap.of("foo", Arrays.asList("localhost")))
+        new FillCapacityWithAffinityConfig(ImmutableMap.of("foo", Arrays.asList("localhost")),
+                                           FillCapacityWithAffinityConfig.AffinityType.DATASOURCE)
     );
 
     Optional<ImmutableZkWorker> optional = strategy.findWorkerForTask(
