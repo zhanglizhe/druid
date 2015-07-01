@@ -201,3 +201,28 @@ A null dimension value can be mapped to a specific value by specifying the empty
 This allows distinguishing between a null dimension and a lookup resulting in a null.
 For example, specifying `{"":"bar","bat":"baz"}` with dimension values `[null, "foo", "bat"]` and replacing missing values with `"oof"` will yield results of `["bar", "oof", "baz"]`.
 Omitting the empty string key will cause the missing value to take over. For example, specifying `{"bat":"baz"}` with dimension values `[null, "foo", "bat"]` and replacing missing values with `"oof"` will yield results of `["oof", "oof", "baz"]`.
+
+### Lookup extraction function (EXPERIMENTAL)
+A lookup extraction function is a simple key-value mapping where the key-value mappings are unique to a particular lookup.
+This can be used for re-naming values in a datasource for certain queries. To use a particular lookup, simply set the appropriate lookup for the dimExtractionFn
+```json
+{
+  "type":"lookup",
+  "lookup":{"type":"namespace","namespace":"some_lookup"},
+  "retainMissingValueWith":"Unknown",
+  "uniqueRenames":false
+}
+```
+
+```json
+{
+  "type":"lookup",
+  "lookup":{"type":"namespace","namespace":"some_lookup"},
+  "retainMissingValue":true,
+  "uniqueRenames":false
+}
+```
+
+A property of `retainMissingValue` and `replaceMissingValueWith` can be specified at query time to hint how to handle missing values. Setting `replaceMissingValueWith` to `""` has the same effect of setting it to `null` or omitting the property. Setting `retainMissingValue` to true will use the dimension's original value if it is not found in the namespace. The default values are `replaceMissingValueWith = null` and `retainMissingValue = false` which causes missing values to be treated as missing.
+ 
+A property of `uniqueRenames` specifies if optimizations can be used which assume there is no combining of multiple names into one. For example: If ABC123 always maps to SomeCompany, that can be optimized since it is a unique rename. But if both ABC123 and DEF456 BOTH map to SomeCompany, then that is NOT a unique rename. Setting this value and setting `retainMissingValue` to FALSE (the default) may cause undesired behavior. 
