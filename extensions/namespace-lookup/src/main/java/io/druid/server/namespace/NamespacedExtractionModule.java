@@ -24,8 +24,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.google.api.client.repackaged.com.google.common.base.Throwables;
 import com.google.common.base.Function;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
@@ -55,11 +55,12 @@ import io.druid.query.extraction.namespace.JDBCExtractionNamespace;
 import io.druid.query.extraction.namespace.URIExtractionNamespace;
 import io.druid.server.coordination.DruidServerMetadata;
 import io.druid.server.initialization.NamespaceLookupConfig;
+import io.druid.server.initialization.NamespaceLookupStaticConfig;
 import io.druid.server.namespace.announcer.listener.AnnouncementListenerResource;
-import io.druid.server.initialization.ZkPathsConfig;
 import io.druid.server.namespace.cache.NamespaceExtractionCacheManager;
 import io.druid.server.namespace.cache.OffHeapNamespaceExtractionCacheManager;
 import io.druid.server.namespace.cache.OnHeapNamespaceExtractionCacheManager;
+import io.druid.server.namespace.http.NamespacesCacheResource;
 import org.apache.curator.utils.ZKPaths;
 
 import javax.annotation.Nullable;
@@ -75,6 +76,7 @@ public class NamespacedExtractionModule implements DruidModule
 {
   private static final Logger log = new Logger(NamespacedExtractionModule.class);
   private static final String TYPE_PREFIX = "druid.query.extraction.namespace.cache.type";
+  private static final String STATIC_CONFIG_PREFIX = "druid.query.extraction.namespace";
   private final ConcurrentMap<String, Function<String, String>> fnCache = new ConcurrentHashMap<>();
 
   @Override
@@ -108,9 +110,35 @@ public class NamespacedExtractionModule implements DruidModule
     );
   }
 
+  @ManageLifecycle public static class NamespaceStaticConfiguration
+  {
+    private NamespaceLookupStaticConfig configuration;
+    private NamespaceExtractionCacheManager manager;
+
+    @Inject NamespaceStaticConfiguration(final NamespaceLookupStaticConfig configuration,
+        final NamespaceExtractionCacheManager manager)
+    {
+      this.configuration = configuration;
+      this.manager = manager;
+    }
+
+    @LifecycleStart public void start()
+    {
+      log.info("Loading configuration as static configuration");
+      manager.scheduleOrUpdate(configuration.getNamespaces());
+      log.info("Loaded %s namespace-lookup configuration", configuration.getNamespaces().size());
+    }
+
+    @LifecycleStop public void stop()
+    {
+      //NOOP
+    }
+  }
+
   @Override
   public void configure(Binder binder)
   {
+    JsonConfigProvider.bind(binder, STATIC_CONFIG_PREFIX, NamespaceLookupStaticConfig.class);
     PolyBind.createChoiceWithDefault(
         binder,
         TYPE_PREFIX,
@@ -155,6 +183,10 @@ public class NamespacedExtractionModule implements DruidModule
     LifecycleModule.register(binder, NamespaceProcessorAnnouncer.class);
 
     Jerseys.addResource(binder, AnnouncementListenerResource.class);
+
+    LifecycleModule.register(binder, NamespaceStaticConfiguration.class);
+
+    Jerseys.addResource(binder, NamespacesCacheResource.class);
   }
 
   public static class NamespaceAnnouncementGetHandlerProvider
