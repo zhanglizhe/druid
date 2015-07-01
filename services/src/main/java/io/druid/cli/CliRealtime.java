@@ -47,7 +47,8 @@ public class CliRealtime extends ServerRunnable
   {
     return ImmutableList.<Module>of(
         new RealtimeModule(),
-        new Module() {
+        new Module()
+        {
           @Override
           public void configure(Binder binder)
           {

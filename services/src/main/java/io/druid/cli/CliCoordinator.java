@@ -33,6 +33,9 @@ import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.LazySingleton;
 import io.druid.guice.LifecycleModule;
 import io.druid.guice.ManageLifecycle;
+import io.druid.metadata.MetadataNamespaceManager;
+import io.druid.metadata.MetadataNamespaceManagerConfig;
+import io.druid.metadata.MetadataNamespaceManagerProvider;
 import io.druid.metadata.MetadataRuleManager;
 import io.druid.metadata.MetadataRuleManagerConfig;
 import io.druid.metadata.MetadataRuleManagerProvider;
@@ -51,12 +54,14 @@ import io.druid.server.http.CoordinatorRedirectInfo;
 import io.druid.server.http.CoordinatorResource;
 import io.druid.server.http.DatasourcesResource;
 import io.druid.server.http.MetadataResource;
+import io.druid.server.http.NamespacesResource;
 import io.druid.server.http.RedirectFilter;
 import io.druid.server.http.RedirectInfo;
 import io.druid.server.http.RulesResource;
 import io.druid.server.http.ServersResource;
 import io.druid.server.http.TiersResource;
 import io.druid.server.initialization.jetty.JettyServerInitializer;
+import io.druid.server.namespace.cache.NamespaceCoordinatorManager;
 import io.druid.server.router.TieredBrokerConfig;
 import org.apache.curator.framework.CuratorFramework;
 import org.eclipse.jetty.server.Server;
@@ -99,6 +104,7 @@ public class CliCoordinator extends ServerRunnable
 
             JsonConfigProvider.bind(binder, "druid.manager.segments", MetadataSegmentManagerConfig.class);
             JsonConfigProvider.bind(binder, "druid.manager.rules", MetadataRuleManagerConfig.class);
+            JsonConfigProvider.bind(binder, "druid.manager.namespaces", MetadataNamespaceManagerConfig.class);
 
             binder.bind(RedirectFilter.class).in(LazySingleton.class);
             binder.bind(RedirectInfo.class).to(CoordinatorRedirectInfo.class).in(LazySingleton.class);
@@ -115,10 +121,19 @@ public class CliCoordinator extends ServerRunnable
                   .toProvider(AuditManagerProvider.class)
                   .in(ManageLifecycle.class);
 
+            binder.bind(MetadataNamespaceManager.class)
+                  .toProvider(MetadataNamespaceManagerProvider.class)
+                  .in(ManageLifecycle.class);
+
+            binder.bind(NamespaceCoordinatorManager.class)
+                  .toProvider(NamespaceCoordinatorManager.NamespaceCoordinatorManagerProvider.class)
+                  .in(ManageLifecycle.class);
+
             binder.bind(IndexingServiceClient.class).in(LazySingleton.class);
 
             binder.bind(DruidCoordinator.class);
 
+            LifecycleModule.register(binder, NamespaceCoordinatorManager.class);
             LifecycleModule.register(binder, MetadataStorage.class);
             LifecycleModule.register(binder, DruidCoordinator.class);
 
@@ -132,6 +147,7 @@ public class CliCoordinator extends ServerRunnable
             Jerseys.addResource(binder, ServersResource.class);
             Jerseys.addResource(binder, DatasourcesResource.class);
             Jerseys.addResource(binder, MetadataResource.class);
+            Jerseys.addResource(binder, NamespacesResource.class);
 
             LifecycleModule.register(binder, Server.class);
           }

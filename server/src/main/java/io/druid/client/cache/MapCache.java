@@ -132,7 +132,7 @@ public class MapCache implements Cache
           toRemove.add(next);
         }
       }
-      for(ByteBuffer key : toRemove) {
+      for (ByteBuffer key : toRemove) {
         baseMap.remove(key);
       }
     }

@@ -20,22 +20,25 @@ package io.druid.guice;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import io.druid.audit.AuditManager;
 import io.druid.indexer.MetadataStorageUpdaterJobHandler;
 import io.druid.indexer.SQLMetadataStorageUpdaterJobHandler;
 import io.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
-import io.druid.metadata.MetadataRuleManagerConfig;
-import io.druid.metadata.MetadataStorageActionHandlerFactory;
 import io.druid.metadata.IndexerSQLMetadataStorageCoordinator;
+import io.druid.metadata.MetadataNamespaceManager;
+import io.druid.metadata.MetadataNamespaceManagerProvider;
 import io.druid.metadata.MetadataRuleManager;
 import io.druid.metadata.MetadataRuleManagerProvider;
 import io.druid.metadata.MetadataSegmentManager;
 import io.druid.metadata.MetadataSegmentManagerProvider;
 import io.druid.metadata.MetadataSegmentPublisher;
 import io.druid.metadata.MetadataSegmentPublisherProvider;
+import io.druid.metadata.MetadataStorageActionHandlerFactory;
 import io.druid.metadata.MetadataStorageConnector;
 import io.druid.metadata.MetadataStorageProvider;
 import io.druid.metadata.NoopMetadataStorageProvider;
 import io.druid.metadata.SQLMetadataConnector;
+import io.druid.metadata.SQLMetadataNamespaceManagerProvider;
 import io.druid.metadata.SQLMetadataRuleManager;
 import io.druid.metadata.SQLMetadataRuleManagerProvider;
 import io.druid.metadata.SQLMetadataSegmentManager;
@@ -43,7 +46,6 @@ import io.druid.metadata.SQLMetadataSegmentManagerProvider;
 import io.druid.metadata.SQLMetadataSegmentPublisher;
 import io.druid.metadata.SQLMetadataSegmentPublisherProvider;
 import io.druid.metadata.SQLMetadataStorageActionHandlerFactory;
-import io.druid.audit.AuditManager;
 import io.druid.server.audit.AuditManagerProvider;
 import io.druid.server.audit.SQLAuditManager;
 import io.druid.server.audit.SQLAuditManagerConfig;
@@ -155,6 +157,20 @@ public class SQLMetadataStorageDruidModule implements Module
         Key.get(SQLAuditManagerProvider.class),
         defaultPropertyValue
     );
+    PolyBind.createChoiceWithDefault(
+      binder,
+      PROPERTY,
+      Key.get(MetadataNamespaceManager.class),
+      Key.get(MetadataNamespaceManager.SQLMetadataNamespaceManager.class),
+      defaultPropertyValue
+    );
+    PolyBind.createChoiceWithDefault(
+      binder,
+      PROPERTY,
+      Key.get(MetadataNamespaceManagerProvider.class),
+      Key.get(SQLMetadataNamespaceManagerProvider.class),
+      defaultPropertyValue
+    );
   }
 
   @Override
@@ -215,6 +231,16 @@ public class SQLMetadataStorageDruidModule implements Module
     PolyBind.optionBinder(binder, Key.get(AuditManagerProvider.class))
             .addBinding(type)
             .to(SQLAuditManagerProvider.class)
+            .in(LazySingleton.class);
+
+    PolyBind.optionBinder(binder, Key.get(MetadataNamespaceManager.class))
+            .addBinding(type)
+            .to(Key.get(MetadataNamespaceManager.SQLMetadataNamespaceManager.class))
+            .in(LazySingleton.class);
+
+    PolyBind.optionBinder(binder, Key.get(MetadataNamespaceManagerProvider.class))
+            .addBinding(type)
+            .to(Key.get(SQLMetadataNamespaceManagerProvider.class))
             .in(LazySingleton.class);
   }
 }

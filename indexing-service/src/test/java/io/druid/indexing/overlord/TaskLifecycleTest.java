@@ -715,10 +715,14 @@ public class TaskLifecycleTest
 
   private TaskStatus runTask(final Task task) throws Exception
   {
-    final Task dummyTask = new DefaultObjectMapper().readValue(
-        "{\"type\":\"noop\", \"isReadyResult\":\"exception\"}\"",
-        Task.class
-    );
+    Task dummyTask;
+    do{
+      dummyTask = new DefaultObjectMapper().readValue(
+          "{\"type\":\"noop\", \"isReadyResult\":\"exception\"}\"",
+          Task.class
+      );
+    } while(task.getId().equals(dummyTask.getId()));
+
     final long startTime = System.currentTimeMillis();
 
     Preconditions.checkArgument(!task.getId().equals(dummyTask.getId()));

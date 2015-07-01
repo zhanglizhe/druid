@@ -23,6 +23,7 @@ import com.metamx.common.StringUtils;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -41,6 +42,7 @@ public interface Cache
 
   public class NamedKey
   {
+    // This is different than the dimension extraction "namespace" but the concept is very similar
     final public String namespace;
     final public byte[] key;
 

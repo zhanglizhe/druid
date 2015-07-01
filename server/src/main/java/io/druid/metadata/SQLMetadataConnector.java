@@ -240,6 +240,28 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
     );
   }
 
+  public void createNamespacesTable(final IDBI dbi, final String tableName){
+    createTable(
+        dbi,
+        tableName,
+        ImmutableList.of(
+            String.format(
+                "CREATE TABLE %1$s (\n"
+                + "  id VARCHAR(255) NOT NULL,\n"
+                + "  namespace VARCHAR(255) NOT NULL,\n"
+                + "  updated_date VARCHAR(255) NOT NULL,\n"
+                + "  used BOOLEAN NOT NULL,\n"
+                + "  payload %2$s NOT NULL,\n"
+                + "  PRIMARY KEY (id)\n"
+                + ")",
+                tableName, getPayloadType()
+            ),
+            String.format("CREATE INDEX idx_%1$s_namespace ON %1$s(namespace)", tableName),
+            String.format("CREATE INDEX idx_%1$s_used ON %1$s(used)", tableName)
+        )
+    );
+  }
+
   @Override
   public Void insertOrUpdate(
       final String tableName,
@@ -409,4 +431,10 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
     }
   }
 
+  @Override
+  public void createNamespacesTable(){
+    if(config.get().isCreateTables()){
+      createNamespacesTable(getDBI(), tablesConfigSupplier.get().getNamespacesTable());
+    }
+  }
 }

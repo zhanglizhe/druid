@@ -46,6 +46,9 @@ public class ZkPathsConfig
   @JsonProperty
   private
   String connectorPath;
+  @JsonProperty
+  private
+  String namespacePath;
 
   public String getBase()
   {
@@ -88,7 +91,12 @@ public class ZkPathsConfig
     return (null == connectorPath) ?  defaultPath("connector") : connectorPath;
   }
 
-  protected String defaultPath(final String subPath)
+  public String getNamespacePath()
+  {
+    return (namespacePath == null) ? defaultPath("namespaces") : namespacePath;
+  }
+
+  public String defaultPath(final String subPath)
   {
     return ZKPaths.makePath(getBase(), subPath);
   }

@@ -48,6 +48,7 @@ import io.druid.collections.CountingMap;
 import io.druid.common.config.JacksonConfigManager;
 import io.druid.concurrent.Execs;
 import io.druid.curator.discovery.ServiceAnnouncer;
+import io.druid.metadata.MetadataNamespaceManager;
 import io.druid.metadata.MetadataRuleManager;
 import io.druid.metadata.MetadataSegmentManager;
 import io.druid.guice.ManageLifecycle;
@@ -98,6 +99,7 @@ public class DruidCoordinator
   private final MetadataSegmentManager metadataSegmentManager;
   private final ServerInventoryView<Object> serverInventoryView;
   private final MetadataRuleManager metadataRuleManager;
+  private final MetadataNamespaceManager metadataNamespaceManager;
   private final CuratorFramework curator;
   private final ServiceEmitter emitter;
   private final IndexingServiceClient indexingServiceClient;
@@ -121,6 +123,7 @@ public class DruidCoordinator
       MetadataSegmentManager metadataSegmentManager,
       ServerInventoryView serverInventoryView,
       MetadataRuleManager metadataRuleManager,
+      MetadataNamespaceManager metadataNamespaceManager,
       CuratorFramework curator,
       ServiceEmitter emitter,
       ScheduledExecutorFactory scheduledExecutorFactory,
@@ -137,6 +140,7 @@ public class DruidCoordinator
         metadataSegmentManager,
         serverInventoryView,
         metadataRuleManager,
+        metadataNamespaceManager,
         curator,
         emitter,
         scheduledExecutorFactory,
@@ -155,6 +159,7 @@ public class DruidCoordinator
       MetadataSegmentManager metadataSegmentManager,
       ServerInventoryView serverInventoryView,
       MetadataRuleManager metadataRuleManager,
+      MetadataNamespaceManager metadataNamespaceManager,
       CuratorFramework curator,
       ServiceEmitter emitter,
       ScheduledExecutorFactory scheduledExecutorFactory,
@@ -172,6 +177,7 @@ public class DruidCoordinator
     this.metadataSegmentManager = metadataSegmentManager;
     this.serverInventoryView = serverInventoryView;
     this.metadataRuleManager = metadataRuleManager;
+    this.metadataNamespaceManager = metadataNamespaceManager;
     this.curator = curator;
     this.emitter = emitter;
     this.indexingServiceClient = indexingServiceClient;
@@ -514,6 +520,7 @@ public class DruidCoordinator
         metadataSegmentManager.start();
         metadataRuleManager.start();
         serverInventoryView.start();
+        metadataNamespaceManager.start();
         serviceAnnouncer.announce(self);
         final int startingLeaderCounter = leaderCounter;
 
@@ -603,6 +610,7 @@ public class DruidCoordinator
         serverInventoryView.stop();
         metadataRuleManager.stop();
         metadataSegmentManager.stop();
+        metadataNamespaceManager.stop();
         leader = false;
       }
       catch (Exception e) {

@@ -46,4 +46,6 @@ public interface MetadataStorageConnector
   public void createTaskTables();
 
   public void createAuditTable();
+
+  public void createNamespacesTable();
 }
