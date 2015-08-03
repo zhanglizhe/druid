@@ -174,6 +174,19 @@ public class ForkingTaskRunner implements TaskRunner, TaskLogStreamer
 
                               Iterables.addAll(command, whiteSpaceSplitter.split(config.getJavaOpts()));
 
+                              // Override task specific javaOpts
+                              Object taskJavaOpts = task.getContextValue(
+                                  "druid.indexer.runner.javaOpts"
+                              );
+                              if(taskJavaOpts != null) {
+                                Iterables.addAll(
+                                    command,
+                                    whiteSpaceSplitter.split(
+                                        (String) taskJavaOpts
+                                    )
+                                );
+                              }
+
                               for (String propName : props.stringPropertyNames()) {
                                 for (String allowedPrefix : config.getAllowedPrefixes()) {
                                   if (propName.startsWith(allowedPrefix)) {
@@ -198,6 +211,22 @@ public class ForkingTaskRunner implements TaskRunner, TaskLogStreamer
                                           props.getProperty(propName)
                                       )
                                   );
+                                }
+                              }
+
+                              // Override task specific properties
+                              Map<String, Object> context = task.getContext();
+                              if (context != null) {
+                                for (String propName : context.keySet()) {
+                                  if (propName.startsWith(CHILD_PROPERTY_PREFIX)) {
+                                    command.add(
+                                        String.format(
+                                            "-D%s=%s",
+                                            propName.substring(CHILD_PROPERTY_PREFIX.length()),
+                                            task.getContextValue(propName)
+                                        )
+                                    );
+                                  }
                                 }
                               }
 
