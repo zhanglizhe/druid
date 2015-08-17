@@ -163,6 +163,7 @@ public class TwitterSpritzerFirehoseFactory implements FirehoseFactory<InputRowP
           }
         }
         catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
           throw new RuntimeException("InterruptedException", e);
         }
       }
@@ -170,7 +171,7 @@ public class TwitterSpritzerFirehoseFactory implements FirehoseFactory<InputRowP
       @Override
       public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice)
       {
-        //log.info("Got a status deletion notice id:" + statusDeletionNotice.getStatusId());
+        log.debug("Got a status deletion notice id: [%s]", statusDeletionNotice.getStatusId());
       }
 
       @Override
@@ -178,13 +179,13 @@ public class TwitterSpritzerFirehoseFactory implements FirehoseFactory<InputRowP
       {
         // This notice will be sent each time a limited stream becomes unlimited.
         // If this number is high and or rapidly increasing, it is an indication that your predicate is too broad, and you should consider a predicate with higher selectivity.
-        log.warn("Got track limitation notice:" + numberOfLimitedStatuses);
+        log.warn("Got track limitation notice: [%s]", numberOfLimitedStatuses);
       }
 
       @Override
       public void onScrubGeo(long userId, long upToStatusId)
       {
-        //log.info("Got scrub_geo event userId:" + userId + " upToStatusId:" + upToStatusId);
+        log.debug("Got scrub_geo event userId: [%s] upToStatusId: [%s]", userId, upToStatusId);
       }
 
       @Override
@@ -260,6 +261,7 @@ public class TwitterSpritzerFirehoseFactory implements FirehoseFactory<InputRowP
               sleep(2000000000L);
             }
             catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
               throw new RuntimeException("InterruptedException", e);
             }
           } else {
