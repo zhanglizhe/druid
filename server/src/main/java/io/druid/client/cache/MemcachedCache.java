@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -181,8 +182,12 @@ public class MemcachedCache implements Cache
       throw Throwables.propagate(e);
     }
     catch(ExecutionException e) {
-      errorCount.incrementAndGet();
-      log.warn(e, "Exception pulling item from cache");
+      if (future.isCancelled()) {
+        log.debug(e, "Cache future was cancelled.");
+      } else {
+        errorCount.incrementAndGet();
+        log.warn(e, "Exception pulling item from cache");
+      }
       return null;
     }
   }
