@@ -248,7 +248,7 @@ public class ConvertSegmentTask extends AbstractFixedIntervalTask
           @Override
           public Task apply(DataSegment input)
           {
-            return new SubTask(groupId, segment, indexSpec, force, validate);
+            return new SubTask(groupId, input, indexSpec, force, validate);
           }
         }
     );
