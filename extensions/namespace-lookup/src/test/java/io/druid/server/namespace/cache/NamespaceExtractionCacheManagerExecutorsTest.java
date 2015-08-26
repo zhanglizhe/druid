@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -41,12 +42,14 @@ import io.druid.server.metrics.NoopServiceEmitter;
 import io.druid.server.namespace.URIExtractionNamespaceFunctionFactory;
 import org.apache.commons.io.FileUtils;
 import org.joda.time.Period;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -64,6 +67,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -79,6 +83,7 @@ public class NamespaceExtractionCacheManagerExecutorsTest
   private File tmpFile;
   private URIExtractionNamespaceFunctionFactory factory;
   private final ConcurrentHashMap<String, Function<String, String>> fnCache = new ConcurrentHashMap<String, Function<String, String>>();
+  private final Closer closer = Closer.create();
 
   @BeforeClass
   public static void setUpStatic() throws IOException
@@ -93,7 +98,7 @@ public class NamespaceExtractionCacheManagerExecutorsTest
   }
 
   @Before
-  public void setUp() throws IOException
+  public void setUp() throws Exception
   {
     lifecycle = new Lifecycle();
     manager = new OnHeapNamespaceExtractionCacheManager(
@@ -135,10 +140,19 @@ public class NamespaceExtractionCacheManagerExecutorsTest
         };
       }
     };
+    lifecycle.start();
+  }
+
+  @After
+  public void tearDown() throws IOException
+  {
+    // Some tests call this manually.
+    lifecycle.stop();
+    closer.close();
   }
 
 
-  @Test(timeout = 50_000)
+  @Test(timeout = 60_000)
   public void testSimpleSubmission() throws ExecutionException, InterruptedException
   {
     URIExtractionNamespace namespace = new URIExtractionNamespace(
@@ -158,7 +172,7 @@ public class NamespaceExtractionCacheManagerExecutorsTest
     }
   }
 
-  @Test(timeout = 50_000)
+  @Test(timeout = 60_000)
   public void testRepeatSubmission() throws ExecutionException, InterruptedException
   {
     final int repeatCount = 5;
@@ -197,6 +211,7 @@ public class NamespaceExtractionCacheManagerExecutorsTest
           },
           cacheId
       );
+      closer.register(cancelFuture(future));
       latch.await();
       long minEnd = start + ((repeatCount - 1) * delay);
       long end = System.currentTimeMillis();
@@ -217,11 +232,25 @@ public class NamespaceExtractionCacheManagerExecutorsTest
   }
 
 
-  @Test(timeout = 50_000)
+  @Test(timeout = 60_000)
   public void testConcurrentDelete() throws ExecutionException, InterruptedException
   {
     final int threads = 5;
-    ListeningExecutorService executorService = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(threads));
+    final ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
+        Executors.newFixedThreadPool(
+            threads
+        )
+    );
+    closer.register(
+        new Closeable()
+        {
+          @Override
+          public void close() throws IOException
+          {
+            executorService.shutdownNow();
+          }
+        }
+    );
     final CountDownLatch latch = new CountDownLatch(threads);
     Collection<ListenableFuture<?>> futures = new ArrayList<>();
     for (int i = 0; i < threads; ++i) {
@@ -246,11 +275,15 @@ public class NamespaceExtractionCacheManagerExecutorsTest
           }
       );
     }
-    Futures.allAsList(futures).get();
-    executorService.shutdown();
+    try {
+      Futures.allAsList(futures).get();
+    }
+    finally {
+      executorService.shutdownNow();
+    }
   }
 
-  @Test(timeout = 50_000)
+  @Test(timeout = 60_000)
   public void testDelete()
       throws NoSuchFieldException, IllegalAccessException, InterruptedException, ExecutionException
   {
@@ -281,7 +314,7 @@ public class NamespaceExtractionCacheManagerExecutorsTest
     );
     final String cacheId = UUID.randomUUID().toString();
     final CountDownLatch latchBeforeMore = new CountDownLatch(1);
-    ListenableFuture<?> future =
+    final ListenableFuture<?> future =
         manager.schedule(
             namespace, factory, new Runnable()
             {
@@ -289,21 +322,17 @@ public class NamespaceExtractionCacheManagerExecutorsTest
               public void run()
               {
                 try {
-                  if (!Thread.interrupted()) {
+                  if (!Thread.currentThread().isInterrupted()) {
                     manager.getPostRunnable(namespace, factory, cacheId).run();
-                  } else {
-                    Thread.currentThread().interrupt();
                   }
-                  if (!Thread.interrupted()) {
+                  if (!Thread.currentThread().isInterrupted()) {
                     runs.incrementAndGet();
-                  } else {
-                    Thread.currentThread().interrupt();
                   }
                 }
                 finally {
                   latch.countDown();
                   try {
-                    if (latch.getCount() == 0) {
+                    if (latch.getCount() == 0 && !Thread.currentThread().isInterrupted()) {
                       latchBeforeMore.await();
                     }
                   }
@@ -319,6 +348,7 @@ public class NamespaceExtractionCacheManagerExecutorsTest
             },
             cacheId
         );
+    closer.register(cancelFuture(future));
     latch.await();
     prior = runs.get();
     latchBeforeMore.countDown();
@@ -375,7 +405,7 @@ public class NamespaceExtractionCacheManagerExecutorsTest
               },
               cacheId
           );
-
+      closer.register(cancelFuture(future));
       latch.await();
       Assert.assertFalse(future.isCancelled());
       Assert.assertFalse(future.isDone());
@@ -449,6 +479,7 @@ public class NamespaceExtractionCacheManagerExecutorsTest
               },
               cacheId
           );
+      closer.register(cancelFuture(future));
       latch.await();
       Thread.sleep(20);
     }
@@ -457,5 +488,19 @@ public class NamespaceExtractionCacheManagerExecutorsTest
     }
     onHeap.waitForServiceToEnd(1_000, TimeUnit.MILLISECONDS);
     Assert.assertTrue(runCount.get() > 5);
+  }
+
+  public static Closeable cancelFuture(final Future f)
+  {
+    return new Closeable()
+    {
+      @Override
+      public void close() throws IOException
+      {
+        if (!f.isDone()) {
+          f.cancel(true);
+        }
+      }
+    };
   }
 }
