@@ -41,7 +41,12 @@
             <artifactId>druid-common</artifactId>
             <version>${project.parent.version}</version>
         </dependency>
-
+        <!-- workaround to force slf4j version dependency
+             makes pull-deps and maven assebmly agree on the same version -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.twitter4j</groupId>
             <artifactId>twitter4j-core</artifactId>
