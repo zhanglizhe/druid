@@ -241,6 +241,14 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
     return concurrentGet(rowOffset)[aggOffset].get();
   }
 
+  @Override
+  public void close()
+  {
+    // Help hint to GC as early as possible those items are no longer needed.
+    aggregators.clear();
+    facts.clear();
+  }
+
   private static class OnHeapDimDim implements DimDim
   {
     private final Map<String, Integer> falseIds;
