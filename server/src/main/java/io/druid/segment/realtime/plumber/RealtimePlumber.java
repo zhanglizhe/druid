@@ -47,6 +47,7 @@ import io.druid.client.cache.Cache;
 import io.druid.client.cache.CacheConfig;
 import io.druid.common.guava.ThreadRenamingCallable;
 import io.druid.common.guava.ThreadRenamingRunnable;
+import io.druid.common.utils.VMUtils;
 import io.druid.concurrent.Execs;
 import io.druid.data.input.Committer;
 import io.druid.data.input.InputRow;
@@ -82,6 +83,8 @@ import io.druid.timeline.DataSegment;
 import io.druid.timeline.TimelineObjectHolder;
 import io.druid.timeline.VersionedIntervalTimeline;
 import io.druid.timeline.partition.SingleElementPartitionChunk;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import org.apache.commons.io.FileUtils;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
@@ -448,6 +451,7 @@ public class RealtimePlumber implements Plumber
             handed off instead of individual segments being handed off (that is, if one of the set succeeds in handing
             off and the others fail, the real-time would believe that it needs to re-ingest the data).
              */
+            long persistThreadCpuTime = VMUtils.safeGetThreadCpuTime();
             try {
               for (Pair<FireHydrant, Interval> pair : indexesToPersist) {
                 metrics.incrementRowOutputCount(
@@ -463,6 +467,7 @@ public class RealtimePlumber implements Plumber
               throw e;
             }
             finally {
+              metrics.incrementPersistCpuTime(VMUtils.safeGetThreadCpuTime() - persistThreadCpuTime);
               metrics.incrementNumPersists();
               metrics.incrementPersistTimeMillis(persistStopwatch.elapsed(TimeUnit.MILLISECONDS));
               persistStopwatch.stop();
@@ -530,7 +535,8 @@ public class RealtimePlumber implements Plumber
                 }
               }
             }
-
+            final long mergeThreadCpuTime = VMUtils.safeGetThreadCpuTime();
+            final Stopwatch mergeStopwatch = Stopwatch.createStarted();
             try {
               List<QueryableIndex> indexes = Lists.newArrayList();
               for (FireHydrant fireHydrant : sink) {
@@ -556,6 +562,9 @@ public class RealtimePlumber implements Plumber
                     config.getIndexSpec()
                 );
               }
+              // emit merge metrics before publishing segment
+              metrics.incrementMergeCpuTime(VMUtils.safeGetThreadCpuTime() - mergeThreadCpuTime);
+              metrics.incrementMergeTimeMillis(mergeStopwatch.elapsed(TimeUnit.MILLISECONDS));
 
               QueryableIndex index = IndexIO.loadIndex(mergedFile);
               log.info("Pushing [%s] to deep storage", sink.getSegment().getIdentifier());
@@ -586,6 +595,9 @@ public class RealtimePlumber implements Plumber
                 cleanShutdown = false;
                 abandonSegment(truncatedTime, sink);
               }
+            }
+            finally {
+              mergeStopwatch.stop();
             }
           }
         }
