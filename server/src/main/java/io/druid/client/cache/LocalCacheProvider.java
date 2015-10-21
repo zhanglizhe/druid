@@ -40,6 +40,6 @@ public class LocalCacheProvider implements CacheProvider
   @Override
   public Cache get()
   {
-    return new MapCache(new ByteCountingLRUMap(initialSize, logEvictionCount, sizeInBytes));
+    return new MapCache(sizeInBytes);
   }
 }
