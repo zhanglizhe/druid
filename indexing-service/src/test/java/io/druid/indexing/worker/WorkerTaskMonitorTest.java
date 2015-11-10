@@ -143,7 +143,10 @@ public class WorkerTaskMonitorTest
                     }
                     , jsonMapper
                 )
-            ), jsonMapper
+            ),
+                jsonMapper,
+                null,
+                null
             ),
             null
         ),
