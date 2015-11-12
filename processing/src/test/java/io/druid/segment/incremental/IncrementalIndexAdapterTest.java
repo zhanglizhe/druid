@@ -42,7 +42,7 @@ public class IncrementalIndexAdapterTest {
   public void testGetBitmapIndexSeeker() throws Exception
   {
     final long timestamp = System.currentTimeMillis();
-    IncrementalIndex incrementalIndex = IncrementalIndexTest.createIndex(null);
+    IncrementalIndex incrementalIndex = IncrementalIndexTest.createIndex(false, null);
     IncrementalIndexTest.populateIndex(timestamp, incrementalIndex);
     IndexableAdapter adapter = new IncrementalIndexAdapter(
     	incrementalIndex.getInterval(),
