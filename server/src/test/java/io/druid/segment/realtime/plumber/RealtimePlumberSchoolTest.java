@@ -43,6 +43,7 @@ import io.druid.jackson.DefaultObjectMapper;
 import io.druid.query.DefaultQueryRunnerFactoryConglomerate;
 import io.druid.query.Query;
 import io.druid.query.QueryRunnerFactory;
+import io.druid.query.SegmentDescriptor;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.CountAggregatorFactory;
 import io.druid.segment.indexing.DataSchema;
@@ -88,7 +89,7 @@ public class RealtimePlumberSchoolTest
   private DataSegmentAnnouncer announcer;
   private SegmentPublisher segmentPublisher;
   private DataSegmentPusher dataSegmentPusher;
-  private FilteredServerView serverView;
+  private SegmentHandoffNotifier handoffNotifier;
   private ServiceEmitter emitter;
   private RealtimeTuningConfig tuningConfig;
   private DataSchema schema;
@@ -161,17 +162,16 @@ public class RealtimePlumberSchoolTest
 
     segmentPublisher = EasyMock.createNiceMock(SegmentPublisher.class);
     dataSegmentPusher = EasyMock.createNiceMock(DataSegmentPusher.class);
-    serverView = EasyMock.createMock(FilteredServerView.class);
-    serverView.registerSegmentCallback(
-        EasyMock.<Executor>anyObject(),
-        EasyMock.<ServerView.SegmentCallback>anyObject(),
-        EasyMock.<Predicate<DataSegment>>anyObject()
+    handoffNotifier = EasyMock.createNiceMock(SegmentHandoffNotifier.class);
+    handoffNotifier.registerSegmentHandoffCallback(EasyMock.<SegmentDescriptor>anyObject(),
+                                            EasyMock.<Executor>anyObject(),
+                                            EasyMock.<Runnable>anyObject()
     );
     EasyMock.expectLastCall().anyTimes();
 
     emitter = EasyMock.createMock(ServiceEmitter.class);
 
-    EasyMock.replay(announcer, segmentPublisher, dataSegmentPusher, serverView, emitter);
+    EasyMock.replay(announcer, segmentPublisher, dataSegmentPusher, handoffNotifier, emitter);
 
     tuningConfig = new RealtimeTuningConfig(
         1,
@@ -195,7 +195,7 @@ public class RealtimePlumberSchoolTest
         dataSegmentPusher,
         announcer,
         segmentPublisher,
-        serverView,
+        handoffNotifier,
         MoreExecutors.sameThreadExecutor(),
         MapCache.create(0),
         FireDepartmentTest.NO_CACHE_CONFIG,
@@ -209,7 +209,7 @@ public class RealtimePlumberSchoolTest
   @After
   public void tearDown() throws Exception
   {
-    EasyMock.verify(announcer, segmentPublisher, dataSegmentPusher, serverView, emitter);
+    EasyMock.verify(announcer, segmentPublisher, dataSegmentPusher, handoffNotifier, emitter);
     FileUtils.deleteDirectory(
         new File(
             tuningConfig.getBasePersistDirectory(),
