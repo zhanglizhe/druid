@@ -46,7 +46,9 @@ import io.druid.indexing.common.task.Task;
 import io.druid.indexing.common.tasklogs.LogUtils;
 import io.druid.indexing.overlord.config.ForkingTaskRunnerConfig;
 import io.druid.indexing.worker.config.WorkerConfig;
+import io.druid.query.DruidMetrics;
 import io.druid.server.DruidNode;
+import io.druid.server.metrics.MonitorsConfig;
 import io.druid.tasklogs.TaskLogPusher;
 import io.druid.tasklogs.TaskLogStreamer;
 import org.apache.commons.io.FileUtils;
@@ -176,7 +178,7 @@ public class ForkingTaskRunner implements TaskRunner, TaskLogStreamer
 
                               // Override task specific javaOpts
                               Object taskJavaOpts = task.getContextValue(
-                                  "druid.indexer.runner.javaOpts"
+                                  ForkingTaskRunnerConfig.JAVA_OPTS_PROPERTY
                               );
                               if (taskJavaOpts != null) {
                                 Iterables.addAll(
@@ -187,7 +189,9 @@ public class ForkingTaskRunner implements TaskRunner, TaskLogStreamer
 
                               for (String propName : props.stringPropertyNames()) {
                                 for (String allowedPrefix : config.getAllowedPrefixes()) {
-                                  if (propName.startsWith(allowedPrefix)) {
+                                  // See https://github.com/druid-io/druid/issues/1841
+                                  if (propName.startsWith(allowedPrefix)
+                                      && !ForkingTaskRunnerConfig.JAVA_OPTS_PROPERTY.equals(propName)) {
                                     command.add(
                                         String.format(
                                             "-D%s=%s",
@@ -227,6 +231,24 @@ public class ForkingTaskRunner implements TaskRunner, TaskLogStreamer
                                   }
                                 }
                               }
+
+                              // Add dataSource and taskId for metrics
+                              command.add(
+                                  String.format(
+                                      "-D%s%s=%s",
+                                      MonitorsConfig.METRIC_DIMENSION_PREFIX,
+                                      DruidMetrics.DATASOURCE,
+                                      task.getDataSource()
+                                  )
+                              );
+                              command.add(
+                                  String.format(
+                                      "-D%s%s=%s",
+                                      MonitorsConfig.METRIC_DIMENSION_PREFIX,
+                                      DruidMetrics.TASK_ID,
+                                      task.getId()
+                                  )
+                              );
 
                               command.add(String.format("-Ddruid.host=%s", childHost));
                               command.add(String.format("-Ddruid.port=%d", childPort));
