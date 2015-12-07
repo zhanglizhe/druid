@@ -35,8 +35,6 @@ public interface TimelineLookup<VersionType, ObjectType>
    */
   public Iterable<TimelineObjectHolder<VersionType, ObjectType>> lookup(Interval interval);
 
-  public Iterable<TimelineObjectHolder<VersionType, ObjectType>> lookup(Interval interval, boolean incompleteOk);
-
   public PartitionHolder<ObjectType> findEntry(Interval interval, VersionType version);
 
 }

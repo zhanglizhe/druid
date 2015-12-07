@@ -25,18 +25,17 @@ import com.fasterxml.jackson.databind.jsontype.NamedType;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.metamx.common.Granularity;
 import com.metamx.common.ISE;
-import com.metamx.common.Pair;
 import com.metamx.common.guava.Comparators;
 import com.metamx.emitter.EmittingLogger;
 import com.metamx.emitter.core.Event;
@@ -44,6 +43,8 @@ import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceEventBuilder;
 import com.metamx.metrics.Monitor;
 import com.metamx.metrics.MonitorScheduler;
+import io.druid.client.FilteredServerView;
+import io.druid.client.ServerView;
 import io.druid.client.cache.MapCache;
 import io.druid.data.input.Firehose;
 import io.druid.data.input.FirehoseFactory;
@@ -60,7 +61,6 @@ import io.druid.indexing.common.TestUtils;
 import io.druid.indexing.common.actions.LocalTaskActionClientFactory;
 import io.druid.indexing.common.actions.LockListAction;
 import io.druid.indexing.common.actions.SegmentInsertAction;
-import io.druid.indexing.common.actions.TaskActionClient;
 import io.druid.indexing.common.actions.TaskActionClientFactory;
 import io.druid.indexing.common.actions.TaskActionToolbox;
 import io.druid.indexing.common.config.TaskConfig;
@@ -69,6 +69,7 @@ import io.druid.indexing.common.task.AbstractFixedIntervalTask;
 import io.druid.indexing.common.task.IndexTask;
 import io.druid.indexing.common.task.KillTask;
 import io.druid.indexing.common.task.RealtimeIndexTask;
+import io.druid.indexing.common.task.RealtimeIndexTaskTest;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.common.task.TaskResource;
 import io.druid.indexing.overlord.config.TaskQueueConfig;
@@ -77,7 +78,6 @@ import io.druid.metadata.IndexerSQLMetadataStorageCoordinator;
 import io.druid.metadata.SQLMetadataStorageActionHandlerFactory;
 import io.druid.metadata.TestDerbyConnector;
 import io.druid.query.QueryRunnerFactoryConglomerate;
-import io.druid.query.SegmentDescriptor;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.DoubleSumAggregatorFactory;
 import io.druid.query.aggregation.LongSumAggregatorFactory;
@@ -96,9 +96,8 @@ import io.druid.segment.loading.SegmentLoadingException;
 import io.druid.segment.loading.StorageLocationConfig;
 import io.druid.segment.realtime.FireDepartment;
 import io.druid.segment.realtime.FireDepartmentTest;
-import io.druid.segment.realtime.plumber.SegmentHandoffNotifier;
-import io.druid.segment.realtime.plumber.SegmentHandoffNotifierFactory;
 import io.druid.server.coordination.DataSegmentAnnouncer;
+import io.druid.server.coordination.DruidServerMetadata;
 import io.druid.timeline.DataSegment;
 import io.druid.timeline.partition.NoneShardSpec;
 import org.easymock.EasyMock;
@@ -117,6 +116,7 @@ import org.junit.runners.Parameterized;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -184,6 +184,7 @@ public class TaskLifecycleTest
   private TaskToolboxFactory tb = null;
   private IndexSpec indexSpec;
   private QueryRunnerFactoryConglomerate queryRunnerFactoryConglomerate;
+  private FilteredServerView serverView;
   private MonitorScheduler monitorScheduler;
   private ServiceEmitter emitter;
   private TaskQueueConfig tqc;
@@ -191,9 +192,7 @@ public class TaskLifecycleTest
   private int announcedSinks;
   private static CountDownLatch publishCountDown;
   private TestDerbyConnector testDerbyConnector;
-  private SegmentHandoffNotifierFactory handoffNotifierFactory;
-  private Map<SegmentDescriptor, Pair<Executor, Runnable>> handOffCallbacks;
-
+  private List<ServerView.SegmentCallback> segmentCallbacks = new ArrayList<>();
 
   private static MockIndexerMetadataStorageCoordinator newMockMDC()
   {
@@ -368,41 +367,15 @@ public class TaskLifecycleTest
     } else {
       throw new RuntimeException(String.format("Unknown task storage type [%s]", taskStorageType));
     }
-    handOffCallbacks = Maps.newConcurrentMap();
-    handoffNotifierFactory = new SegmentHandoffNotifierFactory()
+
+    serverView = new FilteredServerView()
     {
       @Override
-      public SegmentHandoffNotifier createSegmentHandoffNotifier(String dataSource)
+      public void registerSegmentCallback(
+          Executor exec, ServerView.SegmentCallback callback, Predicate<DataSegment> filter
+      )
       {
-        return new SegmentHandoffNotifier()
-        {
-
-
-          @Override
-          public void registerSegmentHandoffCallback(
-              SegmentDescriptor descriptor, Executor exec, Runnable handOffRunnable
-          )
-          {
-            handOffCallbacks.put(descriptor, new Pair<>(exec, handOffRunnable));
-          }
-
-          @Override
-          public void start()
-          {
-            //Noop
-          }
-
-          @Override
-          public void stop()
-          {
-            //Noop
-          }
-
-          Map<SegmentDescriptor, Pair<Executor, Runnable>> getHandOffCallbacks()
-          {
-            return handOffCallbacks;
-          }
-        };
+        segmentCallbacks.add(callback);
       }
     };
     setUpAndStartTaskQueue(
@@ -484,6 +457,7 @@ public class TaskLifecycleTest
 
           }
         }, // segment announcer
+        serverView, // new segment server view
         queryRunnerFactoryConglomerate, // query runner factory conglomerate corporation unionized collective
         null, // query executor service
         monitorScheduler, // monitor scheduler
@@ -502,8 +476,7 @@ public class TaskLifecycleTest
         ),
         new DefaultObjectMapper(),
         MapCache.create(0),
-        FireDepartmentTest.NO_CACHE_CONFIG,
-        handoffNotifierFactory
+        FireDepartmentTest.NO_CACHE_CONFIG
     );
     tr = new ThreadPoolTaskRunner(tb, null);
     tq = new TaskQueue(tqc, ts, tr, tac, tl, emitter);
@@ -852,10 +825,16 @@ public class TaskLifecycleTest
     Assert.assertTrue(publishCountDown.await(1000, TimeUnit.MILLISECONDS));
 
     // Realtime Task has published the segment, simulate loading of segment to a historical node so that task finishes with SUCCESS status
-    Assert.assertEquals(1, handOffCallbacks.size());
-    Pair<Executor, Runnable> executorRunnablePair = Iterables.getOnlyElement(handOffCallbacks.values());
-    executorRunnablePair.lhs.execute(executorRunnablePair.rhs);
-    handOffCallbacks.clear();
+    segmentCallbacks.get(0).segmentAdded(
+        new DruidServerMetadata(
+            "dummy",
+            "dummy_host",
+            0,
+            "historical",
+            "dummy_tier",
+            0
+        ), mdc.getPublished().iterator().next()
+    );
 
     // Wait for realtime index task to handle callback in plumber and succeed
     while (tsqa.getStatus(taskId).get().isRunnable()) {

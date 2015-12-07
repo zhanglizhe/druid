@@ -208,19 +208,26 @@ public class IndexTaskTest
 
     indexTask.run(
         new TaskToolbox(
-            null, null, new TaskActionClient()
+            null, null, new TaskActionClientFactory()
         {
           @Override
-          public <RetType> RetType submit(TaskAction<RetType> taskAction) throws IOException
+          public TaskActionClient create(Task task)
           {
-            if (taskAction instanceof LockListAction) {
-              return (RetType) Arrays.asList(
-                  new TaskLock(
-                      "", "", null, new DateTime().toString()
-                  )
-              );
-            }
-            return null;
+            return new TaskActionClient()
+            {
+              @Override
+              public <RetType> RetType submit(TaskAction<RetType> taskAction) throws IOException
+              {
+                if (taskAction instanceof LockListAction) {
+                  return (RetType) Arrays.asList(
+                      new TaskLock(
+                          "", "", null, new DateTime().toString()
+                      )
+                  );
+                }
+                return null;
+              }
+            };
           }
         }, null, new DataSegmentPusher()
         {

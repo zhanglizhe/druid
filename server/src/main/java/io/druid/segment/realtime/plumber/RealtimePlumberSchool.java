@@ -45,7 +45,7 @@ public class RealtimePlumberSchool implements PlumberSchool
   private final DataSegmentPusher dataSegmentPusher;
   private final DataSegmentAnnouncer segmentAnnouncer;
   private final SegmentPublisher segmentPublisher;
-  private final SegmentHandoffNotifier handoffNotifier;
+  private final FilteredServerView serverView;
   private final ExecutorService queryExecutorService;
   private final Cache cache;
   private final CacheConfig cacheConfig;
@@ -58,19 +58,19 @@ public class RealtimePlumberSchool implements PlumberSchool
       @JacksonInject DataSegmentPusher dataSegmentPusher,
       @JacksonInject DataSegmentAnnouncer segmentAnnouncer,
       @JacksonInject SegmentPublisher segmentPublisher,
-      @JacksonInject SegmentHandoffNotifier handoffNotifier,
+      @JacksonInject FilteredServerView serverView,
       @JacksonInject @Processing ExecutorService executorService,
       @JacksonInject Cache cache,
       @JacksonInject CacheConfig cacheConfig,
       @JacksonInject ObjectMapper objectMapper
-  )
+      )
   {
     this.emitter = emitter;
     this.conglomerate = conglomerate;
     this.dataSegmentPusher = dataSegmentPusher;
     this.segmentAnnouncer = segmentAnnouncer;
     this.segmentPublisher = segmentPublisher;
-    this.handoffNotifier = handoffNotifier;
+    this.serverView = serverView;
     this.queryExecutorService = executorService;
 
     this.cache = cache;
@@ -97,7 +97,7 @@ public class RealtimePlumberSchool implements PlumberSchool
         queryExecutorService,
         dataSegmentPusher,
         segmentPublisher,
-        handoffNotifier,
+        serverView,
         cache,
         cacheConfig,
         objectMapper
@@ -110,7 +110,7 @@ public class RealtimePlumberSchool implements PlumberSchool
     Preconditions.checkNotNull(dataSegmentPusher, "must specify a segmentPusher to do this action.");
     Preconditions.checkNotNull(segmentAnnouncer, "must specify a segmentAnnouncer to do this action.");
     Preconditions.checkNotNull(segmentPublisher, "must specify a segmentPublisher to do this action.");
-    Preconditions.checkNotNull(handoffNotifier, "must specify a handoffNotifierFactory to do this action.");
+    Preconditions.checkNotNull(serverView, "must specify a serverView to do this action.");
     Preconditions.checkNotNull(emitter, "must specify a serviceEmitter to do this action.");
   }
 }

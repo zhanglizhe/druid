@@ -40,8 +40,6 @@ import io.druid.segment.loading.DataSegmentMover;
 import io.druid.segment.loading.DataSegmentPusher;
 import io.druid.segment.loading.SegmentLoader;
 import io.druid.segment.loading.SegmentLoadingException;
-import io.druid.segment.realtime.plumber.SegmentHandoffNotifier;
-import io.druid.segment.realtime.plumber.SegmentHandoffNotifierFactory;
 import io.druid.server.coordination.DataSegmentAnnouncer;
 import io.druid.timeline.DataSegment;
 import org.joda.time.Interval;
@@ -60,14 +58,14 @@ public class TaskToolbox
 {
   private final TaskConfig config;
   private final Task task;
-  private final TaskActionClient taskActionClient;
+  private final TaskActionClientFactory taskActionClientFactory;
   private final ServiceEmitter emitter;
   private final DataSegmentPusher segmentPusher;
   private final DataSegmentKiller dataSegmentKiller;
   private final DataSegmentArchiver dataSegmentArchiver;
   private final DataSegmentMover dataSegmentMover;
   private final DataSegmentAnnouncer segmentAnnouncer;
-  private final SegmentHandoffNotifier handoffNotifier;
+  private final FilteredServerView newSegmentServerView;
   private final QueryRunnerFactoryConglomerate queryRunnerFactoryConglomerate;
   private final MonitorScheduler monitorScheduler;
   private final ExecutorService queryExecutorService;
@@ -80,14 +78,14 @@ public class TaskToolbox
   public TaskToolbox(
       TaskConfig config,
       Task task,
-      TaskActionClient taskActionClient,
+      TaskActionClientFactory taskActionClientFactory,
       ServiceEmitter emitter,
       DataSegmentPusher segmentPusher,
       DataSegmentKiller dataSegmentKiller,
       DataSegmentMover dataSegmentMover,
       DataSegmentArchiver dataSegmentArchiver,
       DataSegmentAnnouncer segmentAnnouncer,
-      SegmentHandoffNotifier handoffNotifier,
+      FilteredServerView newSegmentServerView,
       QueryRunnerFactoryConglomerate queryRunnerFactoryConglomerate,
       ExecutorService queryExecutorService,
       MonitorScheduler monitorScheduler,
@@ -100,14 +98,14 @@ public class TaskToolbox
   {
     this.config = config;
     this.task = task;
-    this.taskActionClient = taskActionClient;
+    this.taskActionClientFactory = taskActionClientFactory;
     this.emitter = emitter;
     this.segmentPusher = segmentPusher;
     this.dataSegmentKiller = dataSegmentKiller;
     this.dataSegmentMover = dataSegmentMover;
     this.dataSegmentArchiver = dataSegmentArchiver;
     this.segmentAnnouncer = segmentAnnouncer;
-    this.handoffNotifier = handoffNotifier;
+    this.newSegmentServerView = newSegmentServerView;
     this.queryRunnerFactoryConglomerate = queryRunnerFactoryConglomerate;
     this.queryExecutorService = queryExecutorService;
     this.monitorScheduler = monitorScheduler;
@@ -125,7 +123,7 @@ public class TaskToolbox
 
   public TaskActionClient getTaskActionClient()
   {
-    return taskActionClient;
+    return taskActionClientFactory.create(task);
   }
 
   public ServiceEmitter getEmitter()
@@ -158,9 +156,9 @@ public class TaskToolbox
     return segmentAnnouncer;
   }
 
-  public SegmentHandoffNotifier getHandoffNotifier()
+  public FilteredServerView getNewSegmentServerView()
   {
-    return handoffNotifier;
+    return newSegmentServerView;
   }
 
   public QueryRunnerFactoryConglomerate getQueryRunnerFactoryConglomerate()

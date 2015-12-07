@@ -21,7 +21,6 @@ package io.druid.server.http;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.druid.client.CoordinatorServerView;
 import io.druid.client.DruidDataSource;
 import io.druid.client.DruidServer;
 import io.druid.client.InventoryView;
@@ -43,7 +42,7 @@ import java.util.TreeSet;
 
 public class DatasourcesResourceTest
 {
-  private CoordinatorServerView inventoryView;
+  private InventoryView inventoryView;
   private DruidServer server;
   private List<DruidDataSource> listDataSources;
   private List<DataSegment> dataSegmentList;
@@ -51,7 +50,7 @@ public class DatasourcesResourceTest
   @Before
   public void setUp()
   {
-    inventoryView = EasyMock.createStrictMock(CoordinatorServerView.class);
+    inventoryView = EasyMock.createStrictMock(InventoryView.class);
     server = EasyMock.createStrictMock(DruidServer.class);
     dataSegmentList = new ArrayList<>();
     dataSegmentList.add(

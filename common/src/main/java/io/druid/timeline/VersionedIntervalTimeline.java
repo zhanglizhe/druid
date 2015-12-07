@@ -417,7 +417,7 @@ public class VersionedIntervalTimeline<VersionType, ObjectType> implements Timel
     }
   }
 
-  public List<TimelineObjectHolder<VersionType, ObjectType>> lookup(Interval interval, boolean incompleteOk)
+  private List<TimelineObjectHolder<VersionType, ObjectType>> lookup(Interval interval, boolean incompleteOk)
   {
     List<TimelineObjectHolder<VersionType, ObjectType>> retVal = new ArrayList<TimelineObjectHolder<VersionType, ObjectType>>();
     NavigableMap<Interval, TimelineEntry> timeline = (incompleteOk)
