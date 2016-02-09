@@ -224,6 +224,15 @@ Returns total size and count for each interval within given isointerval.
 
 Returns total size and count for each datasource for each interval within given isointerval.
 
+#### Namespaced Lookups
+
+* `/druid/coordinator/v1/lookups`
+
+Returns all namespaces known to the cluster
+
+* `/druid/coordinator/v1/lookups/{namespace}`
+
+Returns information on the specific namespace
 
 ### POST
 
@@ -250,6 +259,13 @@ Optional Header Parameters for auditing the config change can also be specified.
 |`X-Druid-Author`| author making the config change|""|
 |`X-Druid-Comment`| comment describing the change being done|""|
 
+
+#### Namespaces
+
+* `/druid/coordinator/v1/lookups`
+
+Post a new or updated namespace lookup spec. 
+
 ### DELETE
 
 #### Datasources
@@ -265,6 +281,12 @@ Runs a [Kill task](../ingestion/tasks.html) for a given interval and datasource.
 * `/druid/coordinator/v1/datasources/{dataSourceName}/segments/{segmentId}`
 
 Disables a segment.
+
+#### Namespaces
+
+* `/druid/coordinator/v1/lookups/{lookup}`
+
+Deletes the specified lookup from the cluster
 
 The Coordinator Console
 ------------------

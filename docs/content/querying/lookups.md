@@ -290,3 +290,27 @@ To test this setup, you can send key/value pairs to a kafka stream via the follo
 `./bin/kafka-console-producer.sh --property parse.key=true --property key.separator="->" --broker-list localhost:9092 --topic testTopic`
 
 Renames can then be published as `OLD_VAL->NEW_VAL` followed by newline (enter or return)
+
+# Config examples
+
+## Per node config
+The simplest way to configure a namespace is to specify the lookup in the configuration `runtime.properties` for every node which services queries. This includes Brokers, Historicals, and Peons.
+`druid.query.extraction.namespace.lookups=[{"type":"uri","namespace":"iso_country2un_country","uri":"s3://some_bucket/some_prefix/","versionRegex":"\\\\Qcountry_code_data.csv\\\\E","namespaceParseSpec":{"format":"tsv","columns":["country_name","iso_country_code","un_country_code","un_category_name","un_category_code"],"keyColumn":"iso_country_code","valueColumn":"un_country_code"},"updateMs":600000}]`
+For these nodes, the following extensions should also be included in `druid.extensions.coordinates` : `"io.druid.extensions:druid-namespace-lookup","io.druid.extensions:druid-listening-announcer"`
+
+A success in loading the namespace will look something like the following in the log:
+`2015-08-21T23:34:34,358 INFO [NamespaceExtractionCacheManager-0] io.druid.server.namespace.URIExtractionNamespaceFunctionFactory - Finished loading 224 lines for namespace [iso_country2un_country]`
+
+Once a log entry like the one above has appeared in the log, the lookup can be used in any [lookup extraction function](dimensionspecs.html)
+
+## Cluster Wide Config
+If configuration on a per-node basis is impractical or undesired, it is possible to specify cluster-wide configuration through the coordinator. This requires a bit more finagling of extensions.
+ 
+To enable cluster-wide configuration, add all of the following extensions to your coordinator: `"io.druid.extensions:druid-listening-announcer","io.druid.extensions:druid-namespace-lookup-management"`
+|Node Type|Extensions|
+|---------|----------|
+|Coordinator|`"io.druid.extensions:druid-listening-announcer","io.druid.extensions:druid-namespace-lookup-management"`|
+|Historical, Broker, Peon|`"io.druid.extensions:druid-listening-announcer","io.druid.extensions:druid-namespace-lookup"`|
+
+## Cluster-wide and Per-node config
+Both cluster-wide config AND per-node config can be used at the same time for the same namespace. In such scenarios the per-node config may be present on the node for a short time at startup until the cluster-wide config is propagated to the node. In general it is recommended to only do one or the other per namespace though.
