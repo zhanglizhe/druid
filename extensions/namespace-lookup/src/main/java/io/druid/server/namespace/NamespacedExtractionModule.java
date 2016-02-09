@@ -19,10 +19,13 @@
 
 package io.druid.server.namespace;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
@@ -40,20 +43,32 @@ import io.druid.guice.LazySingleton;
 import io.druid.guice.LifecycleModule;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.PolyBind;
+import io.druid.guice.annotations.Json;
+import io.druid.guice.annotations.Self;
+import io.druid.guice.annotations.Smile;
 import io.druid.initialization.DruidModule;
 import io.druid.query.extraction.NamespacedExtractor;
 import io.druid.query.extraction.namespace.ExtractionNamespace;
 import io.druid.query.extraction.namespace.ExtractionNamespaceFunctionFactory;
 import io.druid.query.extraction.namespace.JDBCExtractionNamespace;
 import io.druid.query.extraction.namespace.URIExtractionNamespace;
+import io.druid.server.DruidNode;
 import io.druid.server.initialization.NamespaceLookupStaticConfig;
+import io.druid.server.listener.announcer.ListenerResourceAnnouncer;
+import io.druid.server.listener.announcer.ListeningAnnouncerConfig;
+import io.druid.server.listener.resource.AbstractListenerHandler;
+import io.druid.server.listener.resource.ListenerResource;
 import io.druid.server.namespace.cache.NamespaceExtractionCacheManager;
 import io.druid.server.namespace.cache.OffHeapNamespaceExtractionCacheManager;
 import io.druid.server.namespace.cache.OnHeapNamespaceExtractionCacheManager;
 import io.druid.server.namespace.http.NamespacesCacheResource;
+import org.apache.curator.framework.CuratorFramework;
 
 import javax.annotation.Nullable;
+import javax.ws.rs.Path;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -65,8 +80,9 @@ public class NamespacedExtractionModule implements DruidModule
   private static final Logger log = new Logger(NamespacedExtractionModule.class);
   private static final String TYPE_PREFIX = "druid.query.extraction.namespace.cache.type";
   private static final String STATIC_CONFIG_PREFIX = "druid.query.extraction.namespace";
+  static final String LISTENER_KEY = "namespace";
   private final ConcurrentMap<String, Function<String, String>> fnCache = new ConcurrentHashMap<>();
-  private final ConcurrentMap<String, Function<String, List<String>>> reverseFnCache= new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, Function<String, List<String>>> reverseFnCache = new ConcurrentHashMap<>();
 
   @Override
   public List<? extends Module> getJacksonModules()
@@ -159,6 +175,7 @@ public class NamespacedExtractionModule implements DruidModule
 
     LifecycleModule.register(binder, NamespaceStaticConfiguration.class);
     Jerseys.addResource(binder, NamespacesCacheResource.class);
+    addAnnouncementBindings(binder);
   }
 
 
@@ -228,5 +245,73 @@ public class NamespacedExtractionModule implements DruidModule
         return fn;
       }
     };
+  }
+
+
+  private static void addAnnouncementBindings(Binder binder)
+  {
+    Jerseys.addResource(binder, NamespaceResource.class);
+    binder.bind(NamespaceResourceListenerAnnouncer.class).in(ManageLifecycle.class);
+    LifecycleModule.register(binder, NamespaceResourceListenerAnnouncer.class);
+  }
+}
+
+@Path(ListenerResource.BASE_PATH + "/" + NamespacedExtractionModule.LISTENER_KEY)
+class NamespaceResource extends ListenerResource
+{
+  @Inject
+  public NamespaceResource(
+      final @Json ObjectMapper jsonMapper,
+      final @Smile ObjectMapper smileMapper,
+      final NamespaceExtractionCacheManager manager
+  )
+  {
+    super(
+        jsonMapper,
+        smileMapper,
+        new AbstractListenerHandler<ExtractionNamespace>(new TypeReference<ExtractionNamespace>()
+        {
+        })
+        {
+          @Override
+          public Map<String, Object> post(final List<ExtractionNamespace> inputObject) throws Exception
+          {
+            manager.scheduleOrUpdate(inputObject);
+            return ImmutableMap.<String, Object>of("status", "accepted", "count", inputObject.size());
+          }
+
+          @Override
+          public Object get(String id)
+          {
+            return manager.getKnownNamespaces().contains(id) ? "" : null;
+          }
+
+          @Override
+          public Collection<ExtractionNamespace> getAll()
+          {
+
+            return null;
+          }
+
+          @Override
+          public Object delete(String id)
+          {
+            return manager.delete(id) ? "" : null;
+          }
+        }
+    );
+  }
+}
+
+class NamespaceResourceListenerAnnouncer extends ListenerResourceAnnouncer
+{
+  @Inject
+  public NamespaceResourceListenerAnnouncer(
+      CuratorFramework cf,
+      ListeningAnnouncerConfig listeningAnnouncerConfig,
+      @Self DruidNode node
+  )
+  {
+    super(cf, listeningAnnouncerConfig, NamespacedExtractionModule.LISTENER_KEY, node);
   }
 }
