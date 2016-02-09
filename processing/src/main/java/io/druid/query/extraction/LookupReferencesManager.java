@@ -91,7 +91,13 @@ public class LookupReferencesManager
       if (!lookupExtractorFactory.start()) {
         throw new ISE("start method returned false for lookup [%s]", lookupName);
       }
-      return (null == lookupMap.putIfAbsent(lookupName, lookupExtractorFactory));
+      final boolean noPrior = null == lookupMap.putIfAbsent(lookupName, lookupExtractorFactory);
+      if (!noPrior) {
+        if (!lookupExtractorFactory.close()) {
+          throw new ISE("Error closing [%s] on race condition", lookupName);
+        }
+      }
+      return noPrior;
     }
   }
 
@@ -125,6 +131,40 @@ public class LookupReferencesManager
         );
       }
     }
+  }
+
+  /**
+   * Add or update a lookup factory
+   *
+   * @param lookupName             The name of the lookup
+   * @param lookupExtractorFactory The factory of the lookup
+   *
+   * @return True if the lookup was updated, false otherwise
+   *
+   * @throws IllegalStateException if start of the factory fails
+   */
+  public boolean updateIfNew(String lookupName, final LookupExtractorFactory lookupExtractorFactory)
+  {
+    boolean updated = false;
+    synchronized (lock) {
+      assertStarted();
+      final LookupExtractorFactory prior = lookupMap.get(lookupName);
+
+      if (!lookupExtractorFactory.equals(prior)) {
+        if (!lookupExtractorFactory.start()) {
+          throw new ISE("Could not start [%s]", lookupName);
+        }
+        lookupMap.put(lookupName, lookupExtractorFactory);
+        updated = true;
+      }
+
+      if (prior != null) {
+        if (!prior.close()) {
+          LOGGER.warn("Error closing [%s]:[%s]", lookupName, lookupExtractorFactory);
+        }
+      }
+    }
+    return updated;
   }
 
   /**

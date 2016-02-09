@@ -19,14 +19,19 @@
 
 package io.druid.query.extraction;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.base.Supplier;
 
 /**
  * Users of Lookup Extraction need to implement a {@link LookupExtractorFactory} supplier of type {@link LookupExtractor}.
  * Such factory will manage the state and life cycle of an given lookup.
+ * If a LookupExtractorFactory wishes to support idempotent updates, it needs to implement the  `equals` method
  */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+@JsonSubTypes(value = {
+    @JsonSubTypes.Type(name = "map", value = MapLookupExtractorFactory.class)
+})
 public interface LookupExtractorFactory extends Supplier<LookupExtractor>
 {
   /**

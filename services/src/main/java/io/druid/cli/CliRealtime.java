@@ -26,6 +26,7 @@ import com.google.inject.name.Names;
 import com.metamx.common.logger.Logger;
 import io.airlift.airline.Command;
 import io.druid.guice.RealtimeModule;
+import io.druid.query.extraction.LookupExtractionModule;
 import io.druid.server.initialization.jetty.ChatHandlerServerModule;
 
 import java.util.List;
@@ -48,7 +49,7 @@ public class CliRealtime extends ServerRunnable
   @Override
   protected List<? extends Module> getModules()
   {
-    return ImmutableList.<Module>of(
+    return ImmutableList.of(
         new RealtimeModule(),
         new Module() {
           @Override
@@ -58,7 +59,8 @@ public class CliRealtime extends ServerRunnable
             binder.bindConstant().annotatedWith(Names.named("servicePort")).to(8084);
           }
         },
-        new ChatHandlerServerModule()
+        new ChatHandlerServerModule(),
+        new LookupExtractionModule()
     );
   }
 }

@@ -36,7 +36,7 @@ import io.druid.guice.LifecycleModule;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.annotations.Self;
 import io.druid.guice.http.JettyHttpClientModule;
-import io.druid.query.extraction.LookupReferencesManager;
+import io.druid.query.extraction.LookupExtractionModule;
 import io.druid.server.initialization.jetty.JettyServerInitializer;
 import io.druid.server.router.CoordinatorRuleManager;
 import io.druid.server.router.QueryHostFinder;
@@ -67,7 +67,7 @@ public class CliRouter extends ServerRunnable
   @Override
   protected List<? extends Module> getModules()
   {
-    return ImmutableList.<Module>of(
+    return ImmutableList.of(
         new JettyHttpClientModule("druid.router.http", Router.class),
         new Module()
         {
@@ -92,7 +92,6 @@ public class CliRouter extends ServerRunnable
 
             LifecycleModule.register(binder, Server.class);
             DiscoveryModule.register(binder, Self.class);
-            LifecycleModule.register(binder, LookupReferencesManager.class);
           }
 
           @Provides
@@ -105,7 +104,8 @@ public class CliRouter extends ServerRunnable
           {
             return factory.createSelector(config.getCoordinatorServiceName());
           }
-        }
+        },
+        new LookupExtractionModule()
     );
   }
 }
