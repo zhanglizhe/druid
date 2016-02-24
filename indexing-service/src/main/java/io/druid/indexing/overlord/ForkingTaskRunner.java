@@ -248,6 +248,7 @@ public class ForkingTaskRunner implements TaskRunner, TaskLogStreamer
                               command.add(taskClasspath);
 
                               Iterables.addAll(command, new QuotableWhiteSpaceSplitter(config.getJavaOpts(), jsonMapper));
+                              Iterables.addAll(command, config.getJavaOptsArray());
 
                               // Override task specific javaOpts
                               Object taskJavaOpts = task.getContextValue(
