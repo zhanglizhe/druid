@@ -114,7 +114,6 @@ public class PullDependencies implements Runnable
       "commons-cli",
       "commons-io",
       "javax.activation",
-      "org.apache.httpcomponents",
       "org.apache.zookeeper",
       "org.codehaus.jackson",
       "com.fasterxml.jackson",
