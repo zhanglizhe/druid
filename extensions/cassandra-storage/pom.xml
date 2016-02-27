@@ -34,6 +34,7 @@
         <dependency>
             <groupId>io.druid</groupId>
             <artifactId>druid-api</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.netflix.astyanax</groupId>
