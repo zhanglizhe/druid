@@ -25,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
@@ -36,9 +35,7 @@ import com.metamx.common.logger.Logger;
 import io.druid.curator.announcement.Announcer;
 import io.druid.guice.Jerseys;
 import io.druid.guice.JsonConfigProvider;
-import io.druid.guice.LazySingleton;
 import io.druid.guice.LifecycleModule;
-import io.druid.guice.ManageLifecycle;
 import io.druid.guice.annotations.Json;
 import io.druid.guice.annotations.Self;
 import io.druid.guice.annotations.Smile;
@@ -56,7 +53,6 @@ import javax.ws.rs.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Include when a service can listen to lookups
@@ -73,20 +69,17 @@ public class LookupExtractionModule implements DruidModule
   @Override
   public List<? extends Module> getJacksonModules()
   {
-    return ImmutableList.of(new SimpleModule("LookupExtracitonModule-" + UUID.randomUUID().toString()));
+    return ImmutableList.of();
   }
 
   @Override
   public void configure(Binder binder)
   {
     JsonConfigProvider.bind(binder, PROPERTY_BASE, LookupListeningAnnouncerConfig.class);
-    binder.bind(LookupReferencesManager.class).in(ManageLifecycle.class);
-    binder.bind(LookupListeningResource.class).in(LazySingleton.class);
-    binder.bind(LookupResourceListenerAnnouncer.class).in(ManageLifecycle.class);
-    LifecycleModule.register(binder, LookupReferencesManager.class);
-    LifecycleModule.register(binder, LookupListeningResource.class);
-    LifecycleModule.register(binder, LookupResourceListenerAnnouncer.class);
+    binder.bind(LookupListeningResource.class);
     Jerseys.addResource(binder, LookupListeningResource.class);
+    LifecycleModule.register(binder, LookupReferencesManager.class);
+    LifecycleModule.register(binder, LookupResourceListenerAnnouncer.class);
   }
 }
 

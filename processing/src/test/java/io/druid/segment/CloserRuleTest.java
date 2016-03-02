@@ -23,12 +23,10 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Runnables;
-import org.hamcrest.BaseMatcher;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
@@ -44,8 +42,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class CloserRuleTest
 {
   @Rule
-  public final ExpectedException expectedException = ExpectedException.none();
-
+  public final CloserRule closer = new CloserRule(true);
   @Test
   public void testCloses() throws Throwable
   {
@@ -71,10 +68,10 @@ public class CloserRuleTest
     final CloserRule closer = new CloserRule(false);
     final AtomicBoolean closed = new AtomicBoolean(false);
     closer.closeLater(
-        new Closeable()
+        new AutoCloseable()
         {
           @Override
-          public void close() throws IOException
+          public void close() throws Exception
           {
             closed.set(true);
           }
@@ -125,19 +122,18 @@ public class CloserRuleTest
 
 
   @Test
-  public void testSuppressed() throws Throwable
+  public void testAddsSuppressed() throws Throwable
   {
-    final CloserRule closer = new CloserRule(true);
+    final CloserRule closer = new CloserRule(false);
     final AtomicBoolean closed = new AtomicBoolean(false);
     final String ioExceptionMsg = "You can't triple stamp a double stamp!";
-    final IOException suppressed = new IOException(ioExceptionMsg);
     closer.closeLater(
         new Closeable()
         {
           @Override
           public void close() throws IOException
           {
-            throw suppressed;
+            throw new IOException(ioExceptionMsg);
           }
         }
     );
@@ -153,8 +149,6 @@ public class CloserRuleTest
     );
 
     final String msg = "You can't divide by zero, you can only take the limit of such!";
-    final ArithmeticException arithmeticException = new ArithmeticException(msg);
-
     Throwable ex = null;
     try {
       run(
@@ -163,7 +157,7 @@ public class CloserRuleTest
             @Override
             public void run()
             {
-              throw arithmeticException;
+              throw new ArithmeticException(msg);
             }
           }
       );
@@ -171,10 +165,28 @@ public class CloserRuleTest
     catch (Throwable e) {
       ex = e;
     }
-    Assert.assertEquals(arithmeticException, ex);
+    Assert.assertTrue(closed.get());
     Assert.assertNotNull(ex);
-    Assert.assertNotNull(ex.getSuppressed());
-    Assert.assertEquals(suppressed, ex.getSuppressed()[0]);
+    Assert.assertTrue(ex instanceof ArithmeticException);
+    Assert.assertEquals(msg, ex.getMessage());
+    Assert.assertEquals(
+        ImmutableList.of(ioExceptionMsg),
+        Lists.transform(
+            Arrays.asList(ex.getSuppressed()),
+            new Function<Throwable, String>()
+            {
+              @Nullable
+              @Override
+              public String apply(@Nullable Throwable input)
+              {
+                if (input == null) {
+                  return null;
+                }
+                return input.getSuppressed()[0].getMessage();
+              }
+            }
+        )
+    );
   }
 
   @Test
@@ -182,14 +194,13 @@ public class CloserRuleTest
   {
     final CloserRule closer = new CloserRule(true);
     final String ioExceptionMsg = "You can't triple stamp a double stamp!";
-    final IOException ioException = new IOException(ioExceptionMsg);
     closer.closeLater(
         new Closeable()
         {
           @Override
           public void close() throws IOException
           {
-            throw ioException;
+            throw new IOException(ioExceptionMsg);
           }
         }
     );
@@ -200,7 +211,11 @@ public class CloserRuleTest
     catch (Throwable throwable) {
       ex = throwable;
     }
-    Assert.assertEquals(ioException, ex);
+    Assert.assertNotNull(ex);
+    ex = ex.getSuppressed()[0];
+    Assert.assertNotNull(ex);
+    Assert.assertTrue(ex instanceof IOException);
+    Assert.assertEquals(ioExceptionMsg, ex.getMessage());
   }
 
 
@@ -248,10 +263,10 @@ public class CloserRuleTest
         }
     );
     closer.closeLater(
-        new Closeable()
+        new AutoCloseable()
         {
           @Override
-          public void close() throws IOException
+          public void close() throws Exception
           {
             throw new IOException(ioExceptionMsg);
           }
@@ -274,7 +289,7 @@ public class CloserRuleTest
         new IOException(ioExceptionMsg),
         null
     );
-    for (final IOException throwable : ioExceptions) {
+    for(final IOException throwable : ioExceptions){
       closer.closeLater(
           new Closeable()
           {
@@ -282,7 +297,22 @@ public class CloserRuleTest
             public void close() throws IOException
             {
               counter.incrementAndGet();
-              if (throwable != null) {
+              if(throwable != null){
+                throw throwable;
+              }
+            }
+          }
+      );
+    }
+    for(final IOException throwable : ioExceptions){
+      closer.closeLater(
+          new AutoCloseable()
+          {
+            @Override
+            public void close() throws Exception
+            {
+              counter.incrementAndGet();
+              if(throwable != null){
                 throw throwable;
               }
             }
@@ -292,13 +322,28 @@ public class CloserRuleTest
     Throwable ex = null;
     try {
       run(closer, Runnables.doNothing());
-    }
-    catch (Throwable throwable) {
+    }catch (Throwable throwable) {
       ex = throwable;
     }
     Assert.assertNotNull(ex);
-    Assert.assertEquals(ioExceptions.size(), counter.get());
-    Assert.assertEquals(2, ex.getSuppressed().length);
+    Assert.assertEquals(ioExceptions.size() * 2, counter.get());
+    Assert.assertEquals(ioExceptions.size(), ex.getSuppressed().length);
+  }
+
+  @Ignore // This one doesn't quite work right, it will throw the IOException, but JUnit doesn't detect it properly and treats it as suppressed instead
+  @Test(expected = IOException.class)
+  public void testCloserException()
+  {
+    closer.closeLater(
+        new Closeable()
+        {
+          @Override
+          public void close() throws IOException
+          {
+            throw new IOException("This is a test");
+          }
+        }
+    );
   }
 
   private void run(CloserRule closer, final Runnable runnable) throws Throwable

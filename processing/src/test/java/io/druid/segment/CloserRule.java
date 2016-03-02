@@ -19,14 +19,15 @@
 
 package io.druid.segment;
 
-import com.google.common.io.Closer;
+import com.google.common.collect.Lists;
 import com.metamx.common.logger.Logger;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
-import java.io.Closeable;
 import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
 
 public class CloserRule implements TestRule
 {
@@ -37,8 +38,8 @@ public class CloserRule implements TestRule
     this.throwException = throwException;
   }
 
-  private static final Logger LOG = new Logger(CloserRule.class);
-  private final Closer closer = Closer.create();
+  private static final Logger log = new Logger(CloserRule.class);
+  private final List<AutoCloseable> autoCloseables = new LinkedList<>();
 
   @Override
   public Statement apply(
@@ -50,38 +51,53 @@ public class CloserRule implements TestRule
       @Override
       public void evaluate() throws Throwable
       {
+        Throwable baseThrown = null;
         try {
           base.evaluate();
         }
         catch (Throwable e) {
-          throw closer.rethrow(e);
+          baseThrown = e;
         }
         finally {
-          closer.close();
+          Throwable exception = null;
+          for (AutoCloseable autoCloseable : Lists.reverse(autoCloseables)) {
+            try {
+              autoCloseable.close();
+            }
+            catch (Exception e) {
+              exception = suppressOrSet(exception, e);
+            }
+          }
+          autoCloseables.clear();
+          if (exception != null) {
+            if (throwException && baseThrown == null) {
+              throw exception;
+            } else if (baseThrown != null) {
+              baseThrown.addSuppressed(exception);
+            } else {
+              log.error(exception, "Exception closing resources");
+            }
+          }
+          if (baseThrown != null) {
+            throw baseThrown;
+          }
         }
       }
     };
   }
 
-  public <T extends Closeable> T closeLater(final T closeable)
+  private static Throwable suppressOrSet(Throwable prior, Throwable other)
   {
-    closer.register(new Closeable()
-    {
-      @Override
-      public void close() throws IOException
-      {
-        if (throwException) {
-          closeable.close();
-        } else {
-          try {
-            closeable.close();
-          }
-          catch (IOException e) {
-            LOG.warn(e, "Error closing [%s]", closeable);
-          }
-        }
-      }
-    });
-    return closeable;
+    if (prior == null) {
+      prior = new IOException("Error closing resources");
+    }
+    prior.addSuppressed(other);
+    return prior;
+  }
+
+  public <T extends AutoCloseable> T closeLater(T autoCloseable)
+  {
+    autoCloseables.add(autoCloseable);
+    return autoCloseable;
   }
 }
