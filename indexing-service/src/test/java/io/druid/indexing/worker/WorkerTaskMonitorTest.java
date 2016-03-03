@@ -113,8 +113,7 @@ public class WorkerTaskMonitorTest
         "worker",
         "localhost",
         3,
-        "0",
-        DateTime.now()
+        "0"
     );
 
     workerCuratorCoordinator = new WorkerCuratorCoordinator(

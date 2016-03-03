@@ -32,6 +32,7 @@ import io.druid.indexing.common.TaskStatus;
 import io.druid.indexing.common.TestMergeTask;
 import io.druid.indexing.common.task.NoopTask;
 import io.druid.indexing.common.task.Task;
+import io.druid.indexing.overlord.ImmutableWorkerInfo;
 import io.druid.indexing.overlord.RemoteTaskRunner;
 import io.druid.indexing.overlord.RemoteTaskRunnerWorkItem;
 import io.druid.indexing.overlord.ZkWorker;
@@ -143,7 +144,7 @@ public class SimpleResourceManagementStrategyTest
     );
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     );
     EasyMock.replay(runner);
@@ -179,7 +180,7 @@ public class SimpleResourceManagementStrategyTest
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     ).times(2);
     EasyMock.replay(runner);
@@ -236,7 +237,7 @@ public class SimpleResourceManagementStrategyTest
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     ).times(2);
     EasyMock.replay(runner);
@@ -287,14 +288,15 @@ public class SimpleResourceManagementStrategyTest
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     ).times(2);
-    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<Worker>>anyObject(), EasyMock.anyInt())).andReturn(
-        Collections.<Worker>singletonList(
-            new TestZkWorker(testTask).getWorker()
-        )
-    );
+    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<ImmutableWorkerInfo>>anyObject(), EasyMock.anyInt()))
+            .andReturn(
+                Collections.<Worker>singletonList(
+                    new TestZkWorker(testTask).getWorker()
+                )
+            );
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList());
     EasyMock.replay(runner);
 
@@ -329,15 +331,16 @@ public class SimpleResourceManagementStrategyTest
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     ).times(2);
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList()).times(2);
-    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<Worker>>anyObject(), EasyMock.anyInt())).andReturn(
-        Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
-        )
-    );
+    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<ImmutableWorkerInfo>>anyObject(), EasyMock.anyInt()))
+            .andReturn(
+                Collections.singletonList(
+                    new TestZkWorker(testTask).getWorker()
+                )
+            );
     EasyMock.replay(runner);
 
     boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(runner);
@@ -378,14 +381,15 @@ public class SimpleResourceManagementStrategyTest
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Arrays.asList(
-            new TestZkWorker(NoopTask.create()).getWorker(),
-            new TestZkWorker(NoopTask.create()).getWorker()
+            new TestZkWorker(NoopTask.create()).toImmutable(),
+            new TestZkWorker(NoopTask.create()).toImmutable()
         )
     ).times(2);
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList());
-    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<Worker>>anyObject(), EasyMock.anyInt())).andReturn(
-        Collections.<Worker>emptyList()
-    );
+    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<ImmutableWorkerInfo>>anyObject(), EasyMock.anyInt()))
+            .andReturn(
+                Collections.<Worker>emptyList()
+            );
     EasyMock.replay(runner);
 
     boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(runner);
@@ -422,14 +426,15 @@ public class SimpleResourceManagementStrategyTest
         Collections.<RemoteTaskRunnerWorkItem>emptyList()
     ).times(3);
     EasyMock.expect(runner.getWorkers()).andReturn(
-        Collections.<Worker>singletonList(
-            new TestZkWorker(NoopTask.create(), "h1", "i1", "0").getWorker()
+        Collections.singletonList(
+            new TestZkWorker(NoopTask.create(), "h1", "i1", "0").toImmutable()
         )
     ).times(3);
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList());
-    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<Worker>>anyObject(), EasyMock.anyInt())).andReturn(
-        Collections.<Worker>emptyList()
-    );
+    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<ImmutableWorkerInfo>>anyObject(), EasyMock.anyInt()))
+            .andReturn(
+                Collections.<Worker>emptyList()
+            );
     EasyMock.replay(runner);
 
     boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(
@@ -486,8 +491,8 @@ public class SimpleResourceManagementStrategyTest
         )
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
-        Collections.<Worker>singletonList(
-            new TestZkWorker(null).getWorker()
+        Collections.singletonList(
+            new TestZkWorker(null).toImmutable()
         )
     ).times(1);
     EasyMock.replay(runner);
@@ -525,7 +530,7 @@ public class SimpleResourceManagementStrategyTest
         String version
     )
     {
-      super(new Worker(host, ip, 3, version, DateTime.now()), null, new DefaultObjectMapper());
+      super(new Worker(host, ip, 3, version), null, new DefaultObjectMapper());
 
       this.testTask = testTask;
     }

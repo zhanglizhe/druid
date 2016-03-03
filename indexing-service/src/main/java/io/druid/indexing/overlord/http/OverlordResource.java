@@ -45,6 +45,7 @@ import io.druid.indexing.overlord.TaskQueue;
 import io.druid.indexing.overlord.TaskRunner;
 import io.druid.indexing.overlord.TaskRunnerWorkItem;
 import io.druid.indexing.overlord.TaskStorageQueryAdapter;
+import io.druid.indexing.overlord.WorkerTaskRunner;
 import io.druid.indexing.overlord.autoscaling.ScalingStats;
 import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.metadata.EntryExistsException;
@@ -410,8 +411,9 @@ public class OverlordResource
           @Override
           public Response apply(TaskRunner taskRunner)
           {
-            if (taskRunner instanceof RemoteTaskRunner) {
-              return Response.ok(((RemoteTaskRunner) taskRunner).getWorkers()).build();
+
+            if (taskRunner instanceof WorkerTaskRunner) {
+              return Response.ok(((WorkerTaskRunner) taskRunner).getWorkers()).build();
             } else {
               log.debug(
                   "Task runner [%s] of type [%s] does not support listing workers",
