@@ -39,6 +39,19 @@
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk</artifactId>
         </dependency>
+        <!--
+        There's a bug in
+        https://github.com/apache/httpclient/blob/4.5.2/httpclient/src/main/java-deprecated/org/apache/http/impl/client/AbstractHttpClient.java#L332
+        Where httpclient does not care what your context classloader is when looking for
+        A few extensions depend on jets3t, so we include it explicitly here to make sure it can load up its
+        org.jets3t.service.utils.RestUtils$ConnManagerFactory
+        properly
+        -->
+        <dependency>
+            <groupId>net.java.dev.jets3t</groupId>
+            <artifactId>jets3t</artifactId>
+            <version>0.9.4</version>
+        </dependency>
 
         <!-- Tests -->
         <dependency>
