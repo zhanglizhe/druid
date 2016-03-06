@@ -57,7 +57,7 @@ import java.util.Map;
 @Path("/druid/coordinator/v1/lookups")
 public class LookupCoordinatorResource
 {
-  private static final Logger log = new Logger(LookupCoordinatorResource.class);
+  private static final Logger LOG = new Logger(LookupCoordinatorResource.class);
   private final LookupCoordinatorManager lookupCoordinatorManager;
   private final @Smile ObjectMapper smileMapper;
   private final @Json ObjectMapper jsonMapper;
@@ -87,7 +87,7 @@ public class LookupCoordinatorResource
       }
     }
     catch (Exception e) {
-      log.error(e, "Error getting list of lookups");
+      LOG.error(e, "Error getting list of lookups");
       return Response.serverError().entity(ServletResourceUtils.sanitizeException(e)).build();
     }
   }
@@ -117,7 +117,7 @@ public class LookupCoordinatorResource
       return Response.status(Response.Status.ACCEPTED).entity(map).build();
     }
     catch (Exception e) {
-      log.error(e, "Error creating new lookups");
+      LOG.error(e, "Error creating new lookups");
       return Response.serverError().entity(ServletResourceUtils.sanitizeException(e)).build();
     }
   }
@@ -153,7 +153,7 @@ public class LookupCoordinatorResource
       }
     }
     catch (Exception e) {
-      log.error(e, "Error deleting namespace [%s]", lookup);
+      LOG.error(e, "Error deleting namespace [%s]", lookup);
       return Response.serverError().entity(ServletResourceUtils.sanitizeException(e)).build();
     }
   }
@@ -186,7 +186,7 @@ public class LookupCoordinatorResource
       return Response.ok().entity(map).build();
     }
     catch (Exception e) {
-      log.error(e, "Error getting lookup [%s]", lookup);
+      LOG.error(e, "Error getting lookup [%s]", lookup);
       return Response.serverError().entity(ServletResourceUtils.sanitizeException(e)).build();
     }
   }
@@ -219,7 +219,7 @@ public class LookupCoordinatorResource
       return Response.ok().entity(tierLookups.keySet()).build();
     }
     catch (Exception e) {
-      log.error(e, "Error getting tier [%s]", tier);
+      LOG.error(e, "Error getting tier [%s]", tier);
       return Response.serverError().entity(ServletResourceUtils.sanitizeException(e)).build();
     }
   }

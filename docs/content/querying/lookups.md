@@ -296,3 +296,147 @@ To test this setup, you can send key/value pairs to a kafka stream via the follo
 ```
 
 Renames can then be published as `OLD_VAL->NEW_VAL` followed by newline (enter or return)
+
+Dynamic configuration
+---------------------
+
+The following documents the behavior of the cluster-wide config which is accessible through the coordinator.
+The configuration is propogated through the concept of "tier" of servers.
+A "tier" is defined as a group of services which should receive a set of lookups.
+For example, you might have all historicals be part of `__default`, and Peons be part of individual tiers for the datasources they are tasked with.
+
+These configs are accessed using JSON through the following URI template
+
+```
+http://<COORDINATOR_IP>:<PORT>/druid/coordinator/v1/lookups/{tier}/{id}
+```
+
+All URIs below are assumed to have `http://<COORDINATOR_IP>:<PORT>` prepended.
+
+If you have NEVER configured lookups before, you MUST post an empty json object `{}` to `/druid/coordinator/v1/lookups` to initialize the configuration.
+
+These endpoints will return one of the following results:
+
+* 404 if the resource is not found
+* 400 if there is a problem in the formatting of the request
+* 202 if the request was accepted asynchronously (`POST` and `DELETE`)
+* 200 if the request succeeded (`GET` only)
+
+# Configuration propagation behavior
+The configuration is propagated to the historical nodes by the coordinator. 
+
+# Bulk update
+Lookups can be updated in bulk by posting a JSON object to `/druid/coordinator/v1/lookups`. The format of the json object is as follwos:
+
+
+```json
+{
+    "tierName": {
+        "lookupExtractorFactoryName": {
+          "someExtractorField": "someExtractorValue"
+        }
+    }
+}
+```
+
+So a config might look something like:
+```json
+{
+    "__default": {
+        "country_code": {
+          "type": "simple_json",
+          "uri": "http://some.host.com/codes.json"
+        },
+        "site_id": {
+            "type": "confidential_jdbc",
+            "auth": "/etc/jdbc.internal",
+            "table": "sites",
+            "key": "site_id",
+            "value": "site_name"
+        },
+        "site_id_customer1": {
+            "type": "confidential_jdbc",
+            "auth": "/etc/jdbc.customer1",
+            "table": "sites",
+            "key": "site_id",
+            "value": "site_name"
+        }
+        "site_id_customer2": {
+            "type": "confidential_jdbc",
+            "auth": "/etc/jdbc.customer2",
+            "table": "sites",
+            "key": "site_id",
+            "value": "site_name"
+        }
+    },
+    "realtime_customer1": {
+        "country_code": {
+          "type": "simple_json",
+          "uri": "http://some.host.com/codes.json"
+        },
+        "site_id_customer1": {
+            "type": "confidential_jdbc",
+            "auth": "/etc/jdbc.customer1",
+            "table": "sites",
+            "key": "site_id",
+            "value": "site_name"
+        }
+    },
+    "realtime_customer2": {
+        "country_code": {
+          "type": "simple_json",
+          "uri": "http://some.host.com/codes.json"
+        },
+        "site_id_customer2": {
+            "type": "confidential_jdbc",
+            "auth": "/etc/jdbc.customer2",
+            "table": "sites",
+            "key": "site_id",
+            "value": "site_name"
+        }
+    }
+}
+```
+
+All entries in the map will UPDATE existing entries. No entries will be deleted.
+
+# Update
+A `POST` to a particular lookup extractor factory via `/druid/coordinator/v1/lookups/{tier}/{id}` will update that specific extractor factory.
+
+For example, a post to `/druid/coordinator/v1/lookups/realtime_customer1/site_id_customer1` might contain the following:
+
+```json
+{
+    "type": "confidential_jdbc",
+    "auth": "/etc/jdbc.customer1",
+    "table": "sites_updated",
+    "key": "site_id",
+    "value": "site_name"
+}
+```
+
+This will replace the `site_id_customer1` lookup in the `realtime_customer1` with the definition above.
+
+# Get
+A `GET` to a particular lookup extractor factory is accomplished via `/druid/coordinator/v1/lookups/{tier}/{id}`
+
+Using the prior example, a `GET` to `/druid/coordinator/v1/lookups/realtime_customer2/site_id_customer2` should return
+
+```json
+{
+    "type": "confidential_jdbc",
+    "auth": "/etc/jdbc.customer2",
+    "table": "sites",
+    "key": "site_id",
+    "value": "site_name"
+}
+```
+
+# Delete
+A `DELETE` to `/druid/coordinator/v1/lookups/{tier}/{id}` will remove that lookup from the cluster.
+
+# List tier names
+A `GET` to `/druid/coordinator/v1/lookups` will return a list of known tier names
+
+# List lookup names
+A `GET` to `/druid/coordinator/v1/lookups/{tier}` will return a list of known lookup names for that tier.
