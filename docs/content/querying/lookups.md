@@ -322,10 +322,17 @@ These endpoints will return one of the following results:
 * 202 if the request was accepted asynchronously (`POST` and `DELETE`)
 * 200 if the request succeeded (`GET` only)
 
-# Configuration propagation behavior
-The configuration is propagated to the historical nodes by the coordinator. 
+## Configuration propagation behavior
+The configuration is propagated to the historical nodes by the coordinator.
+The historical nodes have an internal API for managing `POST`/`GET`/`DELETE` of lookups.
+The coordinator periodically checks the dynamic configuration for changes and, when it detects a change it does the following:
 
-# Bulk update
+1. Post all lookups for a tier to all Druid nodes within that tier.
+2. Delete lookups from a tier which were dropped between the prior configuration values and this one.
+
+If there is no configuration change, the coordinator checks for any nodes which might be new since the last time it propagated lookups and adds all lookups for that node (assuming that node's tier has lookups).
+
+## Bulk update
 Lookups can be updated in bulk by posting a JSON object to `/druid/coordinator/v1/lookups`. The format of the json object is as follwos:
 
 
@@ -360,7 +367,7 @@ So a config might look something like:
             "table": "sites",
             "key": "site_id",
             "value": "site_name"
-        }
+        },
         "site_id_customer2": {
             "type": "confidential_jdbc",
             "auth": "/etc/jdbc.customer2",
@@ -400,7 +407,7 @@ So a config might look something like:
 
 All entries in the map will UPDATE existing entries. No entries will be deleted.
 
-# Update
+## Update
 A `POST` to a particular lookup extractor factory via `/druid/coordinator/v1/lookups/{tier}/{id}` will update that specific extractor factory.
 
 For example, a post to `/druid/coordinator/v1/lookups/realtime_customer1/site_id_customer1` might contain the following:
@@ -417,7 +424,7 @@ For example, a post to `/druid/coordinator/v1/lookups/realtime_customer1/site_id
 
 This will replace the `site_id_customer1` lookup in the `realtime_customer1` with the definition above.
 
-# Get
+## Get
 A `GET` to a particular lookup extractor factory is accomplished via `/druid/coordinator/v1/lookups/{tier}/{id}`
 
 Using the prior example, a `GET` to `/druid/coordinator/v1/lookups/realtime_customer2/site_id_customer2` should return
@@ -432,11 +439,11 @@ Using the prior example, a `GET` to `/druid/coordinator/v1/lookups/realtime_cust
 }
 ```
 
-# Delete
+## Delete
 A `DELETE` to `/druid/coordinator/v1/lookups/{tier}/{id}` will remove that lookup from the cluster.
 
-# List tier names
+## List tier names
 A `GET` to `/druid/coordinator/v1/lookups` will return a list of known tier names
 
-# List lookup names
+## List lookup names
 A `GET` to `/druid/coordinator/v1/lookups/{tier}` will return a list of known lookup names for that tier.
