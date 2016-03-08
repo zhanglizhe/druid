@@ -89,18 +89,6 @@ public class LookupCoordinatorManager
   // Doesn't have to be the same, but it makes things easy to look at
   public static final String LOOKUP_LISTEN_ANNOUNCE_KEY = LOOKUP_CONFIG_KEY;
   private static final Logger LOG = new Logger(LookupCoordinatorManager.class);
-
-  private final ListeningScheduledExecutorService executorService;
-  private final ListenerDiscoverer listenerDiscoverer;
-  private final HttpClient httpClient;
-  private final ObjectMapper smileMapper;
-  private final JacksonConfigManager configManager;
-  private final Object startStopSync = new Object();
-  // Updated by config watching service
-  private AtomicReference<Map<String, Map<String, Map<String, Object>>>> lookupMapConfigRef;
-  private volatile Map<String, Map<String, Map<String, Object>>> prior_update = ImmutableMap.of();
-  private volatile boolean started = false;
-
   private final static Function<HostAndPort, URL> HOST_TO_URL = new Function<HostAndPort, URL>()
   {
     @Nullable
@@ -120,6 +108,18 @@ public class LookupCoordinatorManager
       }
     }
   };
+
+  private final ListeningScheduledExecutorService executorService;
+  private final ListenerDiscoverer listenerDiscoverer;
+  private final HttpClient httpClient;
+  private final ObjectMapper smileMapper;
+  private final JacksonConfigManager configManager;
+  private final Object startStopSync = new Object();
+  // Updated by config watching service
+  private AtomicReference<Map<String, Map<String, Map<String, Object>>>> lookupMapConfigRef;
+  private volatile Map<String, Map<String, Map<String, Object>>> prior_update = ImmutableMap.of();
+  private volatile boolean started = false;
+
 
   @Inject
   public LookupCoordinatorManager(
@@ -143,9 +143,7 @@ public class LookupCoordinatorManager
   {
     final AtomicInteger returnCode = new AtomicInteger(0);
     final AtomicReference<String> reasonString = new AtomicReference<>(null);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Dropping %s", url);
-    }
+    LOG.debug("Dropping %s", url);
 
     try (final InputStream result = httpClient.go(
         new Request(HttpMethod.DELETE, url)
@@ -388,16 +386,6 @@ public class LookupCoordinatorManager
     );
   }
 
-  static URL getLookupsURL(HostAndPort druidNode) throws MalformedURLException
-  {
-    return new URL(
-        "http",
-        druidNode.getHostText(),
-        druidNode.getPortOrDefault(-1),
-        ListenerResource.BASE_PATH + "/" + LOOKUP_LISTEN_ANNOUNCE_KEY
-    );
-  }
-
   public void updateLookup(
       final String tier,
       final String lookupName,
@@ -411,7 +399,7 @@ public class LookupCoordinatorManager
     );
   }
 
-  public void updateLookups(final Map<String, Map<String, Map<String, Object>>> spec, AuditInfo auditInfo)
+  public synchronized void updateLookups(final Map<String, Map<String, Map<String, Object>>> spec, AuditInfo auditInfo)
   {
     final Map<String, Map<String, Map<String, Object>>> prior = getKnownLookups();
     if (prior == null && !spec.isEmpty()) {
@@ -431,7 +419,7 @@ public class LookupCoordinatorManager
     return lookupMapConfigRef.get();
   }
 
-  public boolean deleteLookup(@NotNull final String tier, @NotNull final String lookup, AuditInfo auditInfo)
+  public synchronized boolean deleteLookup(final String tier, final String lookup, AuditInfo auditInfo)
   {
     final Map<String, Map<String, Map<String, Object>>> prior = getKnownLookups();
     if (prior == null) {
@@ -567,5 +555,15 @@ public class LookupCoordinatorManager
       // NOTE: we can't un-watch the configuration key
       LOG.debug("Stopped");
     }
+  }
+
+  static URL getLookupsURL(HostAndPort druidNode) throws MalformedURLException
+  {
+    return new URL(
+        "http",
+        druidNode.getHostText(),
+        druidNode.getPortOrDefault(-1),
+        ListenerResource.BASE_PATH + "/" + LOOKUP_LISTEN_ANNOUNCE_KEY
+    );
   }
 }
