@@ -386,29 +386,52 @@ public class LookupCoordinatorManager
     );
   }
 
-  public void updateLookup(
+  public boolean updateLookup(
       final String tier,
       final String lookupName,
       Map<String, Object> spec,
       final AuditInfo auditInfo
   )
   {
-    updateLookups(
+    return updateLookups(
         ImmutableMap.<String, Map<String, Map<String, Object>>>of(tier, ImmutableMap.of(lookupName, spec)),
         auditInfo
     );
   }
 
-  public synchronized void updateLookups(final Map<String, Map<String, Map<String, Object>>> spec, AuditInfo auditInfo)
+  public boolean updateLookups(final Map<String, Map<String, Map<String, Object>>> updateSpec, AuditInfo auditInfo)
   {
-    final Map<String, Map<String, Map<String, Object>>> prior = getKnownLookups();
-    if (prior == null && !spec.isEmpty()) {
-      // To prevent accidentally erasing configs if we haven't updated our cache of the values
-      throw new ISE("Not initialized. If this is the first namespace, post an empty map to initialize");
+    synchronized (startStopSync) {
+      final Map<String, Map<String, Map<String, Object>>> priorSpec = getKnownLookups();
+      if (priorSpec == null && !updateSpec.isEmpty()) {
+        // To prevent accidentally erasing configs if we haven't updated our cache of the values
+        throw new ISE("Not initialized. If this is the first namespace, post an empty map to initialize");
+      }
+      final Map<String, Map<String, Map<String, Object>>> updatedSpec;
+
+      // Only add or update here, don't delete.
+      if (priorSpec == null) {
+        // all new
+        updatedSpec = updateSpec;
+      } else {
+        // Needs update
+        updatedSpec = new HashMap<>(priorSpec);
+        for (final String tier : updateSpec.keySet()) {
+          final Map<String, Map<String, Object>> priorTierSpec = priorSpec.get(tier);
+          final Map<String, Map<String, Object>> updateTierSpec = updateSpec.get(tier);
+          if (priorTierSpec == null) {
+            // New tier
+            updatedSpec.put(tier, updateTierSpec);
+          } else {
+            // Update existing tier
+            final Map<String, Map<String, Object>> updatedTierSpec = new HashMap<>(priorTierSpec);
+            updatedTierSpec.putAll(updateTierSpec);
+            updatedSpec.put(tier, updatedTierSpec);
+          }
+        }
+      }
+      return configManager.set(LOOKUP_CONFIG_KEY, updatedSpec, auditInfo);
     }
-    final Map<String, Map<String, Map<String, Object>>> update = prior == null ? spec : new HashMap<>(prior);
-    update.putAll(spec);
-    configManager.set(LOOKUP_CONFIG_KEY, update, auditInfo);
   }
 
   public Map<String, Map<String, Map<String, Object>>> getKnownLookups()
@@ -419,30 +442,31 @@ public class LookupCoordinatorManager
     return lookupMapConfigRef.get();
   }
 
-  public synchronized boolean deleteLookup(final String tier, final String lookup, AuditInfo auditInfo)
+  public boolean deleteLookup(final String tier, final String lookup, AuditInfo auditInfo)
   {
-    final Map<String, Map<String, Map<String, Object>>> prior = getKnownLookups();
-    if (prior == null) {
-      LOG.warn("Requested delete lookup [%s]/[%s]. But no lookups exist!", tier, lookup);
-      return false;
-    }
-    final Map<String, Map<String, Map<String, Object>>> update = new HashMap<>(prior);
-    final Map<String, Map<String, Object>> tierMap = update.get(tier);
-    if (tierMap == null) {
-      LOG.warn("Requested delete of lookup [%s]/[%s] but tier does not exist!", tier, lookup);
-      return false;
-    }
+    synchronized (startStopSync) {
+      final Map<String, Map<String, Map<String, Object>>> priorSpec = getKnownLookups();
+      if (priorSpec == null) {
+        LOG.warn("Requested delete lookup [%s]/[%s]. But no lookups exist!", tier, lookup);
+        return false;
+      }
+      final Map<String, Map<String, Map<String, Object>>> updateSpec = new HashMap<>(priorSpec);
+      final Map<String, Map<String, Object>> priorTierSpec = updateSpec.get(tier);
+      if (priorTierSpec == null) {
+        LOG.warn("Requested delete of lookup [%s]/[%s] but tier does not exist!", tier, lookup);
+        return false;
+      }
 
-    if (!tierMap.containsKey(lookup)) {
-      LOG.warn("Requested delete of lookup [%s]/[%s] but lookup does not exist!", tier, lookup);
-      return false;
-    }
+      if (!priorTierSpec.containsKey(lookup)) {
+        LOG.warn("Requested delete of lookup [%s]/[%s] but lookup does not exist!", tier, lookup);
+        return false;
+      }
 
-    final Map<String, Map<String, Object>> newTierMap = new HashMap<>(tierMap);
-    newTierMap.remove(lookup);
-    update.put(tier, newTierMap);
-    configManager.set(LOOKUP_CONFIG_KEY, update, auditInfo);
-    return true;
+      final Map<String, Map<String, Object>> updateTierSpec = new HashMap<>(priorTierSpec);
+      updateTierSpec.remove(lookup);
+      updateSpec.put(tier, updateTierSpec);
+      return configManager.set(LOOKUP_CONFIG_KEY, updateSpec, auditInfo);
+    }
   }
 
   /**

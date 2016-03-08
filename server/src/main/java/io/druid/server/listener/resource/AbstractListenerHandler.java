@@ -30,7 +30,6 @@ import com.metamx.common.logger.Logger;
 import io.druid.common.utils.ServletResourceUtils;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,7 +58,6 @@ public abstract class AbstractListenerHandler<ObjType> implements ListenerHandle
     this.inObjTypeRef = inObjTypeRef;
   }
 
-  @NotNull
   @Override
   public final Response handlePOST(final InputStream inputStream, final ObjectMapper mapper, final String id)
   {
@@ -77,7 +75,6 @@ public abstract class AbstractListenerHandler<ObjType> implements ListenerHandle
     }
   }
 
-  @NotNull
   @Override
   public final Response handlePOSTAll(final InputStream inputStream, final ObjectMapper mapper)
   {
@@ -121,8 +118,7 @@ public abstract class AbstractListenerHandler<ObjType> implements ListenerHandle
   }
 
   @Override
-  @NotNull
-  public final Response handleGET(@NotNull String id)
+  public final Response handleGET(String id)
   {
     try {
       final Object returnObj = get(id);
@@ -139,7 +135,6 @@ public abstract class AbstractListenerHandler<ObjType> implements ListenerHandle
   }
 
   @Override
-  @NotNull
   public final Response handleGETAll()
   {
     final Map<String, ObjType> all;
@@ -158,8 +153,7 @@ public abstract class AbstractListenerHandler<ObjType> implements ListenerHandle
   }
 
   @Override
-  @NotNull
-  public final Response handleDELETE(@NotNull String id)
+  public final Response handleDELETE(String id)
   {
     try {
       final Object returnObj = delete(id);
@@ -190,7 +184,7 @@ public abstract class AbstractListenerHandler<ObjType> implements ListenerHandle
    */
   protected abstract
   @Nullable
-  Object delete(@NotNull String id);
+  Object delete(String id);
 
   /**
    * Get the object for a particular id
@@ -201,7 +195,7 @@ public abstract class AbstractListenerHandler<ObjType> implements ListenerHandle
    */
   protected abstract
   @Nullable
-  Object get(@NotNull String id);
+  Object get(String id);
 
   protected abstract
   @Nullable
@@ -218,5 +212,5 @@ public abstract class AbstractListenerHandler<ObjType> implements ListenerHandle
    */
   public abstract
   @Nullable
-  Object post(@NotNull Map<String, ObjType> inputObject) throws Exception;
+  Object post(Map<String, ObjType> inputObject) throws Exception;
 }

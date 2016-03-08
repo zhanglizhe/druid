@@ -487,8 +487,7 @@ public class LookupCoordinatorManagerTest
         "new"
     );
     final Map<String, Map<String, Object>> namespace = ImmutableMap.<String, Map<String, Object>>of(
-        "foo",
-        newSpec,
+        "foo", newSpec,
         "ignore", ignore
     );
     final Map<String, Map<String, Map<String, Object>>> tier = ImmutableMap.of(
@@ -507,6 +506,199 @@ public class LookupCoordinatorManagerTest
     )).andReturn(true).once();
     EasyMock.replay(configManager);
     manager.updateLookups(tier, auditInfo);
+    EasyMock.verify(configManager);
+  }
+
+
+  @Test
+  public void testUpdateNamespaceFailsBadUpdates() throws Exception
+  {
+    final Map<String, Object> ignore = ImmutableMap.<String, Object>of("prop", "old");
+    final LookupCoordinatorManager manager = new LookupCoordinatorManager(
+        client,
+        discoverer,
+        mapper,
+        configManager
+    )
+    {
+      @Override
+      public Map<String, Map<String, Map<String, Object>>> getKnownLookups()
+      {
+        return ImmutableMap.<String, Map<String, Map<String, Object>>>of(LOOKUP_TIER, ImmutableMap.of(
+            "foo", ImmutableMap.<String, Object>of("prop", "old"),
+            "ignore", ignore
+        ));
+      }
+    };
+    final Map<String, Object> newSpec = ImmutableMap.<String, Object>of(
+        "prop",
+        "new"
+    );
+    final Map<String, Map<String, Object>> namespace = ImmutableMap.<String, Map<String, Object>>of(
+        "foo", newSpec,
+        "ignore", ignore
+    );
+    final Map<String, Map<String, Map<String, Object>>> tier = ImmutableMap.of(
+        LOOKUP_TIER,
+        namespace
+    );
+    final AuditInfo auditInfo = new AuditInfo("author", "comment", "localhost");
+    EasyMock.reset(configManager);
+    EasyMock.expect(configManager.set(
+        EasyMock.eq(LookupCoordinatorManager.LOOKUP_CONFIG_KEY),
+        EasyMock.eq(ImmutableMap.of(LOOKUP_TIER, ImmutableMap.of(
+            "foo", newSpec,
+            "ignore", ignore
+        ))),
+        EasyMock.eq(auditInfo)
+    )).andReturn(false).once();
+    EasyMock.replay(configManager);
+    Assert.assertFalse(manager.updateLookups(tier, auditInfo));
+    EasyMock.verify(configManager);
+  }
+
+  @Test
+  public void testUpdateLookupsOnlyAddsToTier() throws Exception
+  {
+    final Map<String, Object> ignore = ImmutableMap.<String, Object>of("prop", "old");
+    final AuditInfo auditInfo = new AuditInfo("author", "comment", "localhost");
+    final LookupCoordinatorManager manager = new LookupCoordinatorManager(
+        client,
+        discoverer,
+        mapper,
+        configManager
+    )
+    {
+      @Override
+      public Map<String, Map<String, Map<String, Object>>> getKnownLookups()
+      {
+        return ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+            LOOKUP_TIER + "1",
+            ImmutableMap.<String, Map<String, Object>>of("foo", ImmutableMap.<String, Object>of("prop", "old")),
+            LOOKUP_TIER + "2",
+            ImmutableMap.of("ignore", ignore)
+        );
+      }
+    };
+    final Map<String, Object> newSpec = ImmutableMap.<String, Object>of(
+        "prop",
+        "new"
+    );
+    EasyMock.reset(configManager);
+    EasyMock.expect(
+        configManager.set(
+            EasyMock.eq(LookupCoordinatorManager.LOOKUP_CONFIG_KEY),
+            EasyMock.eq(ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+                LOOKUP_TIER + "1", ImmutableMap.of("foo", newSpec),
+                LOOKUP_TIER + "2", ImmutableMap.of("ignore", ignore)
+            )),
+            EasyMock.eq(auditInfo)
+        )
+    ).andReturn(true).once();
+    EasyMock.replay(configManager);
+    Assert.assertTrue(manager.updateLookups(ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+        LOOKUP_TIER + "1", ImmutableMap.<String, Map<String, Object>>of(
+            "foo",
+            newSpec
+        )
+    ), auditInfo));
+    EasyMock.verify(configManager);
+  }
+
+  @Test
+  public void testUpdateLookupsAddsNewTier() throws Exception
+  {
+    final Map<String, Object> ignore = ImmutableMap.<String, Object>of("prop", "old");
+    final AuditInfo auditInfo = new AuditInfo("author", "comment", "localhost");
+    final LookupCoordinatorManager manager = new LookupCoordinatorManager(
+        client,
+        discoverer,
+        mapper,
+        configManager
+    )
+    {
+      @Override
+      public Map<String, Map<String, Map<String, Object>>> getKnownLookups()
+      {
+        return ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+            LOOKUP_TIER + "2",
+            ImmutableMap.of("ignore", ignore)
+        );
+      }
+    };
+    final Map<String, Object> newSpec = ImmutableMap.<String, Object>of(
+        "prop",
+        "new"
+    );
+    EasyMock.reset(configManager);
+    EasyMock.expect(
+        configManager.set(
+            EasyMock.eq(LookupCoordinatorManager.LOOKUP_CONFIG_KEY),
+            EasyMock.eq(ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+                LOOKUP_TIER + "1", ImmutableMap.of("foo", newSpec),
+                LOOKUP_TIER + "2", ImmutableMap.of("ignore", ignore)
+            )),
+            EasyMock.eq(auditInfo)
+        )
+    ).andReturn(true).once();
+    EasyMock.replay(configManager);
+    Assert.assertTrue(manager.updateLookups(ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+        LOOKUP_TIER + "1", ImmutableMap.<String, Map<String, Object>>of(
+            "foo",
+            newSpec
+        )
+    ), auditInfo));
+    EasyMock.verify(configManager);
+  }
+
+  @Test
+  public void testUpdateLookupsAddsNewLookup() throws Exception
+  {
+    final Map<String, Object> ignore = ImmutableMap.<String, Object>of("prop", "old");
+    final AuditInfo auditInfo = new AuditInfo("author", "comment", "localhost");
+    final LookupCoordinatorManager manager = new LookupCoordinatorManager(
+        client,
+        discoverer,
+        mapper,
+        configManager
+    )
+    {
+      @Override
+      public Map<String, Map<String, Map<String, Object>>> getKnownLookups()
+      {
+        return ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+            LOOKUP_TIER + "1",
+            ImmutableMap.<String, Map<String, Object>>of("foo1", ImmutableMap.<String, Object>of("prop", "old")),
+            LOOKUP_TIER + "2",
+            ImmutableMap.of("ignore", ignore)
+        );
+      }
+    };
+    final Map<String, Object> newSpec = ImmutableMap.<String, Object>of(
+        "prop",
+        "new"
+    );
+    EasyMock.reset(configManager);
+    EasyMock.expect(
+        configManager.set(
+            EasyMock.eq(LookupCoordinatorManager.LOOKUP_CONFIG_KEY),
+            EasyMock.eq(ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+                LOOKUP_TIER + "1", ImmutableMap.of(
+                    "foo1", ImmutableMap.<String, Object>of("prop", "old"),
+                    "foo2", newSpec
+                ),
+                LOOKUP_TIER + "2", ImmutableMap.of("ignore", ignore)
+            )),
+            EasyMock.eq(auditInfo)
+        )
+    ).andReturn(true).once();
+    EasyMock.replay(configManager);
+    Assert.assertTrue(manager.updateLookups(ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+        LOOKUP_TIER + "1", ImmutableMap.<String, Map<String, Object>>of(
+            "foo2",
+            newSpec
+        )
+    ), auditInfo));
     EasyMock.verify(configManager);
   }
 

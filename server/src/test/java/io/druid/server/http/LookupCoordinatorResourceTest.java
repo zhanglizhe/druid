@@ -43,12 +43,14 @@ import java.util.Map;
 public class LookupCoordinatorResourceTest
 {
   private static final ObjectMapper mapper = new DefaultObjectMapper();
+  private static final String LOOKUP_TIER = "lookupTier";
+  private static final String LOOKUP_NAME = "lookupName";
   private static final Map<String, Map<String, Object>> SINGLE_LOOKUP_MAP = ImmutableMap.<String, Map<String, Object>>of(
-      "lookupName",
+      LOOKUP_NAME,
       ImmutableMap.<String, Object>of()
   );
   private static final Map<String, Map<String, Map<String, Object>>> SINGLE_TIER_MAP = ImmutableMap.<String, Map<String, Map<String, Object>>>of(
-      "lookupTier",
+      LOOKUP_TIER,
       SINGLE_LOOKUP_MAP
   );
   private static final ByteSource SINGLE_TIER_MAP_SOURCE = new ByteSource()
@@ -57,6 +59,14 @@ public class LookupCoordinatorResourceTest
     public InputStream openStream() throws IOException
     {
       return new ByteArrayInputStream(StringUtils.toUtf8(mapper.writeValueAsString(SINGLE_TIER_MAP)));
+    }
+  };
+  private static final ByteSource EMPTY_MAP_SOURCE = new ByteSource()
+  {
+    @Override
+    public InputStream openStream() throws IOException
+    {
+      return new ByteArrayInputStream(StringUtils.toUtf8(mapper.writeValueAsString(ImmutableMap.of())));
     }
   };
 
@@ -68,7 +78,11 @@ public class LookupCoordinatorResourceTest
     final Map<String, Map<String, Map<String, Object>>> retVal = new HashMap<>();
     EasyMock.expect(lookupCoordinatorManager.getKnownLookups()).andReturn(retVal).once();
     EasyMock.replay(lookupCoordinatorManager);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
     final Response response = lookupCoordinatorResource.getTiers();
     Assert.assertEquals(200, response.getStatus());
     Assert.assertEquals(retVal.keySet(), response.getEntity());
@@ -82,7 +96,11 @@ public class LookupCoordinatorResourceTest
         LookupCoordinatorManager.class);
     EasyMock.expect(lookupCoordinatorManager.getKnownLookups()).andReturn(null).once();
     EasyMock.replay(lookupCoordinatorManager);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
     final Response response = lookupCoordinatorResource.getTiers();
     Assert.assertEquals(404, response.getStatus());
     EasyMock.verify(lookupCoordinatorManager);
@@ -96,7 +114,11 @@ public class LookupCoordinatorResourceTest
         LookupCoordinatorManager.class);
     EasyMock.expect(lookupCoordinatorManager.getKnownLookups()).andThrow(new RuntimeException(errMsg)).once();
     EasyMock.replay(lookupCoordinatorManager);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
     final Response response = lookupCoordinatorResource.getTiers();
     Assert.assertEquals(500, response.getStatus());
     Assert.assertEquals(ImmutableMap.of("error", errMsg), response.getEntity());
@@ -106,15 +128,19 @@ public class LookupCoordinatorResourceTest
   @Test
   public void testSimpleGetNamespace()
   {
-    final String tier = "some tier";
-    final String namespace = "some namespace";
     final Map<String, Object> map = new HashMap<>();
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
-    EasyMock.expect(lookupCoordinatorManager.getLookup(EasyMock.eq(tier), EasyMock.eq(namespace))).andReturn(map).once();
+    EasyMock.expect(lookupCoordinatorManager.getLookup(EasyMock.eq(LOOKUP_TIER), EasyMock.eq(LOOKUP_NAME)))
+            .andReturn(map)
+            .once();
     EasyMock.replay(lookupCoordinatorManager);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
-    final Response response = lookupCoordinatorResource.getSpecificNamespace(tier, namespace);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.getSpecificNamespace(LOOKUP_TIER, LOOKUP_NAME);
     Assert.assertEquals(200, response.getStatus());
     Assert.assertEquals(map, response.getEntity());
     EasyMock.verify(lookupCoordinatorManager);
@@ -123,14 +149,18 @@ public class LookupCoordinatorResourceTest
   @Test
   public void testMissingGetNamespace()
   {
-    final String tier = "some tier";
-    final String namespace = "some namespace";
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
-    EasyMock.expect(lookupCoordinatorManager.getLookup(EasyMock.eq(tier), EasyMock.eq(namespace))).andReturn(null).once();
+    EasyMock.expect(lookupCoordinatorManager.getLookup(EasyMock.eq(LOOKUP_TIER), EasyMock.eq(LOOKUP_NAME)))
+            .andReturn(null)
+            .once();
     EasyMock.replay(lookupCoordinatorManager);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
-    final Response response = lookupCoordinatorResource.getSpecificNamespace(tier, namespace);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.getSpecificNamespace(LOOKUP_TIER, LOOKUP_NAME);
     Assert.assertEquals(404, response.getStatus());
     EasyMock.verify(lookupCoordinatorManager);
   }
@@ -141,7 +171,11 @@ public class LookupCoordinatorResourceTest
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
     EasyMock.replay(lookupCoordinatorManager);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
     Assert.assertEquals(400, lookupCoordinatorResource.getSpecificNamespace("foo", null).getStatus());
     Assert.assertEquals(400, lookupCoordinatorResource.getSpecificNamespace("foo", "").getStatus());
     Assert.assertEquals(400, lookupCoordinatorResource.getSpecificNamespace("", "foo").getStatus());
@@ -153,16 +187,18 @@ public class LookupCoordinatorResourceTest
   public void testExceptionalGetNamespace()
   {
     final String errMsg = "some message";
-    final String tier = "some tier";
-    final String namespace = "some namespace";
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
-    EasyMock.expect(lookupCoordinatorManager.getLookup(EasyMock.eq(tier), EasyMock.eq(namespace)))
+    EasyMock.expect(lookupCoordinatorManager.getLookup(EasyMock.eq(LOOKUP_TIER), EasyMock.eq(LOOKUP_NAME)))
             .andThrow(new RuntimeException(errMsg))
             .once();
     EasyMock.replay(lookupCoordinatorManager);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
-    final Response response = lookupCoordinatorResource.getSpecificNamespace(tier, namespace);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.getSpecificNamespace(LOOKUP_TIER, LOOKUP_NAME);
     Assert.assertEquals(500, response.getStatus());
     Assert.assertEquals(ImmutableMap.of("error", errMsg), response.getEntity());
     EasyMock.verify(lookupCoordinatorManager);
@@ -171,8 +207,6 @@ public class LookupCoordinatorResourceTest
   @Test
   public void testSimpleDelete()
   {
-    final String tier = "some tier";
-    final String namespace = "some namespace";
     final String author = "some author";
     final String comment = "some comment";
     final String ip = "127.0.0.1";
@@ -184,15 +218,25 @@ public class LookupCoordinatorResourceTest
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
     EasyMock.expect(lookupCoordinatorManager.deleteLookup(
-        EasyMock.eq(tier),
-        EasyMock.eq(namespace),
+        EasyMock.eq(LOOKUP_TIER),
+        EasyMock.eq(LOOKUP_NAME),
         EasyMock.capture(auditInfoCapture)
     )).andReturn(true).once();
 
     EasyMock.replay(lookupCoordinatorManager, request);
 
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
-    final Response response = lookupCoordinatorResource.deleteNamespace(tier, namespace, author, comment, request);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.deleteNamespace(
+        LOOKUP_TIER,
+        LOOKUP_NAME,
+        author,
+        comment,
+        request
+    );
 
     Assert.assertEquals(202, response.getStatus());
     Assert.assertTrue(auditInfoCapture.hasCaptured());
@@ -208,8 +252,6 @@ public class LookupCoordinatorResourceTest
   @Test
   public void testMissingDelete()
   {
-    final String tier = "some tier";
-    final String namespace = "some namespace";
     final String author = "some author";
     final String comment = "some comment";
     final String ip = "127.0.0.1";
@@ -221,15 +263,25 @@ public class LookupCoordinatorResourceTest
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
     EasyMock.expect(lookupCoordinatorManager.deleteLookup(
-        EasyMock.eq(tier),
-        EasyMock.eq(namespace),
+        EasyMock.eq(LOOKUP_TIER),
+        EasyMock.eq(LOOKUP_NAME),
         EasyMock.capture(auditInfoCapture)
     )).andReturn(false).once();
 
     EasyMock.replay(lookupCoordinatorManager, request);
 
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
-    final Response response = lookupCoordinatorResource.deleteNamespace(tier, namespace, author, comment, request);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.deleteNamespace(
+        LOOKUP_TIER,
+        LOOKUP_NAME,
+        author,
+        comment,
+        request
+    );
 
     Assert.assertEquals(404, response.getStatus());
     Assert.assertTrue(auditInfoCapture.hasCaptured());
@@ -245,8 +297,6 @@ public class LookupCoordinatorResourceTest
   @Test
   public void testExceptionalDelete()
   {
-    final String tier = "some tier";
-    final String namespace = "some namespace";
     final String author = "some author";
     final String comment = "some comment";
     final String ip = "127.0.0.1";
@@ -259,15 +309,25 @@ public class LookupCoordinatorResourceTest
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
     EasyMock.expect(lookupCoordinatorManager.deleteLookup(
-        EasyMock.eq(tier),
-        EasyMock.eq(namespace),
+        EasyMock.eq(LOOKUP_TIER),
+        EasyMock.eq(LOOKUP_NAME),
         EasyMock.capture(auditInfoCapture)
     )).andThrow(new RuntimeException(errMsg)).once();
 
     EasyMock.replay(lookupCoordinatorManager, request);
 
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
-    final Response response = lookupCoordinatorResource.deleteNamespace(tier, namespace, author, comment, request);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.deleteNamespace(
+        LOOKUP_TIER,
+        LOOKUP_NAME,
+        author,
+        comment,
+        request
+    );
 
     Assert.assertEquals(500, response.getStatus());
     Assert.assertEquals(ImmutableMap.of("error", errMsg), response.getEntity());
@@ -286,7 +346,11 @@ public class LookupCoordinatorResourceTest
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
     EasyMock.replay(lookupCoordinatorManager);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
     Assert.assertEquals(400, lookupCoordinatorResource.deleteNamespace("foo", null, null, null, null).getStatus());
     Assert.assertEquals(400, lookupCoordinatorResource.deleteNamespace(null, null, null, null, null).getStatus());
     Assert.assertEquals(400, lookupCoordinatorResource.deleteNamespace(null, "foo", null, null, null).getStatus());
@@ -298,7 +362,6 @@ public class LookupCoordinatorResourceTest
   @Test
   public void testSimpleNew() throws Exception
   {
-    final String namespace = "some namespace";
     final String author = "some author";
     final String comment = "some comment";
     final String ip = "127.0.0.1";
@@ -309,15 +372,23 @@ public class LookupCoordinatorResourceTest
     final Capture<AuditInfo> auditInfoCapture = Capture.newInstance();
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
-    lookupCoordinatorManager.updateLookups(
+    EasyMock.expect(lookupCoordinatorManager.updateLookups(
         EasyMock.eq(SINGLE_TIER_MAP),
         EasyMock.capture(auditInfoCapture)
-    );
-    EasyMock.expectLastCall().once();
+    )).andReturn(true).once();
 
     EasyMock.replay(lookupCoordinatorManager, request);
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
-    final Response response = lookupCoordinatorResource.updateAllNamespaces(SINGLE_TIER_MAP_SOURCE.openStream(), author, comment, request);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.updateAllNamespaces(
+        SINGLE_TIER_MAP_SOURCE.openStream(),
+        author,
+        comment,
+        request
+    );
 
     Assert.assertEquals(202, response.getStatus());
     Assert.assertTrue(auditInfoCapture.hasCaptured());
@@ -332,7 +403,6 @@ public class LookupCoordinatorResourceTest
   @Test
   public void testExceptionalNew() throws Exception
   {
-    final String namespace = "some namespace";
     final String author = "some author";
     final String comment = "some comment";
     final String ip = "127.0.0.1";
@@ -345,16 +415,24 @@ public class LookupCoordinatorResourceTest
     final Capture<AuditInfo> auditInfoCapture = Capture.newInstance();
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
-    lookupCoordinatorManager.updateLookups(
+    EasyMock.expect(lookupCoordinatorManager.updateLookups(
         EasyMock.eq(SINGLE_TIER_MAP),
         EasyMock.capture(auditInfoCapture)
-    );
-    EasyMock.expectLastCall().andThrow(new RuntimeException(errMsg)).once();
+    )).andThrow(new RuntimeException(errMsg)).once();
 
     EasyMock.replay(lookupCoordinatorManager, request);
 
-    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(lookupCoordinatorManager, mapper, mapper);
-    final Response response = lookupCoordinatorResource.updateAllNamespaces(SINGLE_TIER_MAP_SOURCE.openStream(), author, comment, request);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.updateAllNamespaces(
+        SINGLE_TIER_MAP_SOURCE.openStream(),
+        author,
+        comment,
+        request
+    );
 
     Assert.assertEquals(500, response.getStatus());
     Assert.assertEquals(ImmutableMap.of("error", errMsg), response.getEntity());
@@ -365,5 +443,348 @@ public class LookupCoordinatorResourceTest
     Assert.assertEquals(ip, auditInfo.getIp());
 
     EasyMock.verify(lookupCoordinatorManager, request);
+  }
+
+  @Test
+  public void testFailedNew() throws Exception
+  {
+    final String author = "some author";
+    final String comment = "some comment";
+    final String ip = "127.0.0.1";
+
+    final HttpServletRequest request = EasyMock.createStrictMock(HttpServletRequest.class);
+    EasyMock.expect(request.getContentType()).andReturn(MediaType.APPLICATION_JSON).once();
+    EasyMock.expect(request.getRemoteAddr()).andReturn(ip).once();
+
+    final Capture<AuditInfo> auditInfoCapture = Capture.newInstance();
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
+        LookupCoordinatorManager.class);
+    EasyMock.expect(lookupCoordinatorManager.updateLookups(
+        EasyMock.eq(SINGLE_TIER_MAP),
+        EasyMock.capture(auditInfoCapture)
+    )).andReturn(false).once();
+
+    EasyMock.replay(lookupCoordinatorManager, request);
+
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.updateAllNamespaces(
+        SINGLE_TIER_MAP_SOURCE.openStream(),
+        author,
+        comment,
+        request
+    );
+
+    Assert.assertEquals(500, response.getStatus());
+    Assert.assertEquals(ImmutableMap.of("error", "Unknown error updating configuration"), response.getEntity());
+    Assert.assertTrue(auditInfoCapture.hasCaptured());
+    final AuditInfo auditInfo = auditInfoCapture.getValue();
+    Assert.assertEquals(author, auditInfo.getAuthor());
+    Assert.assertEquals(comment, auditInfo.getComment());
+    Assert.assertEquals(ip, auditInfo.getIp());
+
+    EasyMock.verify(lookupCoordinatorManager, request);
+  }
+
+  @Test
+  public void testSimpleNewLookup() throws Exception
+  {
+    final String author = "some author";
+    final String comment = "some comment";
+    final String ip = "127.0.0.1";
+
+    final HttpServletRequest request = EasyMock.createStrictMock(HttpServletRequest.class);
+    EasyMock.expect(request.getContentType()).andReturn(MediaType.APPLICATION_JSON).once();
+    EasyMock.expect(request.getRemoteAddr()).andReturn(ip).once();
+
+    final Capture<AuditInfo> auditInfoCapture = Capture.newInstance();
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
+        LookupCoordinatorManager.class);
+    EasyMock.expect(lookupCoordinatorManager.updateLookup(
+        EasyMock.eq(LOOKUP_TIER),
+        EasyMock.eq(LOOKUP_NAME),
+        EasyMock.eq(ImmutableMap.<String, Object>of()),
+        EasyMock.capture(auditInfoCapture)
+    )).andReturn(true).once();
+
+    EasyMock.replay(lookupCoordinatorManager, request);
+
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.newLookup(
+        LOOKUP_TIER,
+        LOOKUP_NAME,
+        author,
+        comment,
+        EMPTY_MAP_SOURCE.openStream(),
+        request
+    );
+
+    Assert.assertEquals(202, response.getStatus());
+    Assert.assertTrue(auditInfoCapture.hasCaptured());
+    final AuditInfo auditInfo = auditInfoCapture.getValue();
+    Assert.assertEquals(author, auditInfo.getAuthor());
+    Assert.assertEquals(comment, auditInfo.getComment());
+    Assert.assertEquals(ip, auditInfo.getIp());
+
+    EasyMock.verify(lookupCoordinatorManager, request);
+  }
+
+
+  @Test
+  public void testDBErrNewLookup() throws Exception
+  {
+    final String author = "some author";
+    final String comment = "some comment";
+    final String ip = "127.0.0.1";
+
+    final HttpServletRequest request = EasyMock.createStrictMock(HttpServletRequest.class);
+    EasyMock.expect(request.getContentType()).andReturn(MediaType.APPLICATION_JSON).once();
+    EasyMock.expect(request.getRemoteAddr()).andReturn(ip).once();
+
+    final Capture<AuditInfo> auditInfoCapture = Capture.newInstance();
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
+        LookupCoordinatorManager.class);
+    EasyMock.expect(lookupCoordinatorManager.updateLookup(
+        EasyMock.eq(LOOKUP_TIER),
+        EasyMock.eq(LOOKUP_NAME),
+        EasyMock.eq(ImmutableMap.<String, Object>of()),
+        EasyMock.capture(auditInfoCapture)
+    )).andReturn(false).once();
+
+    EasyMock.replay(lookupCoordinatorManager, request);
+
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.newLookup(
+        LOOKUP_TIER,
+        LOOKUP_NAME,
+        author,
+        comment,
+        EMPTY_MAP_SOURCE.openStream(),
+        request
+    );
+
+    Assert.assertEquals(500, response.getStatus());
+    Assert.assertEquals(ImmutableMap.of("error", "Unknown error updating configuration"), response.getEntity());
+    Assert.assertTrue(auditInfoCapture.hasCaptured());
+    final AuditInfo auditInfo = auditInfoCapture.getValue();
+    Assert.assertEquals(author, auditInfo.getAuthor());
+    Assert.assertEquals(comment, auditInfo.getComment());
+    Assert.assertEquals(ip, auditInfo.getIp());
+
+    EasyMock.verify(lookupCoordinatorManager, request);
+  }
+
+  @Test
+  public void testExceptionalNewLookup() throws Exception
+  {
+    final String errMsg = "error message";
+    final String author = "some author";
+    final String comment = "some comment";
+    final String ip = "127.0.0.1";
+
+    final HttpServletRequest request = EasyMock.createStrictMock(HttpServletRequest.class);
+    EasyMock.expect(request.getContentType()).andReturn(MediaType.APPLICATION_JSON).once();
+    EasyMock.expect(request.getRemoteAddr()).andReturn(ip).once();
+
+    final Capture<AuditInfo> auditInfoCapture = Capture.newInstance();
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
+        LookupCoordinatorManager.class);
+    EasyMock.expect(lookupCoordinatorManager.updateLookup(
+        EasyMock.eq(LOOKUP_TIER),
+        EasyMock.eq(LOOKUP_NAME),
+        EasyMock.eq(ImmutableMap.<String, Object>of()),
+        EasyMock.capture(auditInfoCapture)
+    )).andThrow(new RuntimeException(errMsg)).once();
+
+    EasyMock.replay(lookupCoordinatorManager, request);
+
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.newLookup(
+        LOOKUP_TIER,
+        LOOKUP_NAME,
+        author,
+        comment,
+        EMPTY_MAP_SOURCE.openStream(),
+        request
+    );
+
+    Assert.assertEquals(500, response.getStatus());
+    Assert.assertEquals(ImmutableMap.of("error", errMsg), response.getEntity());
+    Assert.assertTrue(auditInfoCapture.hasCaptured());
+    final AuditInfo auditInfo = auditInfoCapture.getValue();
+    Assert.assertEquals(author, auditInfo.getAuthor());
+    Assert.assertEquals(comment, auditInfo.getComment());
+    Assert.assertEquals(ip, auditInfo.getIp());
+
+    EasyMock.verify(lookupCoordinatorManager, request);
+  }
+
+
+  @Test
+  public void testNullValsNewLookup() throws Exception
+  {
+    final String author = "some author";
+    final String comment = "some comment";
+    final String ip = "127.0.0.1";
+
+    final HttpServletRequest request = EasyMock.createStrictMock(HttpServletRequest.class);
+
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
+        LookupCoordinatorManager.class);
+
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+
+    EasyMock.replay(lookupCoordinatorManager, request);
+    Assert.assertEquals(400, lookupCoordinatorResource.newLookup(
+        null,
+        LOOKUP_NAME,
+        author,
+        comment,
+        EMPTY_MAP_SOURCE.openStream(),
+        request
+    ).getStatus());
+
+    Assert.assertEquals(400, lookupCoordinatorResource.newLookup(
+        LOOKUP_TIER,
+        null,
+        author,
+        comment,
+        EMPTY_MAP_SOURCE.openStream(),
+        request
+    ).getStatus());
+
+    Assert.assertEquals(400, lookupCoordinatorResource.newLookup(
+        LOOKUP_TIER,
+        "",
+        author,
+        comment,
+        EMPTY_MAP_SOURCE.openStream(),
+        request
+    ).getStatus());
+
+    Assert.assertEquals(400, lookupCoordinatorResource.newLookup(
+        "",
+        LOOKUP_NAME,
+        author,
+        comment,
+        EMPTY_MAP_SOURCE.openStream(),
+        request
+    ).getStatus());
+    EasyMock.verify(lookupCoordinatorManager, request);
+  }
+
+  @Test
+  public void testSimpleGetTier()
+  {
+    final String tier = "some tier";
+    final String lookup = "some lookup";
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(LookupCoordinatorManager.class);
+    final Map<String, Map<String, Map<String, Object>>> retVal =
+        ImmutableMap.<String, Map<String, Map<String, Object>>>of(
+            tier, ImmutableMap.<String, Map<String, Object>>of(lookup, ImmutableMap.<String, Object>of())
+        );
+    EasyMock.expect(lookupCoordinatorManager.getKnownLookups()).andReturn(retVal).once();
+    EasyMock.replay(lookupCoordinatorManager);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.getSpecificTier(tier);
+    Assert.assertEquals(200, response.getStatus());
+    Assert.assertEquals(retVal.get(tier).keySet(), response.getEntity());
+    EasyMock.verify(lookupCoordinatorManager);
+  }
+
+  @Test
+  public void testMissingGetTier()
+  {
+    final String tier = "some tier";
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(LookupCoordinatorManager.class);
+    final Map<String, Map<String, Map<String, Object>>> retVal =
+        ImmutableMap.<String, Map<String, Map<String, Object>>>of();
+    EasyMock.expect(lookupCoordinatorManager.getKnownLookups()).andReturn(retVal).once();
+    EasyMock.replay(lookupCoordinatorManager);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.getSpecificTier(tier);
+    Assert.assertEquals(404, response.getStatus());
+    EasyMock.verify(lookupCoordinatorManager);
+  }
+
+  @Test
+  public void testNullGetTier()
+  {
+    final String tier = null;
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(LookupCoordinatorManager.class);
+    EasyMock.replay(lookupCoordinatorManager);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.getSpecificTier(tier);
+    Assert.assertEquals(400, response.getStatus());
+    Assert.assertEquals(ImmutableMap.of("error", "`tier` required"), response.getEntity());
+    EasyMock.verify(lookupCoordinatorManager);
+  }
+
+  @Test
+  public void testNullLookupsGetTier()
+  {
+    final String tier = "some tier";
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(LookupCoordinatorManager.class);
+    EasyMock.expect(lookupCoordinatorManager.getKnownLookups()).andReturn(null).once();
+    EasyMock.replay(lookupCoordinatorManager);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.getSpecificTier(tier);
+    Assert.assertEquals(404, response.getStatus());
+    Assert.assertEquals(ImmutableMap.of("error", "No lookups found"), response.getEntity());
+    EasyMock.verify(lookupCoordinatorManager);
+  }
+
+  @Test
+  public void testExceptionalGetTier()
+  {
+    final String tier = "some tier";
+    final String errMsg = "some error";
+    final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(LookupCoordinatorManager.class);
+    EasyMock.expect(lookupCoordinatorManager.getKnownLookups()).andThrow(new RuntimeException(errMsg)).once();
+    EasyMock.replay(lookupCoordinatorManager);
+    final LookupCoordinatorResource lookupCoordinatorResource = new LookupCoordinatorResource(
+        lookupCoordinatorManager,
+        mapper,
+        mapper
+    );
+    final Response response = lookupCoordinatorResource.getSpecificTier(tier);
+    Assert.assertEquals(500, response.getStatus());
+    Assert.assertEquals(ImmutableMap.of("error", errMsg), response.getEntity());
+    EasyMock.verify(lookupCoordinatorManager);
   }
 }

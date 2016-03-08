@@ -59,8 +59,12 @@ public class LookupCoordinatorResource
 {
   private static final Logger LOG = new Logger(LookupCoordinatorResource.class);
   private final LookupCoordinatorManager lookupCoordinatorManager;
-  private final @Smile ObjectMapper smileMapper;
-  private final @Json ObjectMapper jsonMapper;
+  private final
+  @Smile
+  ObjectMapper smileMapper;
+  private final
+  @Json
+  ObjectMapper jsonMapper;
 
   @Inject
   public LookupCoordinatorResource(
@@ -105,16 +109,20 @@ public class LookupCoordinatorResource
     try {
       final boolean isSmile = SmileMediaTypes.APPLICATION_JACKSON_SMILE.equals(req.getContentType());
       final ObjectMapper mapper = isSmile ? smileMapper : jsonMapper;
-      final  Map<String, Map<String, Map<String, Object>>> map;
+      final Map<String, Map<String, Map<String, Object>>> map;
       try {
-          map = mapper.readValue(in, new TypeReference<Map<String, Map<String, Map<String, Object>>>>()
-          {
-          });
-      } catch (IOException e) {
+        map = mapper.readValue(in, new TypeReference<Map<String, Map<String, Map<String, Object>>>>()
+        {
+        });
+      }
+      catch (IOException e) {
         return Response.status(Response.Status.BAD_REQUEST).entity(ServletResourceUtils.sanitizeException(e)).build();
       }
-      lookupCoordinatorManager.updateLookups(map, new AuditInfo(author, comment, req.getRemoteAddr()));
-      return Response.status(Response.Status.ACCEPTED).entity(map).build();
+      if (lookupCoordinatorManager.updateLookups(map, new AuditInfo(author, comment, req.getRemoteAddr()))) {
+        return Response.status(Response.Status.ACCEPTED).entity(map).build();
+      } else {
+        throw new RuntimeException("Unknown error updating configuration");
+      }
     }
     catch (Exception e) {
       LOG.error(e, "Error creating new lookups");
@@ -158,6 +166,58 @@ public class LookupCoordinatorResource
     }
   }
 
+  @POST
+  @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
+  @Path("/{tier}/{lookup}")
+  public Response newLookup(
+      @PathParam("tier") String tier,
+      @PathParam("lookup") String lookup,
+      @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
+      @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
+      InputStream in,
+      @Context HttpServletRequest req
+  )
+  {
+    try {
+      if (Strings.isNullOrEmpty(tier)) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                       .entity(ServletResourceUtils.sanitizeException(new NullPointerException("`tier` required")))
+                       .build();
+      }
+
+      if (Strings.isNullOrEmpty(lookup)) {
+        return Response.status(Response.Status.BAD_REQUEST)
+                       .entity(ServletResourceUtils.sanitizeException(new IAE("`lookup` required")))
+                       .build();
+      }
+      final boolean isSmile = SmileMediaTypes.APPLICATION_JACKSON_SMILE.equals(req.getContentType());
+      final ObjectMapper mapper = isSmile ? smileMapper : jsonMapper;
+      final Map<String, Object> lookupSpec;
+      try {
+        lookupSpec = mapper.readValue(in, new TypeReference<Map<String, Object>>()
+        {
+        });
+      }
+      catch (IOException e) {
+        return Response.status(Response.Status.BAD_REQUEST).entity(ServletResourceUtils.sanitizeException(e)).build();
+      }
+      if (lookupCoordinatorManager.updateLookup(
+          tier,
+          lookup,
+          lookupSpec,
+          new AuditInfo(author, comment, req.getRemoteAddr())
+      )) {
+        return Response.status(Response.Status.ACCEPTED).build();
+      } else {
+        throw new RuntimeException("Unknown error updating configuration");
+      }
+    }
+    catch (Exception e) {
+      LOG.error(e, "Error updating tier [%s] lookup [%s]", tier, lookup);
+      return Response.serverError().entity(ServletResourceUtils.sanitizeException(e)).build();
+    }
+  }
+
   @GET
   @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
   @Path("/{tier}/{lookup}")
@@ -169,8 +229,8 @@ public class LookupCoordinatorResource
     try {
       if (Strings.isNullOrEmpty(tier)) {
         return Response.status(Response.Status.BAD_REQUEST)
-            .entity(ServletResourceUtils.sanitizeException(new NullPointerException("`tier` required")))
-            .build();
+                       .entity(ServletResourceUtils.sanitizeException(new NullPointerException("`tier` required")))
+                       .build();
       }
       if (Strings.isNullOrEmpty(lookup)) {
         return Response.status(Response.Status.BAD_REQUEST)
@@ -211,7 +271,7 @@ public class LookupCoordinatorResource
                        .build();
       }
       final Map<String, Map<String, Object>> tierLookups = map.get(tier);
-      if(tierLookups == null) {
+      if (tierLookups == null) {
         return Response.status(Response.Status.NOT_FOUND)
                        .entity(ServletResourceUtils.sanitizeException(new RE("Tier [%s] not found", tier)))
                        .build();
