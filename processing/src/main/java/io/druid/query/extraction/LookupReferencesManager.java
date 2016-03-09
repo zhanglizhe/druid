@@ -158,7 +158,7 @@ public class LookupReferencesManager
         updated = true;
       }
 
-      if (prior != null) {
+      if (updated && prior != null) {
         if (!prior.close()) {
           LOGGER.warn("Error closing [%s]:[%s]", lookupName, lookupExtractorFactory);
         }
