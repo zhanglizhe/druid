@@ -29,14 +29,19 @@ public class MapLookupExtractorFactory implements LookupExtractorFactory
 {
   private final Map<String, String> map;
   private final boolean isOneToOne;
+  private final MapLookupExtractor lookupExtractor;
+
   @JsonCreator
   public MapLookupExtractorFactory(
       @JsonProperty("map") Map<String, String> map,
       @JsonProperty("isOneToOne") boolean isOneToOne
-  ){
+  )
+  {
     this.map = Preconditions.checkNotNull(map, "map cannot be null");
     this.isOneToOne = isOneToOne;
+    this.lookupExtractor = new MapLookupExtractor(map, isOneToOne);
   }
+
   @Override
   public boolean start()
   {
@@ -52,7 +57,7 @@ public class MapLookupExtractorFactory implements LookupExtractorFactory
   @Override
   public LookupExtractor get()
   {
-    return new MapLookupExtractor(map, isOneToOne);
+    return lookupExtractor;
   }
 
   @Override
