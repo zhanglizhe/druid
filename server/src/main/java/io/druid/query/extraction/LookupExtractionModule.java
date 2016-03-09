@@ -36,6 +36,7 @@ import io.druid.curator.announcement.Announcer;
 import io.druid.guice.Jerseys;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.LifecycleModule;
+import io.druid.guice.ServerModule;
 import io.druid.guice.annotations.Json;
 import io.druid.guice.annotations.Self;
 import io.druid.guice.annotations.Smile;
@@ -59,8 +60,6 @@ import java.util.Map;
  */
 public class LookupExtractionModule implements DruidModule
 {
-  private static final String PROPERTY_BASE = "druid.zk.paths";
-
   public static String getTierListenerPath(String tier)
   {
     return ZKPaths.makePath(LookupCoordinatorManager.LOOKUP_LISTEN_ANNOUNCE_KEY, tier);
@@ -75,7 +74,7 @@ public class LookupExtractionModule implements DruidModule
   @Override
   public void configure(Binder binder)
   {
-    JsonConfigProvider.bind(binder, PROPERTY_BASE, LookupListeningAnnouncerConfig.class);
+    JsonConfigProvider.bind(binder, ServerModule.ZK_PATHS_PROPERTY_BASE, LookupListeningAnnouncerConfig.class);
     binder.bind(LookupListeningResource.class);
     Jerseys.addResource(binder, LookupListeningResource.class);
     LifecycleModule.register(binder, LookupReferencesManager.class);
