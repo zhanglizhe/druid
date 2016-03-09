@@ -145,26 +145,24 @@ public class LookupReferencesManager
    */
   public boolean updateIfNew(String lookupName, final LookupExtractorFactory lookupExtractorFactory)
   {
-    boolean updated = false;
+    final boolean update;
     synchronized (lock) {
       assertStarted();
       final LookupExtractorFactory prior = lookupMap.get(lookupName);
-
-      if (!lookupExtractorFactory.equals(prior)) {
+      update = lookupExtractorFactory.replaces(prior);
+      if (update) {
         if (!lookupExtractorFactory.start()) {
           throw new ISE("Could not start [%s]", lookupName);
         }
         lookupMap.put(lookupName, lookupExtractorFactory);
-        updated = true;
-      }
-
-      if (updated && prior != null) {
-        if (!prior.close()) {
-          LOGGER.warn("Error closing [%s]:[%s]", lookupName, lookupExtractorFactory);
+        if (prior != null) {
+          if (!prior.close()) {
+            LOGGER.warn("Error closing [%s]:[%s]", lookupName, lookupExtractorFactory);
+          }
         }
       }
     }
-    return updated;
+    return update;
   }
 
   /**

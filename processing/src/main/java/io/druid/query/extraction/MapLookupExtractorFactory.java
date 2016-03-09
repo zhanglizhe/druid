@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 
 public class MapLookupExtractorFactory implements LookupExtractorFactory
@@ -52,6 +53,25 @@ public class MapLookupExtractorFactory implements LookupExtractorFactory
   public boolean close()
   {
     return true;
+  }
+
+  @Override
+  public boolean replaces(@Nullable LookupExtractorFactory other)
+  {
+    if (this == other) {
+      return false;
+    }
+
+    if (other == null) {
+      return true;
+    }
+
+    if (!(other instanceof MapLookupExtractorFactory)) {
+      return true;
+    }
+
+    final MapLookupExtractorFactory that = (MapLookupExtractorFactory) other;
+    return isOneToOne != that.isOneToOne || !map.equals(that.map);
   }
 
   @Override
