@@ -445,7 +445,8 @@ Using the prior example, a `GET` to `/druid/coordinator/v1/lookups/realtime_cust
 A `DELETE` to `/druid/coordinator/v1/lookups/{tier}/{id}` will remove that lookup from the cluster.
 
 ## List tier names
-A `GET` to `/druid/coordinator/v1/lookups` will return a list of known tier names
+A `GET` to `/druid/coordinator/v1/lookups` will return a list of known tier names in the dynamic configuration.
+To discover a list of tiers currently active in the cluster **instead of** ones known in the dynamic configuration, the parameter `discover=true` can be added as per `/druid/coordinator/v1/lookups?discover=true`.
 
 ## List lookup names
 A `GET` to `/druid/coordinator/v1/lookups/{tier}` will return a list of known lookup names for that tier.
