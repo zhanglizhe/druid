@@ -1079,4 +1079,61 @@ public class LookupCoordinatorManagerTest
       EasyMock.verify(configManager);
     }
   }
+
+  @Test
+  public void testLookupDiscoverAll() throws Exception
+  {
+    final List<String> fakeChildren = ImmutableList.of("tier1", "tier2");
+    EasyMock.reset(discoverer);
+    EasyMock.expect(discoverer.discoverChildren(LookupCoordinatorManager.LOOKUP_LISTEN_ANNOUNCE_KEY))
+            .andReturn(fakeChildren)
+            .once();
+    EasyMock.replay(discoverer);
+    final LookupCoordinatorManager manager = new LookupCoordinatorManager(
+        client,
+        discoverer,
+        mapper,
+        configManager
+    );
+    Assert.assertEquals(fakeChildren, manager.discoverTiers());
+    EasyMock.verify(discoverer);
+  }
+
+
+  @Test
+  public void testLookupDiscoverAllExceptional() throws Exception
+  {
+    final IOException ex = new IOException("some exception");
+    EasyMock.reset(discoverer);
+    EasyMock.expect(discoverer.discoverChildren(LookupCoordinatorManager.LOOKUP_LISTEN_ANNOUNCE_KEY))
+            .andThrow(ex)
+            .once();
+    expectedException.expectCause(new BaseMatcher<Throwable>()
+    {
+      @Override
+      public boolean matches(Object o)
+      {
+        return o == ex;
+      }
+
+      @Override
+      public void describeTo(Description description)
+      {
+
+      }
+    });
+    EasyMock.replay(discoverer);
+    final LookupCoordinatorManager manager = new LookupCoordinatorManager(
+        client,
+        discoverer,
+        mapper,
+        configManager
+    );
+    try {
+      manager.discoverTiers();
+    }
+    finally {
+      EasyMock.verify(discoverer);
+    }
+  }
 }

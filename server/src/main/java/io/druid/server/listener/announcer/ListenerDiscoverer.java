@@ -19,28 +19,27 @@
 
 package io.druid.server.listener.announcer;
 
+import com.google.api.client.repackaged.com.google.common.base.Throwables;
 import com.google.common.base.Predicate;
-import com.google.common.base.Throwables;
+import com.google.common.base.Strings;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import com.metamx.common.lifecycle.LifecycleStart;
 import com.metamx.common.lifecycle.LifecycleStop;
 import com.metamx.common.logger.Logger;
 import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.recipes.cache.PathChildrenCache;
 import org.apache.curator.utils.ZKPaths;
+import org.apache.zookeeper.KeeperException;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 public class ListenerDiscoverer
 {
@@ -169,5 +168,33 @@ public class ListenerDiscoverer
     );
     lastSeenMap = priorSeenMap;
     return retVal;
+  }
+
+  /**
+   * Discovers children of the listener key
+   *
+   * @param key_base The base of the listener key, or null or empty string to get all immediate children of the listener path
+   *
+   * @return A collection of the names of the children, or empty list on NoNodeException from Curator
+   *
+   * @throws IOException      from Curator
+   * @throws RuntimeException for other exceptions from Curator.
+   */
+  public Collection<String> discoverChildren(@Nullable final String key_base) throws IOException
+  {
+    final String zkPath = Strings.isNullOrEmpty(key_base)
+                          ? listeningAnnouncerConfig.getListenersPath()
+                          : listeningAnnouncerConfig.getAnnouncementPath(key_base);
+    try {
+      return cf.getChildren().forPath(zkPath);
+    }
+    catch (KeeperException.NoNodeException | KeeperException.NoChildrenForEphemeralsException e) {
+      LOG.warn(e, "Path [%s] not discoverable", zkPath);
+      return ImmutableList.of();
+    }
+    catch (Exception e) {
+      Throwables.propagateIfInstanceOf(e, IOException.class);
+      throw Throwables.propagate(e);
+    }
   }
 }

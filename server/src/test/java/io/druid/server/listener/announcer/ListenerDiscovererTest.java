@@ -26,6 +26,7 @@ import io.druid.curator.CuratorTestBase;
 import io.druid.curator.announcement.Announcer;
 import io.druid.segment.CloserRule;
 import io.druid.server.initialization.ZkPathsConfig;
+import org.apache.curator.utils.ZKPaths;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -43,6 +44,11 @@ public class ListenerDiscovererTest extends CuratorTestBase
   @Test
   public void testFullService() throws Exception
   {
+    final String listenerKey = "listenerKey";
+    final String listenerTier = "listenerTier";
+    final String listenerTierChild = "tierChild";
+    final String tierZkPath = ZKPaths.makePath(listenerTier, listenerTierChild);
+
     setupServerAndCurator();
     final ExecutorService executorService = Execs.singleThreaded("listenerDiscovererTest--%s");
     closerRule.closeLater(new Closeable()
@@ -78,7 +84,6 @@ public class ListenerDiscovererTest extends CuratorTestBase
         listenerDiscoverer.stop();
       }
     });
-    final String listenerKey = "listenerKey";
     Assert.assertTrue(listenerDiscoverer.getNodes(listenerKey).isEmpty());
 
     final HostAndPort node = HostAndPort.fromParts("someHost", 8888);
@@ -91,7 +96,6 @@ public class ListenerDiscovererTest extends CuratorTestBase
     {
     };
     listenerResourceAnnouncer.start();
-    announcer.start();
     closerRule.closeLater(new Closeable()
     {
       @Override
@@ -100,6 +104,26 @@ public class ListenerDiscovererTest extends CuratorTestBase
         listenerResourceAnnouncer.stop();
       }
     });
+
+    final ListenerResourceAnnouncer tieredListenerResourceAnnouncer = new ListenerResourceAnnouncer(
+        announcer,
+        config,
+        tierZkPath,
+        node
+    )
+    {
+    };
+    tieredListenerResourceAnnouncer.start();
+    closerRule.closeLater(new Closeable()
+    {
+      @Override
+      public void close() throws IOException
+      {
+        tieredListenerResourceAnnouncer.stop();
+      }
+    });
+
+    announcer.start();
 
     Assert.assertNotNull(curator.checkExists().forPath(config.getAnnouncementPath(listenerKey)));
     // Have to wait for background syncing
@@ -110,6 +134,14 @@ public class ListenerDiscovererTest extends CuratorTestBase
     Assert.assertEquals(
         ImmutableSet.of(HostAndPort.fromString(node.toString())),
         listenerDiscoverer.getNodes(listenerKey)
+    );
+    Assert.assertEquals(
+        ImmutableSet.of(listenerKey, listenerTier),
+        ImmutableSet.copyOf(listenerDiscoverer.discoverChildren(null))
+    );
+    Assert.assertEquals(
+        ImmutableSet.of(listenerTierChild),
+        ImmutableSet.copyOf(listenerDiscoverer.discoverChildren(listenerTier))
     );
   }
 }

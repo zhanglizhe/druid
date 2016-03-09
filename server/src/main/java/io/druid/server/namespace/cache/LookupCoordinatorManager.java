@@ -26,6 +26,7 @@ import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import com.google.api.client.http.HttpStatusCodes;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -374,14 +375,7 @@ public class LookupCoordinatorManager
                 listenerDiscoverer.getNodes(LookupExtractionModule.getTierListenerPath(tier)),
                 HOST_TO_URL
             ),
-            new Predicate<URL>()
-            {
-              @Override
-              public boolean apply(@Nullable URL input)
-              {
-                return input != null;
-              }
-            }
+            Predicates.notNull()
         )
     );
   }
@@ -466,6 +460,16 @@ public class LookupCoordinatorManager
       updateTierSpec.remove(lookup);
       updateSpec.put(tier, updateTierSpec);
       return configManager.set(LOOKUP_CONFIG_KEY, updateSpec, auditInfo);
+    }
+  }
+
+  public
+  Collection<String> discoverTiers() {
+    try {
+      return listenerDiscoverer.discoverChildren(LookupCoordinatorManager.LOOKUP_LISTEN_ANNOUNCE_KEY);
+    }
+    catch (IOException e) {
+      throw Throwables.propagate(e);
     }
   }
 

@@ -44,6 +44,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -80,9 +81,14 @@ public class LookupCoordinatorResource
 
   @GET
   @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
-  public Response getTiers()
+  public Response getTiers(
+      @DefaultValue("false") @QueryParam("discover") boolean discover
+  )
   {
     try {
+      if (discover) {
+        return Response.ok().entity(lookupCoordinatorManager.discoverTiers()).build();
+      }
       final Map<String, Map<String, Map<String, Object>>> knownNamespaces = lookupCoordinatorManager.getKnownLookups();
       if (knownNamespaces == null) {
         return Response.status(Response.Status.NOT_FOUND).build();
