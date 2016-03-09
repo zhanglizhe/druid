@@ -43,8 +43,25 @@ public class ConfigResourceFilter extends AbstractResourceFilter
           authorizationInfo,
           "Security is enabled but no authorization info found in the request"
       );
+      final String resourceName;
+      if (request.getPath().startsWith("druid/worker/v1")
+          || request.getPath().startsWith("druid/indexer/v1")) {
+        resourceName = "WORKER";
+      } else if (request.getPath().startsWith("druid/coordinator/v1/config")) {
+        resourceName = "COORDINATOR";
+      } else {
+        throw new WebApplicationException(
+            Response.status(Response.Status.BAD_REQUEST).entity(
+                String.format(
+                    "Do not know how to authorize this request path [%s] with ConfigResourceFilter",
+                    request.getPath()
+                )
+            ).build()
+        );
+      }
+
       final Access authResult = authorizationInfo.isAuthorized(
-          new Resource("CONFIG", ResourceType.CONFIG),
+          new Resource(resourceName, ResourceType.CONFIG),
           getAction(request)
       );
       if (!authResult.isAllowed()) {
