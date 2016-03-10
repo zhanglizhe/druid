@@ -101,6 +101,8 @@ class LookupListeningResource extends ListenerResource
         {
         })
         {
+          private final Object deleteLock = new Object();
+
           @Override
           public synchronized Object post(final Map<String, LookupExtractorFactory> lookups)
               throws Exception
@@ -115,6 +117,7 @@ class LookupListeningResource extends ListenerResource
               }
               catch (ISE ise) {
                 LOG.error(ise, "Error starting [%s]: [%s]", name, factory);
+                failedUpdates.put(name, factory);
               }
             }
             return ImmutableMap.of("status", "accepted", "failedUpdates", failedUpdates);
@@ -135,7 +138,17 @@ class LookupListeningResource extends ListenerResource
           @Override
           public Object delete(String id)
           {
-            return manager.remove(id) ? id : null;
+            // Prevent races to 404 vs 500 between concurrent delete requests
+            synchronized (deleteLock) {
+              if (manager.get(id) == null) {
+                return null;
+              }
+              if (!manager.remove(id)) {
+                // We don't have more information at this point.
+                throw new RuntimeException(String.format("Could not remove lookup [%s]", id));
+              }
+              return id;
+            }
           }
         }
     );

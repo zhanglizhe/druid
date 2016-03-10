@@ -297,8 +297,8 @@ To test this setup, you can send key/value pairs to a kafka stream via the follo
 
 Renames can then be published as `OLD_VAL->NEW_VAL` followed by newline (enter or return)
 
-Dynamic configuration
----------------------
+Dynamic configuration (EXPERIMENTAL)
+------------------------------------
 
 The following documents the behavior of the cluster-wide config which is accessible through the coordinator.
 The configuration is propogated through the concept of "tier" of servers.
@@ -409,7 +409,7 @@ So a config might look something like:
 
 All entries in the map will UPDATE existing entries. No entries will be deleted.
 
-## Update
+## Update Lookup
 A `POST` to a particular lookup extractor factory via `/druid/coordinator/v1/lookups/{tier}/{id}` will update that specific extractor factory.
 
 For example, a post to `/druid/coordinator/v1/lookups/realtime_customer1/site_id_customer1` might contain the following:
@@ -426,7 +426,7 @@ For example, a post to `/druid/coordinator/v1/lookups/realtime_customer1/site_id
 
 This will replace the `site_id_customer1` lookup in the `realtime_customer1` with the definition above.
 
-## Get
+## Get Lookup
 A `GET` to a particular lookup extractor factory is accomplished via `/druid/coordinator/v1/lookups/{tier}/{id}`
 
 Using the prior example, a `GET` to `/druid/coordinator/v1/lookups/realtime_customer2/site_id_customer2` should return
@@ -441,7 +441,7 @@ Using the prior example, a `GET` to `/druid/coordinator/v1/lookups/realtime_cust
 }
 ```
 
-## Delete
+## Delete Lookup
 A `DELETE` to `/druid/coordinator/v1/lookups/{tier}/{id}` will remove that lookup from the cluster.
 
 ## List tier names
@@ -450,3 +450,98 @@ To discover a list of tiers currently active in the cluster **instead of** ones 
 
 ## List lookup names
 A `GET` to `/druid/coordinator/v1/lookups/{tier}` will return a list of known lookup names for that tier.
+
+# Internal API
+
+The Peon, Router, Broker, and Historical nodes all have the ability to consume lookup configuration.
+There is an internal API these nodes use to list/load/drop their lookups starting at `/druid/listen/v1/lookups`.
+These follow the same convention for return values as the cluster wide dynamic configuration.
+Usage of these endpoints is quite advanced and not recommended for most users.
+The endpoints are as follows:
+
+## Get Lookups
+
+A `GET` to the node at `/druid/listen/v1/lookups` will return a json map of all the lookups currently active on the node.
+The return value will be a json map of the lookups to their extractor factories.
+
+```json
+
+{
+    "some_lookup_name": {
+        "type": "simple_json",
+        "uri": "http://some.host.com/codes.json"
+    }
+}
+
+```
+
+## Get Lookup
+
+A `GET` to the node at `/druid/listen/v1/lookups/some_lookup_name` will return the LookupExtractorFactory for the lookup identified by `some_lookup_name`.
+The return value will be the json representation of the factory.
+
+```json
+{
+    "type": "simple_json",
+    "uri": "http://some.host.com/codes.json"
+}
+```
+
+## Bulk Add or Update Lookups
+
+A `POST` to the node at `/druid/listen/v1/lookups` of a JSON map of lookup names to LookupExtractorFactory will cause the service to add or update its lookups.
+The return value will be a JSON map in the following format:
+
+```json
+{
+    "status": "accepted",
+    "failedUpdates", {}
+}
+
+```
+
+If a lookup cannot be started, or is left in an undefined state, the lookup in error will be returned in the `failedUpdates` field as per:
+
+```json
+{
+    "status": "accepted",
+    "failedUpdates", {
+        "country_code": {
+            "type": "simple_json",
+            "uri": "http://some.host.com/codes.json"
+        }
+    }
+}
+
+```
+
+The `failedUpdates` field of the return value should be checked if a user is wanting to assure that every update succeeded.
+
+## Add or Update Lookup
+
+A `POST` to the node at `/druid/listen/v1/lookups/some_lookup_name` will behave very similarly to a bulk update.
+
+If `some_lookup_name` is desired to have the LookupExtractorFactory definition of 
+
+```json
+{
+    "type": "simple_json",
+    "uri": "http://some.host.com/codes.json"
+}
+```
+
+Then a post to `/druid/listen/v1/lookups/some_lookup_name` will behave the same as a `POST` to `/druid/listen/v1/lookups` of
+
+```json
+
+{
+    "some_lookup_name": {
+        "type": "simple_json",
+        "uri": "http://some.host.com/codes.json"
+    }
+}
+
+```
+
+## Remove a Lookup
+A `DELETE` to `/druid/listen/v1/lookups/some_lookup_name` will remove that lookup from the node. Success will reflect the ID.

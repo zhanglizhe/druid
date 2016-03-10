@@ -38,7 +38,7 @@ import java.util.Map;
 /**
  * This is a simplified handler for announcement listeners. The input is expected to be a JSON list objects.
  *
- * Empty lists `[]` are taken care of at this level and never passed down to the subclass's handle method.
+ * Empty maps `{}` are taken care of at this level and never passed down to the subclass's handle method.
  *
  * @param <ObjType> A List of this type is expected in the input stream as JSON. Must be able to be converted to/from Map<String, Object>
  */
