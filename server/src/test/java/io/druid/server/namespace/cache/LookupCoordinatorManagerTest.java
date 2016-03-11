@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.SettableFuture;
 import com.metamx.common.ISE;
+import com.metamx.common.StringUtils;
 import com.metamx.http.client.HttpClient;
 import com.metamx.http.client.Request;
 import com.metamx.http.client.response.HttpResponseHandler;
@@ -90,7 +91,12 @@ public class LookupCoordinatorManagerTest
 
     final URL url = LookupCoordinatorManager.getLookupsURL(HostAndPort.fromString("localhost"));
     final SettableFuture<InputStream> future = SettableFuture.create();
-    future.set(new ByteArrayInputStream(new byte[0]));
+    future.set(new ByteArrayInputStream(StringUtils.toUtf8(mapper.writeValueAsString(ImmutableMap.of(
+        "status",
+        "accepted",
+        LookupExtractionModule.FAILED_UPDATES_KEY,
+        ImmutableMap.of()
+    )))));
     EasyMock.expect(client.go(
         EasyMock.<Request>anyObject(),
         EasyMock.<SequenceInputStreamResponseHandler>anyObject(),
@@ -123,6 +129,116 @@ public class LookupCoordinatorManagerTest
     );
 
     EasyMock.verify(client, responseHandler);
+  }
+
+  @Test
+  public void testUpdateAllOnHostFailsWithFailedThings() throws Exception
+  {
+    final HttpResponseHandler<InputStream, InputStream> responseHandler = EasyMock.createStrictMock(HttpResponseHandler.class);
+
+    final String failedLookup = "failedLookup";
+    final URL url = LookupCoordinatorManager.getLookupsURL(HostAndPort.fromString("localhost"));
+    final SettableFuture<InputStream> future = SettableFuture.create();
+    future.set(new ByteArrayInputStream(StringUtils.toUtf8(mapper.writeValueAsString(ImmutableMap.of(
+        "status",
+        "accepted",
+        LookupExtractionModule.FAILED_UPDATES_KEY,
+        ImmutableMap.of(
+            failedLookup,
+            ImmutableMap.of()
+        )
+    )))));
+    EasyMock.expect(client.go(
+        EasyMock.<Request>anyObject(),
+        EasyMock.<SequenceInputStreamResponseHandler>anyObject(),
+        EasyMock.<Duration>anyObject()
+    )).andReturn(future).once();
+
+    EasyMock.replay(client, responseHandler);
+
+    final LookupCoordinatorManager manager = new LookupCoordinatorManager(
+        client,
+        discoverer,
+        mapper,
+        configManager
+    )
+    {
+      @Override
+      HttpResponseHandler<InputStream, InputStream> makeResponseHandler(
+          final AtomicInteger returnCode,
+          final AtomicReference<String> reasonString
+      )
+      {
+        returnCode.set(200);
+        reasonString.set("");
+        return responseHandler;
+      }
+    };
+    expectedException.expectMessage("Lookups failed to update: [\"" + failedLookup + "\"]");
+    try {
+      manager.updateAllOnHost(
+          url,
+          SINGLE_LOOKUP_MAP
+      );
+    }
+    finally {
+
+      EasyMock.verify(client, responseHandler);
+    }
+  }
+
+  @Test
+  public void testUpdateAllOnHostFailsWhenServerReturnsWeird() throws Exception
+  {
+    final HttpResponseHandler<InputStream, InputStream> responseHandler = EasyMock.createStrictMock(HttpResponseHandler.class);
+
+    final String failedLookup = "failedLookup";
+    final URL url = LookupCoordinatorManager.getLookupsURL(HostAndPort.fromString("localhost"));
+    final SettableFuture<InputStream> future = SettableFuture.create();
+    future.set(new ByteArrayInputStream(StringUtils.toUtf8(mapper.writeValueAsString(ImmutableMap.of(
+        "status",
+        "accepted"
+    )))));
+    EasyMock.expect(client.go(
+        EasyMock.<Request>anyObject(),
+        EasyMock.<SequenceInputStreamResponseHandler>anyObject(),
+        EasyMock.<Duration>anyObject()
+    )).andReturn(future).once();
+
+    EasyMock.replay(client, responseHandler);
+
+    final LookupCoordinatorManager manager = new LookupCoordinatorManager(
+        client,
+        discoverer,
+        mapper,
+        configManager
+    )
+    {
+      @Override
+      HttpResponseHandler<InputStream, InputStream> makeResponseHandler(
+          final AtomicInteger returnCode,
+          final AtomicReference<String> reasonString
+      )
+      {
+        returnCode.set(200);
+        reasonString.set("");
+        return responseHandler;
+      }
+    };
+    expectedException.expectMessage(String.format(
+        "Update result did not have field for [%s]",
+        LookupExtractionModule.FAILED_UPDATES_KEY
+    ));
+    try {
+      manager.updateAllOnHost(
+          url,
+          SINGLE_LOOKUP_MAP
+      );
+    }
+    finally {
+
+      EasyMock.verify(client, responseHandler);
+    }
   }
 
 

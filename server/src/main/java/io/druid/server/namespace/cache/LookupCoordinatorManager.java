@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import com.google.api.client.http.HttpStatusCodes;
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
@@ -38,12 +37,13 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Inject;
+import com.metamx.common.IAE;
 import com.metamx.common.ISE;
 import com.metamx.common.StreamUtils;
 import com.metamx.common.StringUtils;
 import com.metamx.common.lifecycle.LifecycleStart;
 import com.metamx.common.lifecycle.LifecycleStop;
-import com.metamx.common.logger.Logger;
+import com.metamx.emitter.EmittingLogger;
 import com.metamx.http.client.HttpClient;
 import com.metamx.http.client.Request;
 import com.metamx.http.client.response.ClientResponse;
@@ -89,7 +89,10 @@ public class LookupCoordinatorManager
   public static final String LOOKUP_CONFIG_KEY = "lookups";
   // Doesn't have to be the same, but it makes things easy to look at
   public static final String LOOKUP_LISTEN_ANNOUNCE_KEY = LOOKUP_CONFIG_KEY;
-  private static final Logger LOG = new Logger(LookupCoordinatorManager.class);
+  private static final EmittingLogger LOG = new EmittingLogger(LookupCoordinatorManager.class);
+  private static final TypeReference<Map<String, Object>> MAP_STRING_OBJ_TYPE = new TypeReference<Map<String, Object>>()
+  {
+  };
   private final static Function<HostAndPort, URL> HOST_TO_URL = new Function<HostAndPort, URL>()
   {
     @Nullable
@@ -159,12 +162,13 @@ public class LookupCoordinatorManager
           StreamUtils.copyAndClose(result, baos);
         }
         catch (IOException e2) {
-          LOG.warn(e2, "Error reading response");
+          LOG.warn(e2, "Error reading response from [%s]", url);
         }
 
         throw new IOException(
             String.format(
-                "Bad lookup delete request [%d] : [%s]  Response: [%s]",
+                "Bad lookup delete request to [%s] : [%d] : [%s]  Response: [%s]",
+                url,
                 returnCode.get(),
                 reasonString.get(),
                 StringUtils.fromUtf8(baos.toByteArray())
@@ -172,7 +176,7 @@ public class LookupCoordinatorManager
         );
       } else {
         if (LOG.isDebugEnabled()) {
-          LOG.debug("Status: %s reason: [%s]", returnCode.get(), reasonString.get());
+          LOG.debug("Delete to [%s] : Status: %s reason: [%s]", url, returnCode.get(), reasonString.get());
         }
       }
     }
@@ -213,7 +217,8 @@ public class LookupCoordinatorManager
 
         throw new IOException(
             String.format(
-                "Bad update request [%d] : [%s]  Response: [%s]",
+                "Bad update request to [%s] : [%d] : [%s]  Response: [%s]",
+                url,
                 returnCode.get(),
                 reasonString.get(),
                 StringUtils.fromUtf8(baos.toByteArray())
@@ -221,7 +226,19 @@ public class LookupCoordinatorManager
         );
       } else {
         if (LOG.isDebugEnabled()) {
-          LOG.debug("Status: %s reason: [%s]", returnCode.get(), reasonString.get());
+          LOG.debug("Update on [%s], Status: %s reason: [%s]", url, returnCode.get(), reasonString.get());
+        }
+        final Map<String, Object> resultMap = smileMapper.readValue(result, MAP_STRING_OBJ_TYPE);
+        final Object missingValuesObject = resultMap.get(LookupExtractionModule.FAILED_UPDATES_KEY);
+        if (null == missingValuesObject) {
+          throw new IAE("Update result did not have field for [%s]", LookupExtractionModule.FAILED_UPDATES_KEY);
+        }
+
+        final Map<String, Object> missingValues = smileMapper.convertValue(missingValuesObject, MAP_STRING_OBJ_TYPE);
+        if (!missingValues.isEmpty()) {
+          throw new IAE("Lookups failed to update: %s", smileMapper.writeValueAsString(missingValues.keySet()));
+        } else {
+          LOG.debug("Updated all lookups on [%s]", url);
         }
       }
     }
@@ -283,7 +300,7 @@ public class LookupCoordinatorManager
             }
             catch (IOException | ExecutionException e) {
               // Don't raise as ExecutionException. Just log and continue
-              LOG.error(e, "Error submitting to [%s]", lookupURL);
+              LOG.makeAlert(e, "Error submitting to [%s]", lookupURL).emit();
             }
           }
         }
@@ -351,7 +368,7 @@ public class LookupCoordinatorManager
           }
           catch (IOException | ExecutionException e) {
             // Don't raise as ExecutionException. Just log and continue
-            LOG.error(e, "Error submitting to [%s]", url);
+            LOG.makeAlert(e, "Error submitting to [%s]", url).emit();
           }
         }
       }));
@@ -463,8 +480,8 @@ public class LookupCoordinatorManager
     }
   }
 
-  public
-  Collection<String> discoverTiers() {
+  public Collection<String> discoverTiers()
+  {
     try {
       return listenerDiscoverer.discoverChildren(LookupCoordinatorManager.LOOKUP_LISTEN_ANNOUNCE_KEY);
     }

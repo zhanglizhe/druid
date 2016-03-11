@@ -31,6 +31,7 @@ import com.google.common.net.HostAndPort;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.metamx.common.ISE;
+import com.metamx.common.RE;
 import com.metamx.common.logger.Logger;
 import io.druid.curator.announcement.Announcer;
 import io.druid.guice.Jerseys;
@@ -60,6 +61,8 @@ import java.util.Map;
  */
 public class LookupExtractionModule implements DruidModule
 {
+  public static final String FAILED_UPDATES_KEY = "failedUpdates";
+
   public static String getTierListenerPath(String tier)
   {
     return ZKPaths.makePath(LookupCoordinatorManager.LOOKUP_LISTEN_ANNOUNCE_KEY, tier);
@@ -120,7 +123,7 @@ class LookupListeningResource extends ListenerResource
                 failedUpdates.put(name, factory);
               }
             }
-            return ImmutableMap.of("status", "accepted", "failedUpdates", failedUpdates);
+            return ImmutableMap.of("status", "accepted", LookupExtractionModule.FAILED_UPDATES_KEY, failedUpdates);
           }
 
           @Override
@@ -145,7 +148,7 @@ class LookupListeningResource extends ListenerResource
               }
               if (!manager.remove(id)) {
                 // We don't have more information at this point.
-                throw new RuntimeException(String.format("Could not remove lookup [%s]", id));
+                throw new RE("Could not remove lookup [%s]", id);
               }
               return id;
             }

@@ -495,7 +495,7 @@ The return value will be a JSON map in the following format:
 ```json
 {
     "status": "accepted",
-    "failedUpdates", {}
+    "failedUpdates": {}
 }
 
 ```
