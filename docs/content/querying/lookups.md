@@ -545,3 +545,6 @@ Then a post to `/druid/listen/v1/lookups/some_lookup_name` will behave the same 
 
 ## Remove a Lookup
 A `DELETE` to `/druid/listen/v1/lookups/some_lookup_name` will remove that lookup from the node. Success will reflect the ID.
+
+# Configuration
+See the [coordinator configuration guilde](../configuration/coordinator.html)

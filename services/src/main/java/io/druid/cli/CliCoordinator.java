@@ -64,6 +64,7 @@ import io.druid.server.http.TiersResource;
 import io.druid.server.initialization.jetty.JettyServerInitializer;
 import io.druid.server.listener.announcer.ListenerDiscoverer;
 import io.druid.server.namespace.cache.LookupCoordinatorManager;
+import io.druid.server.namespace.cache.LookupCoordinatorManagerConfig;
 import io.druid.server.router.TieredBrokerConfig;
 import org.apache.curator.framework.CuratorFramework;
 import org.eclipse.jetty.server.Server;
@@ -108,6 +109,7 @@ public class CliCoordinator extends ServerRunnable
 
             JsonConfigProvider.bind(binder, "druid.manager.segments", MetadataSegmentManagerConfig.class);
             JsonConfigProvider.bind(binder, "druid.manager.rules", MetadataRuleManagerConfig.class);
+            JsonConfigProvider.bind(binder, "druid.manager.lookups", LookupCoordinatorManagerConfig.class);
 
             binder.bind(RedirectFilter.class).in(LazySingleton.class);
             binder.bind(RedirectInfo.class).to(CoordinatorRedirectInfo.class).in(LazySingleton.class);

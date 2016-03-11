@@ -70,6 +70,7 @@ public class LookupCoordinatorManagerTest
   private final ListenerDiscoverer discoverer = EasyMock.createStrictMock(ListenerDiscoverer.class);
   private final HttpClient client = EasyMock.createStrictMock(HttpClient.class);
   private final JacksonConfigManager configManager = EasyMock.createStrictMock(JacksonConfigManager.class);
+  private final LookupCoordinatorManagerConfig lookupCoordinatorManagerConfig = new LookupCoordinatorManagerConfig();
 
   private static final String LOOKUP_TIER = "lookup_tier";
   private static final String SINGLE_LOOKUP_NAME = "lookupName";
@@ -119,7 +120,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -170,7 +172,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -221,7 +224,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -272,7 +276,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -349,7 +354,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     );
     try {
       manager.updateAllOnHost(
@@ -371,7 +377,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -403,7 +410,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -432,7 +440,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -482,7 +491,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     );
 
     EasyMock.expect(discoverer.getNodes(EasyMock.eq(LookupExtractionModule.getTierListenerPath(LOOKUP_TIER))))
@@ -545,7 +555,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -574,7 +585,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -596,7 +608,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -644,7 +657,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -692,7 +706,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -740,7 +755,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -786,7 +802,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -837,7 +854,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -871,7 +889,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -893,7 +912,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -914,7 +934,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
 
@@ -958,7 +979,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -1002,7 +1024,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -1051,7 +1074,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -1077,7 +1101,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -1101,7 +1126,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     )
     {
       @Override
@@ -1130,7 +1156,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     );
     manager.start();
     manager.start();
@@ -1155,7 +1182,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     );
     manager.start();
     manager.stop();
@@ -1180,7 +1208,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     );
     manager.start();
     manager.stop();
@@ -1219,7 +1248,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     );
     Assert.assertEquals(fakeChildren, manager.discoverTiers());
     EasyMock.verify(discoverer);
@@ -1253,7 +1283,8 @@ public class LookupCoordinatorManagerTest
         client,
         discoverer,
         mapper,
-        configManager
+        configManager,
+        lookupCoordinatorManagerConfig
     );
     try {
       manager.discoverTiers();

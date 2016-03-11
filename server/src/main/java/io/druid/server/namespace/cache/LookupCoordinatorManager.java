@@ -60,7 +60,6 @@ import io.druid.server.listener.resource.ListenerResource;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponse;
-import org.joda.time.Duration;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
@@ -118,6 +117,7 @@ public class LookupCoordinatorManager
   private final HttpClient httpClient;
   private final ObjectMapper smileMapper;
   private final JacksonConfigManager configManager;
+  private final LookupCoordinatorManagerConfig lookupCoordinatorManagerConfig;
   private final Object startStopSync = new Object();
   // Updated by config watching service
   private AtomicReference<Map<String, Map<String, Map<String, Object>>>> lookupMapConfigRef;
@@ -130,15 +130,20 @@ public class LookupCoordinatorManager
       final @Global HttpClient httpClient,
       final ListenerDiscoverer listenerDiscoverer,
       final @Smile ObjectMapper smileMapper,
-      final JacksonConfigManager configManager
+      final JacksonConfigManager configManager,
+      final LookupCoordinatorManagerConfig lookupCoordinatorManagerConfig
   )
   {
     this.listenerDiscoverer = listenerDiscoverer;
     this.configManager = configManager;
     this.httpClient = httpClient;
     this.smileMapper = smileMapper;
+    this.lookupCoordinatorManagerConfig = lookupCoordinatorManagerConfig;
     executorService = MoreExecutors.listeningDecorator(
-        Executors.newScheduledThreadPool(10, Execs.makeThreadFactory("LookupCoordinatorManager--%s"))
+        Executors.newScheduledThreadPool(
+            lookupCoordinatorManagerConfig.getThreadPoolSize(),
+            Execs.makeThreadFactory("LookupCoordinatorManager--%s")
+        )
     );
   }
 
@@ -153,7 +158,7 @@ public class LookupCoordinatorManager
         new Request(HttpMethod.DELETE, url)
             .addHeader(HttpHeaders.Names.ACCEPT, SmileMediaTypes.APPLICATION_JACKSON_SMILE),
         makeResponseHandler(returnCode, reasonString),
-        Duration.millis(1_000) // TODO: configurable
+        lookupCoordinatorManagerConfig.getHostDeleteTimeout()
     ).get()) {
       // 404 is ok here, that means it was already deleted
       if (!HttpStatusCodes.isSuccess(returnCode.get()) || HttpStatusCodes.STATUS_CODE_NOT_FOUND != returnCode.get()) {
@@ -204,7 +209,7 @@ public class LookupCoordinatorManager
             .addHeader(HttpHeaders.Names.CONTENT_TYPE, SmileMediaTypes.APPLICATION_JACKSON_SMILE)
             .setContent(bytes),
         makeResponseHandler(returnCode, reasonString),
-        Duration.millis(1_000) // TODO: configurable
+        lookupCoordinatorManagerConfig.getHostUpdateTimeout()
     ).get()) {
       if (!HttpStatusCodes.isSuccess(returnCode.get())) {
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -300,7 +305,7 @@ public class LookupCoordinatorManager
             }
             catch (IOException | ExecutionException e) {
               // Don't raise as ExecutionException. Just log and continue
-              LOG.makeAlert(e, "Error submitting to [%s]", lookupURL).emit();
+              LOG.makeAlert(e, "Error deleting [%s]", lookupURL).emit();
             }
           }
         }
@@ -308,7 +313,7 @@ public class LookupCoordinatorManager
     }
     final ListenableFuture allFuture = Futures.allAsList(futures);
     try {
-      allFuture.get(10_000, TimeUnit.MILLISECONDS);
+      allFuture.get(lookupCoordinatorManagerConfig.getUpdateAllTimeout().getMillis(), TimeUnit.MILLISECONDS);
     }
     catch (TimeoutException e) {
       // This should cause Interrupted exceptions on the offending ones
@@ -375,7 +380,7 @@ public class LookupCoordinatorManager
     }
     final ListenableFuture allFuture = Futures.allAsList(futures);
     try {
-      allFuture.get(60_000, TimeUnit.MILLISECONDS);
+      allFuture.get(lookupCoordinatorManagerConfig.getUpdateAllTimeout().getMillis(), TimeUnit.MILLISECONDS);
     }
     catch (TimeoutException e) {
       LOG.warn("Timeout in updating hosts! Attempting to cancel");
@@ -578,8 +583,7 @@ public class LookupCoordinatorManager
             }
           },
           0,
-          // TODO: configurable
-          30_000,
+          lookupCoordinatorManagerConfig.getPeriod(),
           TimeUnit.MILLISECONDS
       );
       started = true;
