@@ -28,6 +28,8 @@ import com.google.common.net.HostAndPort;
 import com.google.common.util.concurrent.SettableFuture;
 import com.metamx.common.ISE;
 import com.metamx.common.StringUtils;
+import com.metamx.emitter.core.LoggingEmitter;
+import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.http.client.HttpClient;
 import com.metamx.http.client.Request;
 import com.metamx.http.client.response.HttpResponseHandler;
@@ -43,6 +45,7 @@ import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.joda.time.Duration;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -83,6 +86,13 @@ public class LookupCoordinatorManagerTest
       SINGLE_LOOKUP_MAP
   );
   private static final Map<String, Map<String, Map<String, Object>>> EMPTY_TIERED_LOOKUP = (Map<String, Map<String, Map<String, Object>>>) ImmutableMap.<String, Map<String, Map<String, Object>>>of();
+
+  @BeforeClass
+  public static void setUpStatic()
+  {
+    final LoggingEmitter loggingEmitter = EasyMock.createNiceMock(LoggingEmitter.class);
+    com.metamx.emitter.EmittingLogger.registerEmitter(new ServiceEmitter("", "", loggingEmitter));
+  }
 
   @Test
   public void testUpdateAllOnHost() throws Exception
