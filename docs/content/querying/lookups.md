@@ -548,4 +548,10 @@ Then a post to `/druid/listen/v1/lookups/some_lookup_name` will behave the same 
 A `DELETE` to `/druid/listen/v1/lookups/some_lookup_name` will remove that lookup from the node. Success will reflect the ID.
 
 # Configuration
-See the [coordinator configuration guilde](../configuration/coordinator.html)
+See the [coordinator configuration guilde](../configuration/coordinator.html) for coordinator configuration
+
+To configure a Broker / Router / Historical / Peon to announce itself as part of a lookup tier, use the `druid.zk.paths.lookupTier` property.
+
+|Property | Description | Default |
+|---------|-------------|---------|
+|`druid.zk.paths.lookupTier`| The tier for **lookups** for this node. This is independent of other tiers.|`__default`|
