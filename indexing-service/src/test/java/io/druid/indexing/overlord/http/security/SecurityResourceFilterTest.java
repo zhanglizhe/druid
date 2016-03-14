@@ -18,6 +18,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.MultivaluedMap;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.util.Collection;
 
@@ -70,6 +73,11 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
   {
     setUpMockExpectations(requestPath, true, requestMethod);
     EasyMock.expect(request.getEntity(Task.class)).andReturn(noopTask).anyTimes();
+    if (requestPath.equals("druid/indexer/v1/task")) {
+      request.setEntity(EasyMock.anyObject(Class.class), EasyMock.anyObject(Class.class), (Annotation[]) EasyMock.anyObject(),
+                        EasyMock.anyObject(MediaType.class), EasyMock.anyObject(MultivaluedMap.class), EasyMock.anyObject(Task.class));
+      EasyMock.expectLastCall();
+    }
     // As request object is a strict mock the ordering of expected calls matters
     // therefore adding the expectation below again as getEntity is called before getMethod
     EasyMock.expect(request.getMethod()).andReturn(requestMethod).anyTimes();
@@ -82,6 +90,11 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
   {
     setUpMockExpectations(requestPath, false, requestMethod);
     EasyMock.expect(request.getEntity(Task.class)).andReturn(noopTask).anyTimes();
+    if (requestPath.equals("druid/indexer/v1/task")) {
+      request.setEntity(EasyMock.anyObject(Class.class), EasyMock.anyObject(Class.class), (Annotation[]) EasyMock.anyObject(),
+                        EasyMock.anyObject(MediaType.class), EasyMock.anyObject(MultivaluedMap.class), EasyMock.anyObject(Task.class));
+      EasyMock.expectLastCall();
+    }
     EasyMock.expect(request.getMethod()).andReturn(requestMethod).anyTimes();
     EasyMock.replay(req, request, authorizationInfo, tsqa);
     resourceFilter.getRequestFilter().filter(request);

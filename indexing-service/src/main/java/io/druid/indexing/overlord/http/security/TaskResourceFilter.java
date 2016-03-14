@@ -33,7 +33,9 @@ import io.druid.server.security.Resource;
 import io.druid.server.security.ResourceType;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.lang.annotation.Annotation;
 
 public class TaskResourceFilter extends AbstractResourceFilter
 {
@@ -55,7 +57,11 @@ public class TaskResourceFilter extends AbstractResourceFilter
       final String dataSourceName;
 
       if (request.getPath().equals("druid/indexer/v1/task")) {
-        dataSourceName = request.getEntity(Task.class).getDataSource();
+        Task task = request.getEntity(Task.class);
+        dataSourceName = task.getDataSource();
+        // Set the request entity again otherwise task object will be null in the OverlordResource
+        request.setEntity(Task.class, Task.class, new Annotation[0], MediaType.APPLICATION_JSON_TYPE, null, task);
+
       } else if (request.getPath().startsWith("druid/indexer/v1/task/")
                  || request.getPath().startsWith("druid/worker/v1/task/")) {
         final String taskId = request.getPathSegments().get(4).getPath();
