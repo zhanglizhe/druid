@@ -301,9 +301,10 @@ Dynamic configuration (EXPERIMENTAL)
 ------------------------------------
 
 The following documents the behavior of the cluster-wide config which is accessible through the coordinator.
-The configuration is propogated through the concept of "tier" of servers.
+The configuration is propagated through the concept of "tier" of servers.
 A "tier" is defined as a group of services which should receive a set of lookups.
 For example, you might have all historicals be part of `__default`, and Peons be part of individual tiers for the datasources they are tasked with.
+The tiers for lookups are completely independent of historical tiers.
 
 These configs are accessed using JSON through the following URI template
 
