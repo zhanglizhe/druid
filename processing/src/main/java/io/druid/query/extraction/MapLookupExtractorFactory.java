@@ -55,23 +55,16 @@ public class MapLookupExtractorFactory implements LookupExtractorFactory
     return true;
   }
 
+  /**
+   * For MapLookups, the replaces consideration is very easy, it simply considers if the other is the same as this one
+   *
+   * @param other Some other LookupExtractorFactory which might need replaced
+   * @return true - should replace,   false - should not replace
+   */
   @Override
   public boolean replaces(@Nullable LookupExtractorFactory other)
   {
-    if (this == other) {
-      return false;
-    }
-
-    if (other == null) {
-      return true;
-    }
-
-    if (!(other instanceof MapLookupExtractorFactory)) {
-      return true;
-    }
-
-    final MapLookupExtractorFactory that = (MapLookupExtractorFactory) other;
-    return isOneToOne != that.isOneToOne || !map.equals(that.map);
+    return !equals(other);
   }
 
   @Override
