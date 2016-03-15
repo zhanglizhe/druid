@@ -22,6 +22,7 @@ package io.druid.server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
@@ -123,7 +124,11 @@ public class QueryResource
     }
     if (authConfig.isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
-      AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+      final AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+      Preconditions.checkNotNull(
+          authorizationInfo,
+          "Security is enabled but no authorization info found in the request"
+      );
       if (queryManager.getQueryDatasources(queryId) == null) {
         log.warn("QueryId [%s] not registered with QueryManager, cannot cancel", queryId);
       } else if (authorizationInfo != null) {

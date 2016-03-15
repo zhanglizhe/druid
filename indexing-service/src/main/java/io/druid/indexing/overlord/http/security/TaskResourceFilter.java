@@ -33,10 +33,9 @@ import io.druid.server.security.Resource;
 import io.druid.server.security.ResourceType;
 
 import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import java.lang.annotation.Annotation;
 
+// Note - Do not use this filter at MiddleManager as TaskStorageQueryAdapter cannot be injected there
 public class TaskResourceFilter extends AbstractResourceFilter
 {
   @Inject
@@ -48,22 +47,12 @@ public class TaskResourceFilter extends AbstractResourceFilter
     if (getAuthConfig().isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
 
-      /* Task json is present in the POST body for
-      *   - druid/indexer/v1/task
-      *  Task Id is present in request path for
+      /* Task Id is present in request path for
       *   - druid/indexer/v1/task/{taskid}/...
-      *   - druid/worker/v1/task/{taskid}/...
       */
       final String dataSourceName;
 
-      if (request.getPath().equals("druid/indexer/v1/task")) {
-        Task task = request.getEntity(Task.class);
-        dataSourceName = task.getDataSource();
-        // Set the request entity again otherwise task object will be null in the OverlordResource
-        request.setEntity(Task.class, Task.class, new Annotation[0], MediaType.APPLICATION_JSON_TYPE, null, task);
-
-      } else if (request.getPath().startsWith("druid/indexer/v1/task/")
-                 || request.getPath().startsWith("druid/worker/v1/task/")) {
+      if (request.getPath().startsWith("druid/indexer/v1/task/")) {
         final String taskId = request.getPathSegments().get(4).getPath();
         Preconditions.checkNotNull(taskId);
         Optional<Task> taskOptional = taskStorageQueryAdapter.getTask(taskId);

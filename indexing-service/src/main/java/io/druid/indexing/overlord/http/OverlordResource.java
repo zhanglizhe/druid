@@ -22,6 +22,7 @@ package io.druid.indexing.overlord.http;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -55,6 +56,7 @@ import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.metadata.EntryExistsException;
 import io.druid.server.http.security.ConfigResourceFilter;
 import io.druid.server.http.security.StateResourceFilter;
+import io.druid.server.security.Access;
 import io.druid.server.security.Action;
 import io.druid.server.security.AuthConfig;
 import io.druid.server.security.AuthorizationInfo;
@@ -124,11 +126,28 @@ public class OverlordResource
   @Path("/task")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(TaskResourceFilter.class)
   public Response taskPost(
-      final Task task
+      final Task task,
+      @Context final HttpServletRequest req
   )
   {
+    if(authConfig.isEnabled()) {
+      // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+      final String dataSource = task.getDataSource();
+      final AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+      Preconditions.checkNotNull(
+          authorizationInfo,
+          "Security is enabled but no authorization info found in the request"
+      );
+      Access authResult = authorizationInfo.isAuthorized(
+          new Resource(dataSource, ResourceType.DATASOURCE),
+          Action.WRITE
+      );
+      if (!authResult.isAllowed()) {
+        return Response.status(Response.Status.FORBIDDEN).header("Access-Check-Result", authResult).build();
+      }
+    }
+
     return asLeaderWith(
         taskMaster.getTaskQueue(),
         new Function<TaskQueue, Response>()

@@ -209,12 +209,12 @@ public class OverlordTest
 
     final String taskId_0 = "0";
     NoopTask task_0 = new NoopTask(taskId_0, 0, 0, null, null, null);
-    response = overlordResource.taskPost(task_0);
+    response = overlordResource.taskPost(task_0, req);
     Assert.assertEquals(200, response.getStatus());
     Assert.assertEquals(ImmutableMap.of("task", taskId_0), response.getEntity());
 
     // Duplicate task - should fail
-    response = overlordResource.taskPost(task_0);
+    response = overlordResource.taskPost(task_0, req);
     Assert.assertEquals(400, response.getStatus());
 
     // Task payload for task_0 should be present in taskStorage
