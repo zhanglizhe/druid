@@ -25,7 +25,6 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.metamx.common.IAE;
-import com.metamx.emitter.EmittingLogger;
 import io.druid.query.DataSource;
 import io.druid.query.Query;
 import io.druid.query.QueryDataSource;
@@ -41,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class QueryManager implements QueryWatcher
 {
-  private static final EmittingLogger log = new EmittingLogger(QueryManager.class);
 
   final SetMultimap<String, ListenableFuture> queries;
   final Map<String, List<String>> queryDatasources;

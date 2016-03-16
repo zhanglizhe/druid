@@ -436,38 +436,7 @@ public class OverlordResource
           {
             if (authConfig.isEnabled()) {
               // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
-              final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
-              final AuthorizationInfo authorizationInfo =
-                  (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
-              return Collections2.filter(
-                  taskRunner.getPendingTasks(),
-                  new Predicate<TaskRunnerWorkItem>()
-                  {
-                    @Override
-                    public boolean apply(TaskRunnerWorkItem input)
-                    {
-                      final String taskId = input.getTaskId();
-                      final Optional<Task> optionalTask = taskStorageQueryAdapter.getTask(taskId);
-                      if (!optionalTask.isPresent()) {
-                        throw new WebApplicationException(
-                            Response.serverError().entity(
-                                String.format("No task information found for task with id: [%s]", taskId)
-                            ).build()
-                        );
-                      }
-                      Resource resource = new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE);
-                      Action action = Action.READ;
-                      Pair<Resource, Action> key = new Pair<>(resource, action);
-                      if (resourceAccessMap.containsKey(key)) {
-                        return resourceAccessMap.get(key).isAllowed();
-                      } else {
-                        Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
-                        resourceAccessMap.put(key, access);
-                        return access.isAllowed();
-                      }
-                    }
-                  }
-              );
+              return securedTaskRunnerWorkItem(taskRunner.getPendingTasks(), req);
             } else {
               return taskRunner.getPendingTasks();
             }
@@ -490,38 +459,7 @@ public class OverlordResource
           {
             if (authConfig.isEnabled()) {
               // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
-              final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
-              final AuthorizationInfo authorizationInfo =
-                  (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
-              return Collections2.filter(
-                  taskRunner.getRunningTasks(),
-                  new Predicate<TaskRunnerWorkItem>()
-                  {
-                    @Override
-                    public boolean apply(TaskRunnerWorkItem input)
-                    {
-                      final String taskId = input.getTaskId();
-                      final Optional<Task> optionalTask = taskStorageQueryAdapter.getTask(taskId);
-                      if (!optionalTask.isPresent()) {
-                        throw new WebApplicationException(
-                            Response.serverError().entity(
-                                String.format("No task information found for task with id: [%s]", taskId)
-                            ).build()
-                        );
-                      }
-                      Resource resource = new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE);
-                      Action action = Action.READ;
-                      Pair<Resource, Action> key = new Pair<>(resource, action);
-                      if (resourceAccessMap.containsKey(key)) {
-                        return resourceAccessMap.get(key).isAllowed();
-                      } else {
-                        Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
-                        resourceAccessMap.put(key, access);
-                        return access.isAllowed();
-                      }
-                    }
-                  }
-              );
+              return securedTaskRunnerWorkItem(taskRunner.getRunningTasks(), req);
             } else {
               return taskRunner.getRunningTasks();
             }
@@ -539,8 +477,7 @@ public class OverlordResource
     if (authConfig.isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
       final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
-      final AuthorizationInfo authorizationInfo =
-          (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+      final AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
       recentlyFinishedTasks = ImmutableList.copyOf(
           Iterables.filter(
               taskStorageQueryAdapter.getRecentlyFinishedTaskStatuses(),
@@ -723,6 +660,45 @@ public class OverlordResource
       // Encourage client to try again soon, when we'll likely have a redirect set up
       return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
     }
+  }
+
+  private Collection<? extends TaskRunnerWorkItem> securedTaskRunnerWorkItem(
+      Collection<? extends TaskRunnerWorkItem> collectionToFilter,
+      HttpServletRequest req
+  )
+  {
+    final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
+    final AuthorizationInfo authorizationInfo =
+        (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+    return Collections2.filter(
+        collectionToFilter,
+        new Predicate<TaskRunnerWorkItem>()
+        {
+          @Override
+          public boolean apply(TaskRunnerWorkItem input)
+          {
+            final String taskId = input.getTaskId();
+            final Optional<Task> optionalTask = taskStorageQueryAdapter.getTask(taskId);
+            if (!optionalTask.isPresent()) {
+              throw new WebApplicationException(
+                  Response.serverError().entity(
+                      String.format("No task information found for task with id: [%s]", taskId)
+                  ).build()
+              );
+            }
+            Resource resource = new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE);
+            Action action = Action.READ;
+            Pair<Resource, Action> key = new Pair<>(resource, action);
+            if (resourceAccessMap.containsKey(key)) {
+              return resourceAccessMap.get(key).isAllowed();
+            } else {
+              Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+              resourceAccessMap.put(key, access);
+              return access.isAllowed();
+            }
+          }
+        }
+    );
   }
 
   static class TaskResponseObject
