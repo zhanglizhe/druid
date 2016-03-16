@@ -62,7 +62,6 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
 import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -504,7 +503,7 @@ public class LookupCoordinatorManager
    */
   public
   @Nullable
-  Map<String, Object> getLookup(@NotNull final String tier, @NotNull final String lookupName)
+  Map<String, Object> getLookup(final String tier, final String lookupName)
   {
     final Map<String, Map<String, Map<String, Object>>> prior = getKnownLookups();
     if (prior == null) {
