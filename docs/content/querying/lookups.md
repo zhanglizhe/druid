@@ -325,7 +325,7 @@ These endpoints will return one of the following results:
 
 ## Configuration propagation behavior
 The configuration is propagated to the historical nodes by the coordinator.
-The historical nodes have an internal API for managing `POST`/`GET`/`DELETE` of lookups.
+The query serving nodes (broker / router / peon / historical) have an internal API for managing `POST`/`GET`/`DELETE` of lookups.
 The coordinator periodically checks the dynamic configuration for changes and, when it detects a change it does the following:
 
 1. Post all lookups for a tier to all Druid nodes within that tier.
@@ -506,7 +506,7 @@ If a lookup cannot be started, or is left in an undefined state, the lookup in e
 ```json
 {
     "status": "accepted",
-    "failedUpdates", {
+    "failedUpdates": {
         "country_code": {
             "type": "simple_json",
             "uri": "http://some.host.com/codes.json"

@@ -60,12 +60,8 @@ public class LookupCoordinatorResource
 {
   private static final Logger LOG = new Logger(LookupCoordinatorResource.class);
   private final LookupCoordinatorManager lookupCoordinatorManager;
-  private final
-  @Smile
-  ObjectMapper smileMapper;
-  private final
-  @Json
-  ObjectMapper jsonMapper;
+  private final ObjectMapper smileMapper;
+  private final ObjectMapper jsonMapper;
 
   @Inject
   public LookupCoordinatorResource(

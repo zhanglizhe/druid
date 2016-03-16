@@ -157,7 +157,7 @@ public class LookupReferencesManager
         lookupMap.put(lookupName, lookupExtractorFactory);
         if (prior != null) {
           if (!prior.close()) {
-            LOGGER.warn("Error closing [%s]:[%s]", lookupName, lookupExtractorFactory);
+            LOGGER.error("Error closing [%s]:[%s]", lookupName, lookupExtractorFactory);
           }
         }
       }
