@@ -105,11 +105,11 @@ public class DatasourcesResource
   {
     Response.ResponseBuilder builder = Response.ok();
     final Set<DruidDataSource> datasources = authConfig.isEnabled() ?
-                                            InventoryViewUtils.getSecuredDataSources(
-                                                serverInventoryView,
-                                                (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN)
-                                            ) :
-                                            InventoryViewUtils.getDataSources(serverInventoryView);
+                                             InventoryViewUtils.getSecuredDataSources(
+                                                 serverInventoryView,
+                                                 (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN)
+                                             ) :
+                                             InventoryViewUtils.getDataSources(serverInventoryView);
 
     if (full != null) {
       return builder.entity(datasources).build();
@@ -155,7 +155,7 @@ public class DatasourcesResource
   public Response getTheDataSource(
       @PathParam("dataSourceName") final String dataSourceName,
       @QueryParam("full") final String full
-      )
+  )
   {
     DruidDataSource dataSource = getDataSource(dataSourceName);
 
@@ -406,7 +406,7 @@ public class DatasourcesResource
   public Response getSegmentDataSourceSegments(
       @PathParam("dataSourceName") String dataSourceName,
       @QueryParam("full") String full
-      )
+  )
   {
     DruidDataSource dataSource = getDataSource(dataSourceName);
     if (dataSource == null) {

@@ -19,12 +19,12 @@
 
 package io.druid.server;
 
-import com.google.api.client.util.Maps;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.metamx.common.IAE;
 import com.metamx.emitter.EmittingLogger;
 import io.druid.query.DataSource;
 import io.druid.query.Query;
@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class QueryManager implements QueryWatcher
 {
@@ -50,7 +51,7 @@ public class QueryManager implements QueryWatcher
     this.queries = Multimaps.synchronizedSetMultimap(
         HashMultimap.<String, ListenableFuture>create()
     );
-    this.queryDatasources = Maps.newHashMap();
+    this.queryDatasources = new ConcurrentHashMap<>();
   }
 
   public boolean cancelQuery(String id) {
@@ -105,8 +106,7 @@ public class QueryManager implements QueryWatcher
     } else if (query.getDataSource() instanceof QueryDataSource) {
       getDataSourcesHelper(((QueryDataSource) query.getDataSource()).getQuery(), datasources);
     } else {
-      // Ignore
-      log.error("Do not know how to extract datasource information from this query type [%s]", query.getClass());
+      throw new IAE("Do not know how to extract datasource information from this query type [%s]", query.getClass());
     }
   }
 }
