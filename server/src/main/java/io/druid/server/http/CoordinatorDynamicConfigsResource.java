@@ -45,6 +45,7 @@ import javax.ws.rs.core.Response;
 /**
  */
 @Path("/druid/coordinator/v1/config")
+@ResourceFilters(ConfigResourceFilter.class)
 public class CoordinatorDynamicConfigsResource
 {
   private final JacksonConfigManager manager;
@@ -62,7 +63,6 @@ public class CoordinatorDynamicConfigsResource
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(ConfigResourceFilter.class)
   public Response getDynamicConfigs()
   {
     return Response.ok(
@@ -76,7 +76,6 @@ public class CoordinatorDynamicConfigsResource
   // default value is used for backwards compatibility
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
-  @ResourceFilters(ConfigResourceFilter.class)
   public Response setDynamicConfigs(final CoordinatorDynamicConfig dynamicConfig,
                                     @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
                                     @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
@@ -96,7 +95,6 @@ public class CoordinatorDynamicConfigsResource
   @GET
   @Path("/history")
   @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(ConfigResourceFilter.class)
   public Response getDatasourceRuleHistory(
       @QueryParam("interval") final String interval,
       @QueryParam("count") final Integer count

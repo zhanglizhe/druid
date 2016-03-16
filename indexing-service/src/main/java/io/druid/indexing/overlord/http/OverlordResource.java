@@ -34,6 +34,7 @@ import com.google.common.collect.Sets;
 import com.google.common.io.ByteSource;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
+import com.metamx.common.Pair;
 import com.metamx.common.logger.Logger;
 import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.audit.AuditInfo;
@@ -83,6 +84,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -131,7 +133,7 @@ public class OverlordResource
       @Context final HttpServletRequest req
   )
   {
-    if(authConfig.isEnabled()) {
+    if (authConfig.isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
       final String dataSource = task.getDataSource();
       final AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
@@ -228,8 +230,8 @@ public class OverlordResource
 
   @GET
   @Path("/worker")
-  @ResourceFilters(ConfigResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(ConfigResourceFilter.class)
   public Response getWorkerConfig()
   {
     if (workerConfigRef == null) {
@@ -353,6 +355,7 @@ public class OverlordResource
             final List<Task> activeTasks;
             if (authConfig.isEnabled()) {
               // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+              final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
               final AuthorizationInfo authorizationInfo =
                   (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
               activeTasks = ImmutableList.copyOf(
@@ -363,10 +366,16 @@ public class OverlordResource
                         @Override
                         public boolean apply(Task input)
                         {
-                          return authorizationInfo.isAuthorized(
-                              new Resource(input.getDataSource(), ResourceType.DATASOURCE),
-                              Action.READ
-                          ).isAllowed();
+                          Resource resource = new Resource(input.getDataSource(), ResourceType.DATASOURCE);
+                          Action action = Action.READ;
+                          Pair<Resource, Action> key = new Pair<>(resource, action);
+                          if (resourceAccessMap.containsKey(key)) {
+                            return resourceAccessMap.get(key).isAllowed();
+                          } else {
+                            Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                            resourceAccessMap.put(key, access);
+                            return access.isAllowed();
+                          }
                         }
                       }
                   )
@@ -427,6 +436,7 @@ public class OverlordResource
           {
             if (authConfig.isEnabled()) {
               // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+              final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
               final AuthorizationInfo authorizationInfo =
                   (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
               return Collections2.filter(
@@ -445,10 +455,16 @@ public class OverlordResource
                             ).build()
                         );
                       }
-                      return authorizationInfo.isAuthorized(
-                          new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE),
-                          Action.READ
-                      ).isAllowed();
+                      Resource resource = new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE);
+                      Action action = Action.READ;
+                      Pair<Resource, Action> key = new Pair<>(resource, action);
+                      if (resourceAccessMap.containsKey(key)) {
+                        return resourceAccessMap.get(key).isAllowed();
+                      } else {
+                        Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                        resourceAccessMap.put(key, access);
+                        return access.isAllowed();
+                      }
                     }
                   }
               );
@@ -474,6 +490,7 @@ public class OverlordResource
           {
             if (authConfig.isEnabled()) {
               // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+              final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
               final AuthorizationInfo authorizationInfo =
                   (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
               return Collections2.filter(
@@ -492,10 +509,16 @@ public class OverlordResource
                             ).build()
                         );
                       }
-                      return authorizationInfo.isAuthorized(
-                          new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE),
-                          Action.READ
-                      ).isAllowed();
+                      Resource resource = new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE);
+                      Action action = Action.READ;
+                      Pair<Resource, Action> key = new Pair<>(resource, action);
+                      if (resourceAccessMap.containsKey(key)) {
+                        return resourceAccessMap.get(key).isAllowed();
+                      } else {
+                        Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                        resourceAccessMap.put(key, access);
+                        return access.isAllowed();
+                      }
                     }
                   }
               );
@@ -515,6 +538,7 @@ public class OverlordResource
     final List<TaskStatus> recentlyFinishedTasks;
     if (authConfig.isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+      final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
       final AuthorizationInfo authorizationInfo =
           (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
       recentlyFinishedTasks = ImmutableList.copyOf(
@@ -534,10 +558,16 @@ public class OverlordResource
                         ).build()
                     );
                   }
-                  return authorizationInfo.isAuthorized(
-                      new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE),
-                      Action.READ
-                  ).isAllowed();
+                  Resource resource = new Resource(optionalTask.get().getDataSource(), ResourceType.DATASOURCE);
+                  Action action = Action.READ;
+                  Pair<Resource, Action> key = new Pair<>(resource, action);
+                  if (resourceAccessMap.containsKey(key)) {
+                    return resourceAccessMap.get(key).isAllowed();
+                  } else {
+                    Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                    resourceAccessMap.put(key, access);
+                    return access.isAllowed();
+                  }
                 }
               }
           )

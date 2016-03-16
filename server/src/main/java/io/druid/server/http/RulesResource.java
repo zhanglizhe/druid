@@ -75,8 +75,8 @@ public class RulesResource
 
   @GET
   @Path("/{dataSourceName}")
-  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(DatasourceResourceFilter.class)
   public Response getDatasourceRules(
       @PathParam("dataSourceName") final String dataSourceName,
       @QueryParam("full") final String full

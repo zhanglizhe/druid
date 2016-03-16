@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.inject.Inject;
+import com.metamx.common.Pair;
 import com.metamx.common.logger.Logger;
 import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.client.DruidDataSource;
@@ -38,6 +39,7 @@ import io.druid.client.selector.ServerSelector;
 import io.druid.query.TableDataSource;
 import io.druid.query.metadata.SegmentMetadataQueryConfig;
 import io.druid.server.http.security.DatasourceResourceFilter;
+import io.druid.server.security.Access;
 import io.druid.server.security.Action;
 import io.druid.server.security.AuthConfig;
 import io.druid.server.security.AuthorizationInfo;
@@ -60,6 +62,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -116,6 +119,7 @@ public class ClientInfoResource
   {
     if (authConfig.isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+      final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
       final AuthorizationInfo authorizationInfo = (AuthorizationInfo) request.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
       return Collections2.filter(
           getSegmentsForDatasources().keySet(),
@@ -124,10 +128,16 @@ public class ClientInfoResource
             @Override
             public boolean apply(String input)
             {
-              return authorizationInfo.isAuthorized(
-                  new Resource(input, ResourceType.DATASOURCE),
-                  Action.READ
-              ).isAllowed();
+              Resource resource = new Resource(input, ResourceType.DATASOURCE);
+              Action action = Action.READ;
+              Pair<Resource, Action> key = new Pair<>(resource, action);
+              if (resourceAccessMap.containsKey(key)) {
+                return resourceAccessMap.get(key).isAllowed();
+              } else {
+                Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                resourceAccessMap.put(key, access);
+                return access.isAllowed();
+              }
             }
           }
       );
@@ -226,8 +236,8 @@ public class ClientInfoResource
 
   @GET
   @Path("/{dataSourceName}/dimensions")
-  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(DatasourceResourceFilter.class)
   public Iterable<String> getDatasourceDimensions(
       @PathParam("dataSourceName") String dataSourceName,
       @QueryParam("interval") String interval
@@ -259,8 +269,8 @@ public class ClientInfoResource
 
   @GET
   @Path("/{dataSourceName}/metrics")
-  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(DatasourceResourceFilter.class)
   public Iterable<String> getDatasourceMetrics(
       @PathParam("dataSourceName") String dataSourceName,
       @QueryParam("interval") String interval

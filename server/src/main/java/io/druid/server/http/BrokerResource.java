@@ -32,6 +32,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 @Path("/druid/broker/v1")
+@ResourceFilters(StateResourceFilter.class)
 public class BrokerResource
 {
   private final BrokerServerView brokerServerView;
@@ -45,7 +46,6 @@ public class BrokerResource
   @GET
   @Path("/loadstatus")
   @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(StateResourceFilter.class)
   public Response getLoadStatus()
   {
     return Response.ok(ImmutableMap.of("inventoryInitialized", brokerServerView.isInitialized())).build();

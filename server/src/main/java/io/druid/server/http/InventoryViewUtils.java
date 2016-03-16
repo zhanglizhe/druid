@@ -26,15 +26,19 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.metamx.common.ISE;
+import com.metamx.common.Pair;
 import io.druid.client.DruidDataSource;
 import io.druid.client.DruidServer;
 import io.druid.client.InventoryView;
+import io.druid.server.security.Access;
 import io.druid.server.security.Action;
 import io.druid.server.security.AuthorizationInfo;
 import io.druid.server.security.Resource;
 import io.druid.server.security.ResourceType;
 
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -81,6 +85,7 @@ public class InventoryViewUtils
     if (authorizationInfo == null) {
       throw new ISE("Invalid to call a secured method with null AuthorizationInfo!!");
     } else {
+      final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
       return ImmutableSet.copyOf(
           Iterables.filter(
               getDataSources(inventoryView),
@@ -89,10 +94,16 @@ public class InventoryViewUtils
                 @Override
                 public boolean apply(DruidDataSource input)
                 {
-                  return authorizationInfo.isAuthorized(
-                      new Resource(input.getName(), ResourceType.DATASOURCE),
-                      Action.READ
-                  ).isAllowed();
+                  Resource resource = new Resource(input.getName(), ResourceType.DATASOURCE);
+                  Action action = Action.READ;
+                  Pair<Resource, Action> key = new Pair<>(resource, action);
+                  if (resourceAccessMap.containsKey(key)) {
+                    return resourceAccessMap.get(key).isAllowed();
+                  } else {
+                    Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                    resourceAccessMap.put(key, access);
+                    return access.isAllowed();
+                  }
                 }
               }
           )

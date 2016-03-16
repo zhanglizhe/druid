@@ -32,6 +32,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 @Path("/druid/historical/v1")
+@ResourceFilters(StateResourceFilter.class)
 public class HistoricalResource
 {
   private final ZkCoordinator coordinator;
@@ -47,7 +48,6 @@ public class HistoricalResource
   @GET
   @Path("/loadstatus")
   @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(StateResourceFilter.class)
   public Response getLoadStatus()
   {
     return Response.ok(ImmutableMap.of("cacheInitialized", coordinator.isStarted())).build();

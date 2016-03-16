@@ -37,11 +37,11 @@ import java.util.List;
 /**
  */
 @Path("/status")
+@ResourceFilters(StateResourceFilter.class)
 public class StatusResource
 {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(StateResourceFilter.class)
   public Status doGet()
   {
     return new Status(Initialization.getLoadedModules(DruidModule.class));

@@ -25,11 +25,13 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
+import com.metamx.common.Pair;
 import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.client.DruidDataSource;
 import io.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import io.druid.metadata.MetadataSegmentManager;
 import io.druid.server.http.security.DatasourceResourceFilter;
+import io.druid.server.security.Access;
 import io.druid.server.security.Action;
 import io.druid.server.security.AuthConfig;
 import io.druid.server.security.AuthorizationInfo;
@@ -51,7 +53,9 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  */
@@ -86,6 +90,7 @@ public class MetadataResource
     final Collection<DruidDataSource> druidDataSources;
     if(authConfig.isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+      final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
       final AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
       druidDataSources =
           Collections2.filter(
@@ -95,10 +100,16 @@ public class MetadataResource
                 @Override
                 public boolean apply(DruidDataSource input)
                 {
-                  return authorizationInfo.isAuthorized(
-                      new Resource(input.getName(), ResourceType.DATASOURCE),
-                      Action.READ
-                  ).isAllowed();
+                  Resource resource = new Resource(input.getName(), ResourceType.DATASOURCE);
+                  Action action = Action.READ;
+                  Pair<Resource, Action> key = new Pair<>(resource, action);
+                  if (resourceAccessMap.containsKey(key)) {
+                    return resourceAccessMap.get(key).isAllowed();
+                  } else {
+                    Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                    resourceAccessMap.put(key, access);
+                    return access.isAllowed();
+                  }
                 }
               }
           );
@@ -147,8 +158,8 @@ public class MetadataResource
 
   @GET
   @Path("/datasources/{dataSourceName}")
-  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(DatasourceResourceFilter.class)
   public Response getDatabaseSegmentDataSource(
       @PathParam("dataSourceName") final String dataSourceName
   )
@@ -163,8 +174,8 @@ public class MetadataResource
 
   @GET
   @Path("/datasources/{dataSourceName}/segments")
-  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(DatasourceResourceFilter.class)
   public Response getDatabaseSegmentDataSourceSegments(
       @PathParam("dataSourceName") String dataSourceName,
       @QueryParam("full") String full
@@ -198,6 +209,7 @@ public class MetadataResource
   @POST
   @Path("/datasources/{dataSourceName}/segments")
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(DatasourceResourceFilter.class)
   public Response getDatabaseSegmentDataSourceSegments(
       @PathParam("dataSourceName") String dataSourceName,
       @QueryParam("full") String full,
@@ -234,8 +246,8 @@ public class MetadataResource
 
   @GET
   @Path("/datasources/{dataSourceName}/segments/{segmentId}")
-  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(DatasourceResourceFilter.class)
   public Response getDatabaseSegmentDataSourceSegment(
       @PathParam("dataSourceName") String dataSourceName,
       @PathParam("segmentId") String segmentId
