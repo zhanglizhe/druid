@@ -19,7 +19,7 @@
 
 package io.druid.server.listener.announcer;
 
-import com.google.api.client.repackaged.com.google.common.base.Throwables;
+import com.google.common.base.Throwables;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Longs;
 import com.metamx.common.lifecycle.LifecycleStart;

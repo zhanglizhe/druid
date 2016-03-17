@@ -324,8 +324,8 @@ These endpoints will return one of the following results:
 * 200 if the request succeeded (`GET` only)
 
 ## Configuration propagation behavior
-The configuration is propagated to the historical nodes by the coordinator.
-The query serving nodes (broker / router / peon / historical) have an internal API for managing `POST`/`GET`/`DELETE` of lookups.
+The configuration is propagated to the query serving nodes (broker / router / peon / historical) by the coordinator.
+The query serving nodes have an internal API for managing `POST`/`GET`/`DELETE` of lookups.
 The coordinator periodically checks the dynamic configuration for changes and, when it detects a change it does the following:
 
 1. Post all lookups for a tier to all Druid nodes within that tier.
@@ -554,4 +554,4 @@ To configure a Broker / Router / Historical / Peon to announce itself as part of
 
 |Property | Description | Default |
 |---------|-------------|---------|
-|`druid.zk.paths.lookupTier`| The tier for **lookups** for this node. This is independent of other tiers.|`__default`|
+|`druid.lookup.tierName`| The tier for **lookups** for this node. This is independent of other tiers.|`__default`|

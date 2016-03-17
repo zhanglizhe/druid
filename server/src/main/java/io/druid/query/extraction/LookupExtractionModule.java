@@ -61,6 +61,7 @@ import java.util.Map;
  */
 public class LookupExtractionModule implements DruidModule
 {
+  public static final String PROPERTY_PREFIX = "druid.lookup";
   public static final String FAILED_UPDATES_KEY = "failedUpdates";
 
   public static String getTierListenerPath(String tier)
@@ -77,7 +78,7 @@ public class LookupExtractionModule implements DruidModule
   @Override
   public void configure(Binder binder)
   {
-    JsonConfigProvider.bind(binder, ServerModule.ZK_PATHS_PROPERTY_BASE, LookupListeningAnnouncerConfig.class);
+    JsonConfigProvider.bind(binder, PROPERTY_PREFIX, LookupListeningAnnouncerConfig.class);
     Jerseys.addResource(binder, LookupListeningResource.class);
     LifecycleModule.register(binder, LookupReferencesManager.class);
     LifecycleModule.register(binder, LookupResourceListenerAnnouncer.class);

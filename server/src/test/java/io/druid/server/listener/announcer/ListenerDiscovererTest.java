@@ -41,7 +41,7 @@ public class ListenerDiscovererTest extends CuratorTestBase
   @Rule
   public CloserRule closerRule = new CloserRule(true);
 
-  @Test
+  @Test(timeout = 60_000L)
   public void testFullService() throws Exception
   {
     final String listenerKey = "listenerKey";
