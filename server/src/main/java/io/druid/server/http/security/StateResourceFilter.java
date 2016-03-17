@@ -38,12 +38,6 @@ public class StateResourceFilter extends AbstractResourceFilter
     if (getAuthConfig().isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
 
-      final AuthorizationInfo authorizationInfo = (AuthorizationInfo) getReq().getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
-      Preconditions.checkNotNull(
-          authorizationInfo,
-          "Security is enabled but no authorization info found in the request"
-      );
-
       final String resourceName;
       if (request.getPath().startsWith("druid/broker/v1")) {
         resourceName = "BROKER";
@@ -73,6 +67,12 @@ public class StateResourceFilter extends AbstractResourceFilter
             ).build()
         );
       }
+
+      final AuthorizationInfo authorizationInfo = (AuthorizationInfo) getReq().getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+      Preconditions.checkNotNull(
+          authorizationInfo,
+          "Security is enabled but no authorization info found in the request"
+      );
 
       final Access authResult = authorizationInfo.isAuthorized(
           new Resource(resourceName, ResourceType.STATE),

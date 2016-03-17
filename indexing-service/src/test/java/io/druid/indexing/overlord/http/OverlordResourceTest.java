@@ -29,6 +29,7 @@ import io.druid.indexing.common.TaskStatus;
 import io.druid.indexing.common.TaskToolbox;
 import io.druid.indexing.common.actions.TaskActionClient;
 import io.druid.indexing.common.task.AbstractTask;
+import io.druid.indexing.common.task.NoopTask;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.TaskMaster;
 import io.druid.indexing.overlord.TaskRunner;
@@ -46,6 +47,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.core.Response;
 import java.util.Collection;
 import java.util.List;
 
@@ -78,7 +80,7 @@ public class OverlordResourceTest
         new AuthConfig(true)
     );
 
-    EasyMock.expect(req.getAttribute(EasyMock.anyString())).andReturn(
+    EasyMock.expect(req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN)).andReturn(
         new AuthorizationInfo()
         {
           @Override
@@ -86,7 +88,7 @@ public class OverlordResourceTest
               Resource resource, Action action
           )
           {
-            if(resource.getName().equals("allow")) {
+            if (resource.getName().equals("allow")) {
               return new Access(true);
             } else {
               return new Access(false);
@@ -124,7 +126,8 @@ public class OverlordResourceTest
   }
 
   @Test
-  public void testSecuredGetCompleteTasks() {
+  public void testSecuredGetCompleteTasks()
+  {
     List<String> tasksIds = ImmutableList.of("id_1", "id_2", "id_3");
     EasyMock.expect(tsqa.getRecentlyFinishedTaskStatuses()).andReturn(
         Lists.transform(
@@ -160,7 +163,8 @@ public class OverlordResourceTest
   }
 
   @Test
-  public void testSecuredGetRunningTasks() {
+  public void testSecuredGetRunningTasks()
+  {
     List<String> tasksIds = ImmutableList.of("id_1", "id_2");
     EasyMock.<Collection<? extends TaskRunnerWorkItem>>expect(taskRunner.getRunningTasks()).andReturn(
         ImmutableList.of(
@@ -184,12 +188,23 @@ public class OverlordResourceTest
     Assert.assertEquals(tasksIds.get(1), responseObjects.get(0).toJson().get("id"));
   }
 
+  @Test
+  public void testSecuredTaskPost()
+  {
+    EasyMock.replay(taskRunner, taskMaster, tsqa, req);
+    Task task = NoopTask.create();
+    Response response = overlordResource.taskPost(task, req);
+    Assert.assertEquals(Response.Status.FORBIDDEN.getStatusCode(), response.getStatus());
+  }
+
   @After
-  public void tearDown() {
+  public void tearDown()
+  {
     EasyMock.verify(taskRunner, taskMaster, tsqa, req);
   }
 
-  private Task getTaskWithIdAndDatasource(String id, String datasource) {
+  private Task getTaskWithIdAndDatasource(String id, String datasource)
+  {
     return new AbstractTask(id, datasource, null)
     {
       @Override

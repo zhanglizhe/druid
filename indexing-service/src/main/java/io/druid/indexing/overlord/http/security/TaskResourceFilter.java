@@ -66,7 +66,7 @@ public class TaskResourceFilter extends AbstractResourceFilter
         dataSourceName = taskOptional.get().getDataSource();
       } else {
         throw new WebApplicationException(
-            Response.serverError()
+            Response.status(Response.Status.BAD_REQUEST)
                     .entity(String.format(
                         "Do not know how to extract task information "
                         + "for authorization check for request path: [%s]",

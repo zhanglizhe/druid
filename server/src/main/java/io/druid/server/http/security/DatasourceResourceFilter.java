@@ -75,13 +75,12 @@ public class DatasourceResourceFilter extends AbstractResourceFilter
                                 ).getPath();
       } else {
         throw new WebApplicationException(
-            Response.serverError().entity(
-                String.format(
-                    "Do not know how to extract dataSource information "
-                    + "for authorization check for request path: [%s]",
-                    request.getPath()
-                )
-            ).build()
+            Response.status(Response.Status.BAD_REQUEST)
+                    .entity(
+                        String.format("Do not know how to extract dataSource information "
+                                      + "for authorization check for request path: [%s]", request.getPath()
+                        )
+                    ).build()
         );
       }
 

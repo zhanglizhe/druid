@@ -12,12 +12,14 @@ import io.druid.indexing.worker.http.WorkerResource;
 import io.druid.server.http.security.ResourceFilterTestHelper;
 import org.easymock.EasyMock;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response;
 import java.lang.reflect.Field;
 import java.util.Collection;
 
@@ -84,7 +86,26 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
     EasyMock.expect(request.getEntity(Task.class)).andReturn(noopTask).anyTimes();
     EasyMock.expect(request.getMethod()).andReturn(requestMethod).anyTimes();
     EasyMock.replay(req, request, authorizationInfo, tsqa);
-    resourceFilter.getRequestFilter().filter(request);
+    try {
+      resourceFilter.getRequestFilter().filter(request);
+    } catch (WebApplicationException e) {
+      Assert.assertEquals(Response.Status.FORBIDDEN.getStatusCode(), e.getResponse().getStatus());
+      throw e;
+    }
+  }
+
+  @Test(expected = WebApplicationException.class)
+  public void testDatasourcesResourcesFilteringBadPath()
+  {
+    final String badRequestPath = requestPath.replaceAll("\\w+", "droid");
+    EasyMock.expect(request.getPath()).andReturn(badRequestPath).anyTimes();
+    EasyMock.replay(req, request, authorizationInfo, tsqa);
+    try {
+      resourceFilter.getRequestFilter().filter(request);
+    } catch (WebApplicationException e) {
+      Assert.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), e.getResponse().getStatus());
+      throw e;
+    }
   }
 
   @After
