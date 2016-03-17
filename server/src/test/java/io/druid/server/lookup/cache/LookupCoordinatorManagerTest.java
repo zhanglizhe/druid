@@ -627,13 +627,13 @@ public class LookupCoordinatorManagerTest
         "prop",
         "new"
     );
-    final Map<String, Map<String, Object>> namespace = ImmutableMap.<String, Map<String, Object>>of(
+    final Map<String, Map<String, Object>> lookup = ImmutableMap.<String, Map<String, Object>>of(
         "foo", newSpec,
         "ignore", ignore
     );
     final Map<String, Map<String, Map<String, Object>>> tier = ImmutableMap.of(
         LOOKUP_TIER,
-        namespace
+        lookup
     );
     final AuditInfo auditInfo = new AuditInfo("author", "comment", "localhost");
     EasyMock.reset(configManager);
@@ -676,13 +676,13 @@ public class LookupCoordinatorManagerTest
         "prop",
         "new"
     );
-    final Map<String, Map<String, Object>> namespace = ImmutableMap.<String, Map<String, Object>>of(
+    final Map<String, Map<String, Object>> lookup = ImmutableMap.<String, Map<String, Object>>of(
         "foo", newSpec,
         "ignore", ignore
     );
     final Map<String, Map<String, Map<String, Object>>> tier = ImmutableMap.of(
         LOOKUP_TIER,
-        namespace
+        lookup
     );
     final AuditInfo auditInfo = new AuditInfo("author", "comment", "localhost");
     EasyMock.reset(configManager);
@@ -848,10 +848,10 @@ public class LookupCoordinatorManagerTest
   }
 
   @Test
-  public void testDeleteNamespace() throws Exception
+  public void testDeleteLookup() throws Exception
   {
-    final Map<String, Object> ignore = ImmutableMap.<String, Object>of("namespace", "ignore");
-    final Map<String, Object> namespace = ImmutableMap.<String, Object>of("namespace", "foo");
+    final Map<String, Object> ignore = ImmutableMap.<String, Object>of("lookup", "ignore");
+    final Map<String, Object> lookup = ImmutableMap.<String, Object>of("lookup", "foo");
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
         client,
         discoverer,
@@ -864,7 +864,7 @@ public class LookupCoordinatorManagerTest
       public Map<String, Map<String, Map<String, Object>>> getKnownLookups()
       {
         return ImmutableMap.<String, Map<String, Map<String, Object>>>of(LOOKUP_TIER, ImmutableMap.of(
-            "foo", namespace,
+            "foo", lookup,
             "ignore", ignore
         ));
       }
@@ -884,9 +884,9 @@ public class LookupCoordinatorManagerTest
   }
 
   @Test
-  public void testDeleteNamespaceIgnoresMissing() throws Exception
+  public void testDeleteLookupIgnoresMissing() throws Exception
   {
-    final Map<String, Object> ignore = ImmutableMap.<String, Object>of("namespace", "ignore");
+    final Map<String, Object> ignore = ImmutableMap.<String, Object>of("lookup", "ignore");
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
         client,
         discoverer,
@@ -908,7 +908,7 @@ public class LookupCoordinatorManagerTest
   }
 
   @Test
-  public void testDeleteNamespaceIgnoresNotReady() throws Exception
+  public void testDeleteLookupIgnoresNotReady() throws Exception
   {
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
         client,
@@ -1069,9 +1069,9 @@ public class LookupCoordinatorManagerTest
   }
 
   @Test
-  public void testGetNamespace() throws Exception
+  public void testGetLookup() throws Exception
   {
-    final Map<String, Object> namespace = ImmutableMap.<String, Object>of("namespace", "foo");
+    final Map<String, Object> lookup = ImmutableMap.<String, Object>of("lookup", "foo");
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
         client,
         discoverer,
@@ -1085,20 +1085,20 @@ public class LookupCoordinatorManagerTest
       {
         return ImmutableMap.<String, Map<String, Map<String, Object>>>of(LOOKUP_TIER, ImmutableMap.of(
             "foo",
-            namespace
+            lookup
         ));
       }
     };
-    Assert.assertEquals(namespace, manager.getLookup(LOOKUP_TIER, "foo"));
+    Assert.assertEquals(lookup, manager.getLookup(LOOKUP_TIER, "foo"));
     Assert.assertNull(manager.getLookup(LOOKUP_TIER, "does not exit"));
     Assert.assertNull(manager.getLookup("not a tier", "foo"));
   }
 
 
   @Test
-  public void testGetNamespaceIgnoresMalformed() throws Exception
+  public void testGetLookupIgnoresMalformed() throws Exception
   {
-    final Map<String, Object> namespace = ImmutableMap.<String, Object>of("namespace", "foo");
+    final Map<String, Object> lookup = ImmutableMap.<String, Object>of("lookup", "foo");
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
         client,
         discoverer,
@@ -1111,18 +1111,18 @@ public class LookupCoordinatorManagerTest
       public Map<String, Map<String, Map<String, Object>>> getKnownLookups()
       {
         return ImmutableMap.<String, Map<String, Map<String, Object>>>of(LOOKUP_TIER, ImmutableMap.of(
-            "foo", namespace,
+            "foo", lookup,
             "bar", ImmutableMap.<String, Object>of()
         ));
       }
     };
-    Assert.assertEquals(namespace, manager.getLookup(LOOKUP_TIER, "foo"));
+    Assert.assertEquals(lookup, manager.getLookup(LOOKUP_TIER, "foo"));
     Assert.assertNull(manager.getLookup(LOOKUP_TIER, "does not exit"));
     Assert.assertNull(manager.getLookup("not a tier", "foo"));
   }
 
   @Test
-  public void testGetNamespaceIgnoresNotReady() throws Exception
+  public void testGetLookupIgnoresNotReady() throws Exception
   {
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
         client,
@@ -1144,14 +1144,14 @@ public class LookupCoordinatorManagerTest
   @Test
   public void testStart() throws Exception
   {
-    final AtomicReference<List<Map<String, Object>>> namespaceRef = new AtomicReference<>(null);
+    final AtomicReference<List<Map<String, Object>>> lookupRef = new AtomicReference<>(null);
 
     EasyMock.reset(configManager);
     EasyMock.expect(configManager.watch(
         EasyMock.eq(LookupCoordinatorManager.LOOKUP_CONFIG_KEY),
         EasyMock.<TypeReference>anyObject(),
         EasyMock.<AtomicReference>isNull()
-    )).andReturn(namespaceRef).once();
+    )).andReturn(lookupRef).once();
     EasyMock.replay(configManager);
 
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
@@ -1170,14 +1170,14 @@ public class LookupCoordinatorManagerTest
   @Test
   public void testStop() throws Exception
   {
-    final AtomicReference<List<Map<String, Object>>> namespaceRef = new AtomicReference<>(null);
+    final AtomicReference<List<Map<String, Object>>> lookupRef = new AtomicReference<>(null);
 
     EasyMock.reset(configManager);
     EasyMock.expect(configManager.watch(
         EasyMock.eq(LookupCoordinatorManager.LOOKUP_CONFIG_KEY),
         EasyMock.<TypeReference>anyObject(),
         EasyMock.<AtomicReference>isNull()
-    )).andReturn(namespaceRef).once();
+    )).andReturn(lookupRef).once();
     EasyMock.replay(configManager);
 
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
@@ -1196,14 +1196,14 @@ public class LookupCoordinatorManagerTest
   @Test
   public void testStartTooMuch() throws Exception
   {
-    final AtomicReference<List<Map<String, Object>>> namespaceRef = new AtomicReference<>(null);
+    final AtomicReference<List<Map<String, Object>>> lookupRef = new AtomicReference<>(null);
 
     EasyMock.reset(configManager);
     EasyMock.expect(configManager.watch(
         EasyMock.eq(LookupCoordinatorManager.LOOKUP_CONFIG_KEY),
         EasyMock.<TypeReference>anyObject(),
         EasyMock.<AtomicReference>isNull()
-    )).andReturn(namespaceRef).once();
+    )).andReturn(lookupRef).once();
     EasyMock.replay(configManager);
 
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
