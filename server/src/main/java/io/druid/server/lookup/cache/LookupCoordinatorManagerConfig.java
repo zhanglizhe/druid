@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package io.druid.server.namespace.cache;
+package io.druid.server.lookup.cache;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.joda.time.Duration;

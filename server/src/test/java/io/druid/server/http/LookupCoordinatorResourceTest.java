@@ -26,7 +26,7 @@ import com.google.common.io.ByteSource;
 import com.metamx.common.StringUtils;
 import io.druid.audit.AuditInfo;
 import io.druid.jackson.DefaultObjectMapper;
-import io.druid.server.namespace.cache.LookupCoordinatorManager;
+import io.druid.server.lookup.cache.LookupCoordinatorManager;
 import org.easymock.Capture;
 import org.easymock.EasyMock;
 import org.junit.Assert;
@@ -182,7 +182,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.getSpecificNamespace(LOOKUP_TIER, LOOKUP_NAME);
+    final Response response = lookupCoordinatorResource.getSpecificLookup(LOOKUP_TIER, LOOKUP_NAME);
     Assert.assertEquals(200, response.getStatus());
     Assert.assertEquals(map, response.getEntity());
     EasyMock.verify(lookupCoordinatorManager);
@@ -202,7 +202,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.getSpecificNamespace(LOOKUP_TIER, LOOKUP_NAME);
+    final Response response = lookupCoordinatorResource.getSpecificLookup(LOOKUP_TIER, LOOKUP_NAME);
     Assert.assertEquals(404, response.getStatus());
     EasyMock.verify(lookupCoordinatorManager);
   }
@@ -218,10 +218,10 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    Assert.assertEquals(400, lookupCoordinatorResource.getSpecificNamespace("foo", null).getStatus());
-    Assert.assertEquals(400, lookupCoordinatorResource.getSpecificNamespace("foo", "").getStatus());
-    Assert.assertEquals(400, lookupCoordinatorResource.getSpecificNamespace("", "foo").getStatus());
-    Assert.assertEquals(400, lookupCoordinatorResource.getSpecificNamespace(null, "foo").getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.getSpecificLookup("foo", null).getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.getSpecificLookup("foo", "").getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.getSpecificLookup("", "foo").getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.getSpecificLookup(null, "foo").getStatus());
     EasyMock.verify(lookupCoordinatorManager);
   }
 
@@ -240,7 +240,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.getSpecificNamespace(LOOKUP_TIER, LOOKUP_NAME);
+    final Response response = lookupCoordinatorResource.getSpecificLookup(LOOKUP_TIER, LOOKUP_NAME);
     Assert.assertEquals(500, response.getStatus());
     Assert.assertEquals(ImmutableMap.of("error", errMsg), response.getEntity());
     EasyMock.verify(lookupCoordinatorManager);
@@ -272,7 +272,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.deleteNamespace(
+    final Response response = lookupCoordinatorResource.deleteLookup(
         LOOKUP_TIER,
         LOOKUP_NAME,
         author,
@@ -317,7 +317,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.deleteNamespace(
+    final Response response = lookupCoordinatorResource.deleteLookup(
         LOOKUP_TIER,
         LOOKUP_NAME,
         author,
@@ -363,7 +363,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.deleteNamespace(
+    final Response response = lookupCoordinatorResource.deleteLookup(
         LOOKUP_TIER,
         LOOKUP_NAME,
         author,
@@ -393,11 +393,11 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    Assert.assertEquals(400, lookupCoordinatorResource.deleteNamespace("foo", null, null, null, null).getStatus());
-    Assert.assertEquals(400, lookupCoordinatorResource.deleteNamespace(null, null, null, null, null).getStatus());
-    Assert.assertEquals(400, lookupCoordinatorResource.deleteNamespace(null, "foo", null, null, null).getStatus());
-    Assert.assertEquals(400, lookupCoordinatorResource.deleteNamespace("foo", "", null, null, null).getStatus());
-    Assert.assertEquals(400, lookupCoordinatorResource.deleteNamespace("", "foo", null, null, null).getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.deleteLookup("foo", null, null, null, null).getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.deleteLookup(null, null, null, null, null).getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.deleteLookup(null, "foo", null, null, null).getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.deleteLookup("foo", "", null, null, null).getStatus());
+    Assert.assertEquals(400, lookupCoordinatorResource.deleteLookup("", "foo", null, null, null).getStatus());
     EasyMock.verify(lookupCoordinatorManager);
   }
 
@@ -425,7 +425,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.updateAllNamespaces(
+    final Response response = lookupCoordinatorResource.updateAllLookups(
         SINGLE_TIER_MAP_SOURCE.openStream(),
         author,
         comment,
@@ -469,7 +469,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.updateAllNamespaces(
+    final Response response = lookupCoordinatorResource.updateAllLookups(
         SINGLE_TIER_MAP_SOURCE.openStream(),
         author,
         comment,
@@ -513,7 +513,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.updateAllNamespaces(
+    final Response response = lookupCoordinatorResource.updateAllLookups(
         SINGLE_TIER_MAP_SOURCE.openStream(),
         author,
         comment,
@@ -559,7 +559,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.newLookup(
+    final Response response = lookupCoordinatorResource.createOrUpdateLookup(
         LOOKUP_TIER,
         LOOKUP_NAME,
         author,
@@ -607,7 +607,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.newLookup(
+    final Response response = lookupCoordinatorResource.createOrUpdateLookup(
         LOOKUP_TIER,
         LOOKUP_NAME,
         author,
@@ -656,7 +656,7 @@ public class LookupCoordinatorResourceTest
         mapper,
         mapper
     );
-    final Response response = lookupCoordinatorResource.newLookup(
+    final Response response = lookupCoordinatorResource.createOrUpdateLookup(
         LOOKUP_TIER,
         LOOKUP_NAME,
         author,
@@ -696,7 +696,7 @@ public class LookupCoordinatorResourceTest
     );
 
     EasyMock.replay(lookupCoordinatorManager, request);
-    Assert.assertEquals(400, lookupCoordinatorResource.newLookup(
+    Assert.assertEquals(400, lookupCoordinatorResource.createOrUpdateLookup(
         null,
         LOOKUP_NAME,
         author,
@@ -705,7 +705,7 @@ public class LookupCoordinatorResourceTest
         request
     ).getStatus());
 
-    Assert.assertEquals(400, lookupCoordinatorResource.newLookup(
+    Assert.assertEquals(400, lookupCoordinatorResource.createOrUpdateLookup(
         LOOKUP_TIER,
         null,
         author,
@@ -714,7 +714,7 @@ public class LookupCoordinatorResourceTest
         request
     ).getStatus());
 
-    Assert.assertEquals(400, lookupCoordinatorResource.newLookup(
+    Assert.assertEquals(400, lookupCoordinatorResource.createOrUpdateLookup(
         LOOKUP_TIER,
         "",
         author,
@@ -723,7 +723,7 @@ public class LookupCoordinatorResourceTest
         request
     ).getStatus());
 
-    Assert.assertEquals(400, lookupCoordinatorResource.newLookup(
+    Assert.assertEquals(400, lookupCoordinatorResource.createOrUpdateLookup(
         "",
         LOOKUP_NAME,
         author,

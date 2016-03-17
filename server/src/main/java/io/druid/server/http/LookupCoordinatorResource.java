@@ -32,7 +32,7 @@ import io.druid.audit.AuditManager;
 import io.druid.common.utils.ServletResourceUtils;
 import io.druid.guice.annotations.Json;
 import io.druid.guice.annotations.Smile;
-import io.druid.server.namespace.cache.LookupCoordinatorManager;
+import io.druid.server.lookup.cache.LookupCoordinatorManager;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
@@ -85,11 +85,11 @@ public class LookupCoordinatorResource
       if (discover) {
         return Response.ok().entity(lookupCoordinatorManager.discoverTiers()).build();
       }
-      final Map<String, Map<String, Map<String, Object>>> knownNamespaces = lookupCoordinatorManager.getKnownLookups();
-      if (knownNamespaces == null) {
+      final Map<String, Map<String, Map<String, Object>>> knownLookups = lookupCoordinatorManager.getKnownLookups();
+      if (knownLookups == null) {
         return Response.status(Response.Status.NOT_FOUND).build();
       } else {
-        return Response.ok().entity(knownNamespaces.keySet()).build();
+        return Response.ok().entity(knownLookups.keySet()).build();
       }
     }
     catch (Exception e) {
@@ -101,7 +101,7 @@ public class LookupCoordinatorResource
   @POST
   @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
   @Consumes({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
-  public Response updateAllNamespaces(
+  public Response updateAllLookups(
       InputStream in,
       @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
       @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
@@ -135,7 +135,7 @@ public class LookupCoordinatorResource
   @DELETE
   @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
   @Path("/{tier}/{lookup}")
-  public Response deleteNamespace(
+  public Response deleteLookup(
       @PathParam("tier") String tier,
       @PathParam("lookup") String lookup,
       @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
@@ -163,7 +163,7 @@ public class LookupCoordinatorResource
       }
     }
     catch (Exception e) {
-      LOG.error(e, "Error deleting namespace [%s]", lookup);
+      LOG.error(e, "Error deleting lookup [%s]", lookup);
       return Response.serverError().entity(ServletResourceUtils.sanitizeException(e)).build();
     }
   }
@@ -171,7 +171,7 @@ public class LookupCoordinatorResource
   @POST
   @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
   @Path("/{tier}/{lookup}")
-  public Response newLookup(
+  public Response createOrUpdateLookup(
       @PathParam("tier") String tier,
       @PathParam("lookup") String lookup,
       @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
@@ -223,7 +223,7 @@ public class LookupCoordinatorResource
   @GET
   @Produces({MediaType.APPLICATION_JSON, SmileMediaTypes.APPLICATION_JACKSON_SMILE})
   @Path("/{tier}/{lookup}")
-  public Response getSpecificNamespace(
+  public Response getSpecificLookup(
       @PathParam("tier") String tier,
       @PathParam("lookup") String lookup
   )

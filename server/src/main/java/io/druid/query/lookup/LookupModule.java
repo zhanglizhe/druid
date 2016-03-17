@@ -46,7 +46,7 @@ import io.druid.server.listener.announcer.ListenerResourceAnnouncer;
 import io.druid.server.listener.announcer.ListeningAnnouncerConfig;
 import io.druid.server.listener.resource.AbstractListenerHandler;
 import io.druid.server.listener.resource.ListenerResource;
-import io.druid.server.namespace.cache.LookupCoordinatorManager;
+import io.druid.server.lookup.cache.LookupCoordinatorManager;
 import org.apache.curator.utils.ZKPaths;
 
 import javax.ws.rs.Path;
