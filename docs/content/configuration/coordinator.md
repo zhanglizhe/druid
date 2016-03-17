@@ -105,7 +105,7 @@ http://<COORDINATOR_IP>:<PORT>/druid/coordinator/v1/config/history?count=<n>
 
 
 # Lookups Dynamic Config (EXPERIMENTAL)
-Thse configuration options control the behavior of the Lookup dynamic configuration described in the [lookups page](../querying/lookups.html)
+These configuration options control the behavior of the Lookup dynamic configuration described in the [lookups page](../querying/lookups.html)
 
 |Property|Description|Default|
 |--------|-----------|-------|
