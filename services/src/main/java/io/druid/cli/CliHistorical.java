@@ -35,7 +35,7 @@ import io.druid.guice.LifecycleModule;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.NodeTypeConfig;
 import io.druid.query.QuerySegmentWalker;
-import io.druid.query.extraction.LookupExtractionModule;
+import io.druid.query.lookup.LookupModule;
 import io.druid.server.QueryResource;
 import io.druid.server.coordination.ServerManager;
 import io.druid.server.coordination.ZkCoordinator;
@@ -91,7 +91,7 @@ public class CliHistorical extends ServerRunnable
             MetricsModule.register(binder, CacheMonitor.class);
           }
         },
-        new LookupExtractionModule()
+        new LookupModule()
     );
   }
 }

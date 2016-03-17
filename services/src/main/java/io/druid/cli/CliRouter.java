@@ -36,7 +36,7 @@ import io.druid.guice.LifecycleModule;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.annotations.Self;
 import io.druid.guice.http.JettyHttpClientModule;
-import io.druid.query.extraction.LookupExtractionModule;
+import io.druid.query.lookup.LookupModule;
 import io.druid.server.initialization.jetty.JettyServerInitializer;
 import io.druid.server.router.CoordinatorRuleManager;
 import io.druid.server.router.QueryHostFinder;
@@ -84,9 +84,11 @@ public class CliRouter extends ServerRunnable
 
             binder.bind(TieredBrokerHostSelector.class).in(ManageLifecycle.class);
             binder.bind(QueryHostFinder.class).in(LazySingleton.class);
-            binder.bind(new TypeLiteral<List<TieredBrokerSelectorStrategy>>(){})
-                      .toProvider(TieredBrokerSelectorStrategiesProvider.class)
-                      .in(LazySingleton.class);
+            binder.bind(new TypeLiteral<List<TieredBrokerSelectorStrategy>>()
+            {
+            })
+                  .toProvider(TieredBrokerSelectorStrategiesProvider.class)
+                  .in(LazySingleton.class);
 
             binder.bind(JettyServerInitializer.class).to(RouterJettyServerInitializer.class).in(LazySingleton.class);
 
@@ -105,7 +107,7 @@ public class CliRouter extends ServerRunnable
             return factory.createSelector(config.getCoordinatorServiceName());
           }
         },
-        new LookupExtractionModule()
+        new LookupModule()
     );
   }
 }

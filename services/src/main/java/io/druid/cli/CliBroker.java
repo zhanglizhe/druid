@@ -25,6 +25,7 @@ import com.google.inject.Module;
 import com.google.inject.name.Names;
 import com.metamx.common.logger.Logger;
 import io.airlift.airline.Command;
+import io.druid.client.BrokerSegmentWatcherConfig;
 import io.druid.client.BrokerServerView;
 import io.druid.client.CachingClusteredClient;
 import io.druid.client.TimelineServerView;
@@ -42,7 +43,7 @@ import io.druid.query.MapQueryToolChestWarehouse;
 import io.druid.query.QuerySegmentWalker;
 import io.druid.query.QueryToolChestWarehouse;
 import io.druid.query.RetryQueryRunnerConfig;
-import io.druid.query.extraction.LookupExtractionModule;
+import io.druid.query.lookup.LookupModule;
 import io.druid.server.ClientInfoResource;
 import io.druid.server.ClientQuerySegmentWalker;
 import io.druid.server.QueryResource;
@@ -97,6 +98,7 @@ public class CliBroker extends ServerRunnable
             JsonConfigProvider.bind(binder, "druid.broker.select.tier.custom", CustomTierSelectorStrategyConfig.class);
             JsonConfigProvider.bind(binder, "druid.broker.balancer", ServerSelectorStrategy.class);
             JsonConfigProvider.bind(binder, "druid.broker.retryPolicy", RetryQueryRunnerConfig.class);
+            JsonConfigProvider.bind(binder, "druid.broker.segment", BrokerSegmentWatcherConfig.class);
 
             binder.bind(QuerySegmentWalker.class).to(ClientQuerySegmentWalker.class).in(LazySingleton.class);
 
@@ -112,7 +114,7 @@ public class CliBroker extends ServerRunnable
             LifecycleModule.register(binder, Server.class);
           }
         },
-        new LookupExtractionModule()
+        new LookupModule()
     );
   }
 }

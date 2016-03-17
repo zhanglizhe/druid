@@ -142,7 +142,7 @@ public class RealtimeIndexTask extends AbstractTask
     super(
         id == null ? makeTaskId(fireDepartment) : id,
         String.format("index_realtime_%s", makeDatasource(fireDepartment)),
-        taskResource == null ? new TaskResource(makeTaskId(fireDepartment), 1) : taskResource,
+        taskResource,
         makeDatasource(fireDepartment),
         context
     );
@@ -514,7 +514,7 @@ public class RealtimeIndexTask extends AbstractTask
     @Override
     public void publishSegment(DataSegment segment) throws IOException
     {
-      taskToolbox.pushSegments(ImmutableList.of(segment));
+      taskToolbox.publishSegments(ImmutableList.of(segment));
     }
   }
 }

@@ -22,6 +22,7 @@ package io.druid.segment.incremental;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.metamx.common.logger.Logger;
 import com.metamx.common.parsers.ParseException;
 import io.druid.data.input.InputRow;
 import io.druid.granularity.QueryGranularity;
@@ -38,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -46,8 +46,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
 {
+  private static final Logger log = new Logger(OnheapIncrementalIndex.class);
+
   private final ConcurrentHashMap<Integer, Aggregator[]> aggregators = new ConcurrentHashMap<>();
-  private final ConcurrentNavigableMap<TimeAndDims, Integer> facts;
+  private final ConcurrentMap<TimeAndDims, Integer> facts;
   private final AtomicInteger indexIncrement = new AtomicInteger(0);
   protected final int maxRowCount;
   private volatile Map<String, ColumnSelectorFactory> selectors;
@@ -58,12 +60,18 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       IncrementalIndexSchema incrementalIndexSchema,
       boolean deserializeComplexMetrics,
       boolean reportParseExceptions,
+      boolean sortFacts,
       int maxRowCount
   )
   {
-    super(incrementalIndexSchema, deserializeComplexMetrics, reportParseExceptions);
+    super(incrementalIndexSchema, deserializeComplexMetrics, reportParseExceptions, sortFacts);
     this.maxRowCount = maxRowCount;
-    this.facts = new ConcurrentSkipListMap<>(dimsComparator());
+
+    if (sortFacts) {
+      this.facts = new ConcurrentSkipListMap<>(dimsComparator());
+    } else {
+      this.facts = new ConcurrentHashMap<>();
+    }
   }
 
   public OnheapIncrementalIndex(
@@ -72,6 +80,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       final AggregatorFactory[] metrics,
       boolean deserializeComplexMetrics,
       boolean reportParseExceptions,
+      boolean sortFacts,
       int maxRowCount
   )
   {
@@ -82,6 +91,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
                                             .build(),
         deserializeComplexMetrics,
         reportParseExceptions,
+        sortFacts,
         maxRowCount
     );
   }
@@ -98,6 +108,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
                                             .withQueryGranularity(gran)
                                             .withMetrics(metrics)
                                             .build(),
+        true,
         true,
         true,
         maxRowCount
@@ -110,11 +121,11 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       int maxRowCount
   )
   {
-    this(incrementalIndexSchema, true, reportParseExceptions, maxRowCount);
+    this(incrementalIndexSchema, true, reportParseExceptions, true, maxRowCount);
   }
 
   @Override
-  public ConcurrentNavigableMap<TimeAndDims, Integer> getFacts()
+  public ConcurrentMap<TimeAndDims, Integer> getFacts()
   {
     return facts;
   }
@@ -197,10 +208,13 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       synchronized (agg) {
         try {
           agg.aggregate();
-        } catch (ParseException e) {
+        }
+        catch (ParseException e) {
           // "aggregate" can throw ParseExceptions if a selector expects something but gets something else.
           if (reportParseExceptions) {
-            throw e;
+            throw new ParseException(e, "Encountered parse error for aggregator[%s]", agg.getName());
+          } else {
+            log.debug(e, "Encountered parse error, skipping aggregator[%s].", agg.getName());
           }
         }
       }
@@ -289,13 +303,13 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
     }
   }
 
-  static class OnHeapDimDim implements DimDim
+  static class OnHeapDimDim<T extends Comparable<? super T>> implements DimDim<T>
   {
-    private final Map<String, Integer> valueToId = Maps.newHashMap();
-    private String minValue = null;
-    private String maxValue = null;
+    private final Map<T, Integer> valueToId = Maps.newHashMap();
+    private T minValue = null;
+    private T maxValue = null;
 
-    private final List<String> idToValue = Lists.newArrayList();
+    private final List<T> idToValue = Lists.newArrayList();
     private final Object lock;
 
     public OnHeapDimDim(Object lock)
@@ -303,7 +317,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       this.lock = lock;
     }
 
-    public int getId(String value)
+    public int getId(T value)
     {
       synchronized (lock) {
         final Integer id = valueToId.get(value);
@@ -311,14 +325,14 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       }
     }
 
-    public String getValue(int id)
+    public T getValue(int id)
     {
       synchronized (lock) {
         return idToValue.get(id);
       }
     }
 
-    public boolean contains(String value)
+    public boolean contains(T value)
     {
       synchronized (lock) {
         return valueToId.containsKey(value);
@@ -332,7 +346,7 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
       }
     }
 
-    public int add(String value)
+    public int add(T value)
     {
       synchronized (lock) {
         Integer prev = valueToId.get(value);
@@ -349,13 +363,13 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
     }
 
     @Override
-    public String getMinValue()
+    public T getMinValue()
     {
       return minValue;
     }
 
     @Override
-    public String getMaxValue()
+    public T getMaxValue()
     {
       return maxValue;
     }
@@ -368,19 +382,19 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
     }
   }
 
-  static class OnHeapDimLookup implements SortedDimLookup
+  static class OnHeapDimLookup<T extends Comparable<? super T>> implements SortedDimLookup<T>
   {
-    private final String[] sortedVals;
+    private final List<T> sortedVals;
     private final int[] idToIndex;
     private final int[] indexToId;
 
-    public OnHeapDimLookup(List<String> idToValue, int length)
+    public OnHeapDimLookup(List<T> idToValue, int length)
     {
-      Map<String, Integer> sortedMap = Maps.newTreeMap();
+      Map<T, Integer> sortedMap = Maps.newTreeMap();
       for (int id = 0; id < length; id++) {
         sortedMap.put(idToValue.get(id), id);
       }
-      this.sortedVals = sortedMap.keySet().toArray(new String[length]);
+      this.sortedVals = Lists.newArrayList(sortedMap.keySet());
       this.idToIndex = new int[length];
       this.indexToId = new int[length];
       int index = 0;
@@ -394,23 +408,23 @@ public class OnheapIncrementalIndex extends IncrementalIndex<Aggregator>
     @Override
     public int size()
     {
-      return sortedVals.length;
+      return sortedVals.size();
     }
 
     @Override
-    public int indexToId(int index)
+    public int getUnsortedIdFromSortedId(int index)
     {
       return indexToId[index];
     }
 
     @Override
-    public String getValue(int index)
+    public T getValueFromSortedId(int index)
     {
-      return sortedVals[index];
+      return sortedVals.get(index);
     }
 
     @Override
-    public int idToIndex(int id)
+    public int getSortedIdFromUnsortedId(int id)
     {
       return idToIndex[id];
     }

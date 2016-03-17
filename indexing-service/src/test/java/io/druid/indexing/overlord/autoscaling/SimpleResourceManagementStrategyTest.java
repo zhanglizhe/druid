@@ -28,10 +28,12 @@ import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceEventBuilder;
 import io.druid.common.guava.DSuppliers;
 import io.druid.concurrent.Execs;
+import io.druid.indexing.common.TaskLocation;
 import io.druid.indexing.common.TaskStatus;
-import io.druid.indexing.common.TestMergeTask;
+import io.druid.indexing.common.TestTasks;
 import io.druid.indexing.common.task.NoopTask;
 import io.druid.indexing.common.task.Task;
+import io.druid.indexing.overlord.ImmutableWorkerInfo;
 import io.druid.indexing.overlord.RemoteTaskRunner;
 import io.druid.indexing.overlord.RemoteTaskRunnerWorkItem;
 import io.druid.indexing.overlord.ZkWorker;
@@ -39,12 +41,8 @@ import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.indexing.worker.TaskAnnouncement;
 import io.druid.indexing.worker.Worker;
 import io.druid.jackson.DefaultObjectMapper;
-import io.druid.query.aggregation.AggregatorFactory;
-import io.druid.segment.IndexSpec;
-import io.druid.timeline.DataSegment;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
-import org.joda.time.Interval;
 import org.joda.time.Period;
 import org.junit.After;
 import org.junit.Assert;
@@ -72,28 +70,7 @@ public class SimpleResourceManagementStrategyTest
   public void setUp() throws Exception
   {
     autoScaler = EasyMock.createMock(AutoScaler.class);
-
-    final IndexSpec indexSpec = new IndexSpec();
-
-    testTask = new TestMergeTask(
-        "task1",
-        "dummyDs",
-        Lists.newArrayList(
-            new DataSegment(
-                "dummyDs",
-                new Interval("2012-01-01/2012-01-02"),
-                new DateTime().toString(),
-                null,
-                null,
-                null,
-                null,
-                0,
-                0
-            )
-        ),
-        Lists.<AggregatorFactory>newArrayList(),
-        indexSpec
-    );
+    testTask = TestTasks.immediateSuccess("task1");
 
     final SimpleResourceManagementConfig simpleResourceManagementConfig = new SimpleResourceManagementConfig()
         .setWorkerIdleTimeout(new Period(0))
@@ -138,12 +115,12 @@ public class SimpleResourceManagementStrategyTest
     RemoteTaskRunner runner = EasyMock.createMock(RemoteTaskRunner.class);
     EasyMock.expect(runner.getPendingTasks()).andReturn(
         Collections.singletonList(
-            new RemoteTaskRunnerWorkItem(testTask.getId(), null).withQueueInsertionTime(new DateTime())
+            new RemoteTaskRunnerWorkItem(testTask.getId(), null, null).withQueueInsertionTime(new DateTime())
         )
     );
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     );
     EasyMock.replay(runner);
@@ -174,12 +151,12 @@ public class SimpleResourceManagementStrategyTest
     RemoteTaskRunner runner = EasyMock.createMock(RemoteTaskRunner.class);
     EasyMock.expect(runner.getPendingTasks()).andReturn(
         Collections.singletonList(
-            new RemoteTaskRunnerWorkItem(testTask.getId(), null).withQueueInsertionTime(new DateTime())
+            new RemoteTaskRunnerWorkItem(testTask.getId(), null, null).withQueueInsertionTime(new DateTime())
         )
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     ).times(2);
     EasyMock.replay(runner);
@@ -231,12 +208,12 @@ public class SimpleResourceManagementStrategyTest
     RemoteTaskRunner runner = EasyMock.createMock(RemoteTaskRunner.class);
     EasyMock.expect(runner.getPendingTasks()).andReturn(
         Collections.singletonList(
-            new RemoteTaskRunnerWorkItem(testTask.getId(), null).withQueueInsertionTime(new DateTime())
+            new RemoteTaskRunnerWorkItem(testTask.getId(), null, null).withQueueInsertionTime(new DateTime())
         )
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     ).times(2);
     EasyMock.replay(runner);
@@ -282,19 +259,20 @@ public class SimpleResourceManagementStrategyTest
     RemoteTaskRunner runner = EasyMock.createMock(RemoteTaskRunner.class);
     EasyMock.expect(runner.getPendingTasks()).andReturn(
         Collections.singletonList(
-            new RemoteTaskRunnerWorkItem(testTask.getId(), null).withQueueInsertionTime(new DateTime())
+            new RemoteTaskRunnerWorkItem(testTask.getId(), null, null).withQueueInsertionTime(new DateTime())
         )
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     ).times(2);
-    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<Worker>>anyObject(), EasyMock.anyInt())).andReturn(
-        Collections.<Worker>singletonList(
-            new TestZkWorker(testTask).getWorker()
-        )
-    );
+    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<ImmutableWorkerInfo>>anyObject(), EasyMock.anyInt()))
+            .andReturn(
+                Collections.<Worker>singletonList(
+                    new TestZkWorker(testTask).getWorker()
+                )
+            );
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList());
     EasyMock.replay(runner);
 
@@ -324,20 +302,21 @@ public class SimpleResourceManagementStrategyTest
     RemoteTaskRunner runner = EasyMock.createMock(RemoteTaskRunner.class);
     EasyMock.expect(runner.getPendingTasks()).andReturn(
         Collections.singletonList(
-            new RemoteTaskRunnerWorkItem(testTask.getId(), null).withQueueInsertionTime(new DateTime())
+            new RemoteTaskRunnerWorkItem(testTask.getId(), null, null).withQueueInsertionTime(new DateTime())
         )
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
+            new TestZkWorker(testTask).toImmutable()
         )
     ).times(2);
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList()).times(2);
-    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<Worker>>anyObject(), EasyMock.anyInt())).andReturn(
-        Collections.singletonList(
-            new TestZkWorker(testTask).getWorker()
-        )
-    );
+    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<ImmutableWorkerInfo>>anyObject(), EasyMock.anyInt()))
+            .andReturn(
+                Collections.singletonList(
+                    new TestZkWorker(testTask).getWorker()
+                )
+            );
     EasyMock.replay(runner);
 
     boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(runner);
@@ -373,19 +352,20 @@ public class SimpleResourceManagementStrategyTest
     RemoteTaskRunner runner = EasyMock.createMock(RemoteTaskRunner.class);
     EasyMock.expect(runner.getPendingTasks()).andReturn(
         Collections.singletonList(
-            new RemoteTaskRunnerWorkItem(testTask.getId(), null).withQueueInsertionTime(new DateTime())
+            new RemoteTaskRunnerWorkItem(testTask.getId(), null, null).withQueueInsertionTime(new DateTime())
         )
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
         Arrays.asList(
-            new TestZkWorker(NoopTask.create()).getWorker(),
-            new TestZkWorker(NoopTask.create()).getWorker()
+            new TestZkWorker(NoopTask.create()).toImmutable(),
+            new TestZkWorker(NoopTask.create()).toImmutable()
         )
     ).times(2);
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList());
-    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<Worker>>anyObject(), EasyMock.anyInt())).andReturn(
-        Collections.<Worker>emptyList()
-    );
+    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<ImmutableWorkerInfo>>anyObject(), EasyMock.anyInt()))
+            .andReturn(
+                Collections.<Worker>emptyList()
+            );
     EasyMock.replay(runner);
 
     boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(runner);
@@ -422,14 +402,15 @@ public class SimpleResourceManagementStrategyTest
         Collections.<RemoteTaskRunnerWorkItem>emptyList()
     ).times(3);
     EasyMock.expect(runner.getWorkers()).andReturn(
-        Collections.<Worker>singletonList(
-            new TestZkWorker(NoopTask.create(), "h1", "i1", "0").getWorker()
+        Collections.singletonList(
+            new TestZkWorker(NoopTask.create(), "h1", "i1", "0").toImmutable()
         )
     ).times(3);
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList());
-    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<Worker>>anyObject(), EasyMock.anyInt())).andReturn(
-        Collections.<Worker>emptyList()
-    );
+    EasyMock.expect(runner.markWorkersLazy(EasyMock.<Predicate<ImmutableWorkerInfo>>anyObject(), EasyMock.anyInt()))
+            .andReturn(
+                Collections.<Worker>emptyList()
+            );
     EasyMock.replay(runner);
 
     boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(
@@ -482,12 +463,12 @@ public class SimpleResourceManagementStrategyTest
     RemoteTaskRunner runner = EasyMock.createMock(RemoteTaskRunner.class);
     EasyMock.expect(runner.getPendingTasks()).andReturn(
         Collections.singletonList(
-            new RemoteTaskRunnerWorkItem(testTask.getId(), null).withQueueInsertionTime(new DateTime())
+            new RemoteTaskRunnerWorkItem(testTask.getId(), null, null).withQueueInsertionTime(new DateTime())
         )
     ).times(2);
     EasyMock.expect(runner.getWorkers()).andReturn(
-        Collections.<Worker>singletonList(
-            new TestZkWorker(null).getWorker()
+        Collections.singletonList(
+            new TestZkWorker(null).toImmutable()
         )
     ).times(1);
     EasyMock.replay(runner);
@@ -525,7 +506,7 @@ public class SimpleResourceManagementStrategyTest
         String version
     )
     {
-      super(new Worker(host, ip, 3, version, DateTime.now()), null, new DefaultObjectMapper());
+      super(new Worker(host, ip, 3, version), null, new DefaultObjectMapper());
 
       this.testTask = testTask;
     }
@@ -536,7 +517,14 @@ public class SimpleResourceManagementStrategyTest
       if (testTask == null) {
         return Maps.newHashMap();
       }
-      return ImmutableMap.of(testTask.getId(), TaskAnnouncement.create(testTask, TaskStatus.running(testTask.getId())));
+      return ImmutableMap.of(
+          testTask.getId(),
+          TaskAnnouncement.create(
+              testTask,
+              TaskStatus.running(testTask.getId()),
+              TaskLocation.unknown()
+          )
+      );
     }
   }
 }

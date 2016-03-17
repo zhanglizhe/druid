@@ -55,9 +55,10 @@ public class ChatHandlerServerModule implements Module
   public void configure(Binder binder)
   {
     Jerseys.addResource(binder, ChatHandlerResource.class);
+    LifecycleModule.register(binder, ChatHandlerResource.class);
 
     if (properties.containsKey(MAX_CHAT_REQUESTS_PROPERTY)) {
-      final int maxRequests = Integer.parseInt(MAX_CHAT_REQUESTS_PROPERTY);
+      final int maxRequests = Integer.parseInt(properties.getProperty(MAX_CHAT_REQUESTS_PROPERTY));
       JettyBindings.addQosFilter(binder, "/druid/worker/v1/chat/*", maxRequests);
     }
 

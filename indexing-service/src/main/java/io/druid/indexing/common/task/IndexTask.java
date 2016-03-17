@@ -48,7 +48,6 @@ import io.druid.indexing.common.TaskStatus;
 import io.druid.indexing.common.TaskToolbox;
 import io.druid.indexing.common.index.YeOldePlumberSchool;
 import io.druid.query.aggregation.hyperloglog.HyperLogLogCollector;
-import io.druid.segment.IndexMerger;
 import io.druid.segment.IndexSpec;
 import io.druid.segment.indexing.DataSchema;
 import io.druid.segment.indexing.IOConfig;
@@ -144,7 +143,8 @@ public class IndexTask extends AbstractFixedIntervalTask
         buildV9Directly,
         0,
         0,
-        true
+        true,
+        null
     );
   }
 
@@ -228,7 +228,7 @@ public class IndexTask extends AbstractFixedIntervalTask
         segments.add(segment);
       }
     }
-    toolbox.pushSegments(segments);
+    toolbox.publishSegments(segments);
     return TaskStatus.success(getId());
   }
 
@@ -499,7 +499,7 @@ public class IndexTask extends AbstractFixedIntervalTask
   public static class IndexTuningConfig implements TuningConfig
   {
     private static final int DEFAULT_TARGET_PARTITION_SIZE = 5000000;
-    private static final int DEFAULT_ROW_FLUSH_BOUNDARY = 500000;
+    private static final int DEFAULT_ROW_FLUSH_BOUNDARY = 75000;
     private static final IndexSpec DEFAULT_INDEX_SPEC = new IndexSpec();
     private static final Boolean DEFAULT_BUILD_V9_DIRECTLY = Boolean.FALSE;
 

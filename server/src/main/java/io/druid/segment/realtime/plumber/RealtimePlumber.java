@@ -255,7 +255,14 @@ public class RealtimePlumber implements Plumber
           segmentGranularity.increment(new DateTime(truncatedTime))
       );
 
-      retVal = new Sink(sinkInterval, schema, config, versioningPolicy.getVersion(sinkInterval));
+      retVal = new Sink(
+          sinkInterval,
+          schema,
+          config.getShardSpec(),
+          versioningPolicy.getVersion(sinkInterval),
+          config.getMaxRowsInMemory(),
+          config.isReportParseExceptions()
+      );
       addSink(retVal);
 
     }
@@ -266,7 +273,7 @@ public class RealtimePlumber implements Plumber
   @Override
   public <T> QueryRunner<T> getQueryRunner(final Query<T> query)
   {
-    final boolean skipIncrementalSegment = query.getContextValue(SKIP_INCREMENTAL_SEGMENT, false);
+    final boolean skipIncrementalSegment = query.getContextBoolean(SKIP_INCREMENTAL_SEGMENT, false);
     final QueryRunnerFactory<T, Query<T>> factory = conglomerate.findFactory(query);
     final QueryToolChest<T, Query<T>> toolchest = factory.getToolchest();
 
@@ -363,7 +370,9 @@ public class RealtimePlumber implements Plumber
                                           }
                                         }
                                     )
-                                )
+                                ),
+                                "query/segmentAndCache/time",
+                                ImmutableMap.of("segment", theSink.getSegment().getIdentifier())
                             ).withWaitMeasuredFromNow(),
                             new SpecificSegmentSpec(
                                 descriptor
@@ -606,6 +615,7 @@ public class RealtimePlumber implements Plumber
       persistAndMerge(entry.getKey(), entry.getValue());
     }
 
+    final long forceEndWaitTime = System.currentTimeMillis() + config.getHandoffConditionTimeout();
     while (!sinks.isEmpty()) {
       try {
         log.info(
@@ -627,7 +637,19 @@ public class RealtimePlumber implements Plumber
 
         synchronized (handoffCondition) {
           while (!sinks.isEmpty()) {
-            handoffCondition.wait();
+            if (config.getHandoffConditionTimeout() == 0) {
+              handoffCondition.wait();
+            } else {
+              long curr = System.currentTimeMillis();
+              if (forceEndWaitTime - curr > 0) {
+                handoffCondition.wait(forceEndWaitTime - curr);
+              } else {
+                throw new ISE(
+                    "Segment handoff wait timeout. [%s] segments might not have completed handoff.",
+                    sinks.size()
+                );
+              }
+            }
           }
         }
       }
@@ -636,7 +658,7 @@ public class RealtimePlumber implements Plumber
       }
     }
 
-    handoffNotifier.stop();
+    handoffNotifier.close();
     shutdownExecutors();
 
     stopped = true;
@@ -807,7 +829,15 @@ public class RealtimePlumber implements Plumber
         );
         continue;
       }
-      final Sink currSink = new Sink(sinkInterval, schema, config, versioningPolicy.getVersion(sinkInterval), hydrants);
+      final Sink currSink = new Sink(
+          sinkInterval,
+          schema,
+          config.getShardSpec(),
+          versioningPolicy.getVersion(sinkInterval),
+          config.getMaxRowsInMemory(),
+          config.isReportParseExceptions(),
+          hydrants
+      );
       addSink(currSink);
     }
     return metadata;

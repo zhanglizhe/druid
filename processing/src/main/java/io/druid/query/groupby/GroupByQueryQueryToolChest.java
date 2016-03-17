@@ -130,7 +130,7 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
           return runner.run(query, responseContext);
         }
 
-        if (Boolean.valueOf(query.getContextValue(GROUP_BY_MERGE_KEY, "true"))) {
+        if (query.getContextBoolean(GROUP_BY_MERGE_KEY, true)) {
           return mergeGroupByResults(
               (GroupByQuery) query,
               runner,
@@ -161,7 +161,18 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
         throw new UnsupportedOperationException("Subqueries must be of type 'group by'");
       }
 
-      final Sequence<Row> subqueryResult = mergeGroupByResults(subquery, runner, context);
+      final Sequence<Row> subqueryResult = mergeGroupByResults(
+          subquery.withOverriddenContext(
+              ImmutableMap.<String, Object>of(
+                  //setting sort to false avoids unnecessary sorting while merging results. we only need to sort
+                  //in the end when returning results to user.
+                  GroupByQueryHelper.CTX_KEY_SORT_RESULTS,
+                  false
+              )
+          ),
+          runner,
+          context
+      );
       final Set<AggregatorFactory> aggs = Sets.newHashSet();
 
       // Nested group-bys work by first running the inner query and then materializing the results in an incremental
@@ -199,35 +210,49 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
       final GroupByQuery outerQuery = new GroupByQuery.Builder(query)
           .setLimitSpec(query.getLimitSpec().merge(subquery.getLimitSpec()))
           .build();
-      final IncrementalIndex index = makeIncrementalIndex(innerQuery, subqueryResult);
+
+      final IncrementalIndex innerQueryResultIndex = makeIncrementalIndex(
+          innerQuery.withOverriddenContext(
+              ImmutableMap.<String, Object>of(
+                  GroupByQueryHelper.CTX_KEY_SORT_RESULTS, true
+              )
+          ),
+          subqueryResult
+      );
 
       //Outer query might have multiple intervals, but they are expected to be non-overlapping and sorted which
       //is ensured by QuerySegmentSpec.
       //GroupByQueryEngine can only process one interval at a time, so we need to call it once per interval
       //and concatenate the results.
-      return new ResourceClosingSequence<>(
-          outerQuery.applyLimit(
-              Sequences.concat(
-                  Sequences.map(
-                      Sequences.simple(outerQuery.getIntervals()),
-                      new Function<Interval, Sequence<Row>>()
-                      {
-                        @Override
-                        public Sequence<Row> apply(Interval interval)
-                        {
-                          return engine.process(
-                              outerQuery.withQuerySegmentSpec(
-                                  new MultipleIntervalSegmentSpec(ImmutableList.of(interval))
-                              ),
-                              new IncrementalIndexStorageAdapter(index)
-                          );
-                        }
-                      }
-                  )
+      final IncrementalIndex outerQueryResultIndex = makeIncrementalIndex(
+          outerQuery,
+          Sequences.concat(
+              Sequences.map(
+                  Sequences.simple(outerQuery.getIntervals()),
+                  new Function<Interval, Sequence<Row>>()
+                  {
+                    @Override
+                    public Sequence<Row> apply(Interval interval)
+                    {
+                      return engine.process(
+                          outerQuery.withQuerySegmentSpec(
+                              new MultipleIntervalSegmentSpec(ImmutableList.of(interval))
+                          ),
+                          new IncrementalIndexStorageAdapter(innerQueryResultIndex)
+                      );
+                    }
+                  }
               )
-          ),
-          index
+          )
       );
+
+      innerQueryResultIndex.close();
+
+      return new ResourceClosingSequence<>(
+          outerQuery.applyLimit(postAggregate(query, outerQueryResultIndex)),
+          outerQueryResultIndex
+      );
+
     } else {
       final IncrementalIndex index = makeIncrementalIndex(
           query, runner.run(
@@ -246,7 +271,10 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
                   query.getContext()
               ).withOverriddenContext(
                   ImmutableMap.<String, Object>of(
-                      "finalize", false
+                      "finalize", false,
+                      //setting sort to false avoids unnecessary sorting while merging results. we only need to sort
+                      //in the end when returning results to user.
+                      GroupByQueryHelper.CTX_KEY_SORT_RESULTS, false
                   )
               )
               , context
