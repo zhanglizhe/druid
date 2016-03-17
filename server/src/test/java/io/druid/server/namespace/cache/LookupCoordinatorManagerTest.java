@@ -37,7 +37,7 @@ import com.metamx.http.client.response.SequenceInputStreamResponseHandler;
 import io.druid.audit.AuditInfo;
 import io.druid.common.config.JacksonConfigManager;
 import io.druid.jackson.DefaultObjectMapper;
-import io.druid.query.extraction.LookupExtractionModule;
+import io.druid.query.lookup.LookupModule;
 import io.druid.server.listener.announcer.ListenerDiscoverer;
 import io.druid.server.listener.resource.ListenerResource;
 import org.easymock.EasyMock;
@@ -105,7 +105,7 @@ public class LookupCoordinatorManagerTest
     future.set(new ByteArrayInputStream(StringUtils.toUtf8(mapper.writeValueAsString(ImmutableMap.of(
         "status",
         "accepted",
-        LookupExtractionModule.FAILED_UPDATES_KEY,
+        LookupModule.FAILED_UPDATES_KEY,
         ImmutableMap.of()
     )))));
     EasyMock.expect(client.go(
@@ -154,7 +154,7 @@ public class LookupCoordinatorManagerTest
     future.set(new ByteArrayInputStream(StringUtils.toUtf8(mapper.writeValueAsString(ImmutableMap.of(
         "status",
         "accepted",
-        LookupExtractionModule.FAILED_UPDATES_KEY,
+        LookupModule.FAILED_UPDATES_KEY,
         ImmutableMap.of(
             failedLookup,
             ImmutableMap.of()
@@ -241,7 +241,7 @@ public class LookupCoordinatorManagerTest
     };
     expectedException.expectMessage(String.format(
         "Update result did not have field for [%s]",
-        LookupExtractionModule.FAILED_UPDATES_KEY
+        LookupModule.FAILED_UPDATES_KEY
     ));
     try {
       manager.updateAllOnHost(
@@ -495,7 +495,7 @@ public class LookupCoordinatorManagerTest
         lookupCoordinatorManagerConfig
     );
 
-    EasyMock.expect(discoverer.getNodes(EasyMock.eq(LookupExtractionModule.getTierListenerPath(LOOKUP_TIER))))
+    EasyMock.expect(discoverer.getNodes(EasyMock.eq(LookupModule.getTierListenerPath(LOOKUP_TIER))))
             .andReturn(ImmutableList.<HostAndPort>of())
             .once();
     EasyMock.replay(discoverer);
@@ -503,7 +503,7 @@ public class LookupCoordinatorManagerTest
     EasyMock.verify(discoverer);
     EasyMock.reset(discoverer);
 
-    EasyMock.expect(discoverer.getNodes(EasyMock.eq(LookupExtractionModule.getTierListenerPath(LOOKUP_TIER))))
+    EasyMock.expect(discoverer.getNodes(EasyMock.eq(LookupModule.getTierListenerPath(LOOKUP_TIER))))
             .andReturn(Collections.<HostAndPort>singletonList(null))
             .once();
     EasyMock.replay(discoverer);
@@ -953,7 +953,7 @@ public class LookupCoordinatorManagerTest
     final HostAndPort hostAndPort = HostAndPort.fromParts("someHost", 8080);
     final Collection<String> drop = ImmutableList.of("lookup1");
     EasyMock
-        .expect(discoverer.getNodes(LookupExtractionModule.getTierListenerPath(LOOKUP_TIER)))
+        .expect(discoverer.getNodes(LookupModule.getTierListenerPath(LOOKUP_TIER)))
         .andReturn(ImmutableList.of(hostAndPort))
         .once();
     final SettableFuture<InputStream> future = SettableFuture.create();
@@ -997,7 +997,7 @@ public class LookupCoordinatorManagerTest
     final HostAndPort hostAndPort = HostAndPort.fromParts("someHost", 8080);
     final Collection<String> drop = ImmutableList.of("lookup1");
     EasyMock
-        .expect(discoverer.getNodes(LookupExtractionModule.getTierListenerPath(LOOKUP_TIER)))
+        .expect(discoverer.getNodes(LookupModule.getTierListenerPath(LOOKUP_TIER)))
         .andReturn(ImmutableList.of(hostAndPort))
         .once();
     final SettableFuture<InputStream> future = SettableFuture.create();
@@ -1047,7 +1047,7 @@ public class LookupCoordinatorManagerTest
     final HostAndPort hostAndPort = HostAndPort.fromParts("someHost", 8080);
     final Collection<String> drop = ImmutableList.of("lookup1");
     EasyMock
-        .expect(discoverer.getNodes(LookupExtractionModule.getTierListenerPath(LOOKUP_TIER)))
+        .expect(discoverer.getNodes(LookupModule.getTierListenerPath(LOOKUP_TIER)))
         .andReturn(ImmutableList.of(hostAndPort, hostAndPort))
         .once();
     final SettableFuture<InputStream> future = SettableFuture.create();

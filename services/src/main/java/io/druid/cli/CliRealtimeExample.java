@@ -30,7 +30,7 @@ import io.druid.client.InventoryView;
 import io.druid.client.ServerView;
 import io.druid.guice.LazySingleton;
 import io.druid.guice.RealtimeModule;
-import io.druid.query.extraction.LookupExtractionModule;
+import io.druid.query.lookup.LookupModule;
 import io.druid.segment.loading.DataSegmentPusher;
 import io.druid.server.coordination.DataSegmentAnnouncer;
 import io.druid.server.initialization.jetty.ChatHandlerServerModule;
@@ -76,7 +76,7 @@ public class CliRealtimeExample extends ServerRunnable
           }
         },
         new ChatHandlerServerModule(),
-        new LookupExtractionModule()
+        new LookupModule()
     );
   }
 

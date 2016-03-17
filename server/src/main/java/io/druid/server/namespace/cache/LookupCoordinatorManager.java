@@ -54,7 +54,7 @@ import io.druid.common.config.JacksonConfigManager;
 import io.druid.concurrent.Execs;
 import io.druid.guice.annotations.Global;
 import io.druid.guice.annotations.Smile;
-import io.druid.query.extraction.LookupExtractionModule;
+import io.druid.query.lookup.LookupModule;
 import io.druid.server.listener.announcer.ListenerDiscoverer;
 import io.druid.server.listener.resource.ListenerResource;
 import org.jboss.netty.handler.codec.http.HttpHeaders;
@@ -233,9 +233,9 @@ public class LookupCoordinatorManager
           LOG.debug("Update on [%s], Status: %s reason: [%s]", url, returnCode.get(), reasonString.get());
         }
         final Map<String, Object> resultMap = smileMapper.readValue(result, MAP_STRING_OBJ_TYPE);
-        final Object missingValuesObject = resultMap.get(LookupExtractionModule.FAILED_UPDATES_KEY);
+        final Object missingValuesObject = resultMap.get(LookupModule.FAILED_UPDATES_KEY);
         if (null == missingValuesObject) {
-          throw new IAE("Update result did not have field for [%s]", LookupExtractionModule.FAILED_UPDATES_KEY);
+          throw new IAE("Update result did not have field for [%s]", LookupModule.FAILED_UPDATES_KEY);
         }
 
         final Map<String, Object> missingValues = smileMapper.convertValue(missingValuesObject, MAP_STRING_OBJ_TYPE);
@@ -325,7 +325,7 @@ public class LookupCoordinatorManager
       throws InterruptedException, ExecutionException, IOException
   {
     final Collection<URL> urls = Collections2.transform(
-        listenerDiscoverer.getNewNodes(LookupExtractionModule.getTierListenerPath(tier)),
+        listenerDiscoverer.getNewNodes(LookupModule.getTierListenerPath(tier)),
         HOST_TO_URL
     );
     if (urls.isEmpty() || knownLookups.isEmpty()) {
@@ -393,7 +393,7 @@ public class LookupCoordinatorManager
     return ImmutableList.copyOf(
         Collections2.filter(
             Collections2.transform(
-                listenerDiscoverer.getNodes(LookupExtractionModule.getTierListenerPath(tier)),
+                listenerDiscoverer.getNodes(LookupModule.getTierListenerPath(tier)),
                 HOST_TO_URL
             ),
             Predicates.notNull()
