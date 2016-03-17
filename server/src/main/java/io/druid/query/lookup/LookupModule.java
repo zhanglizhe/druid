@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package io.druid.query.extraction;
+package io.druid.query.lookup;
 
 import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -25,7 +25,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Binder;
@@ -37,7 +36,6 @@ import io.druid.curator.announcement.Announcer;
 import io.druid.guice.Jerseys;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.LifecycleModule;
-import io.druid.guice.ServerModule;
 import io.druid.guice.annotations.Json;
 import io.druid.guice.annotations.Self;
 import io.druid.guice.annotations.Smile;
@@ -52,16 +50,14 @@ import io.druid.server.namespace.cache.LookupCoordinatorManager;
 import org.apache.curator.utils.ZKPaths;
 
 import javax.ws.rs.Path;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Include when a service can listen to lookups
- */
-public class LookupExtractionModule implements DruidModule
+public class LookupModule implements DruidModule
 {
-  public static final String PROPERTY_PREFIX = "druid.lookup";
+  private static final String PROPERTY_BASE = "druid.lookup";
   public static final String FAILED_UPDATES_KEY = "failedUpdates";
 
   public static String getTierListenerPath(String tier)
@@ -72,13 +68,15 @@ public class LookupExtractionModule implements DruidModule
   @Override
   public List<? extends Module> getJacksonModules()
   {
-    return ImmutableList.of();
+    return Collections.emptyList();
   }
 
   @Override
   public void configure(Binder binder)
   {
-    JsonConfigProvider.bind(binder, PROPERTY_PREFIX, LookupListeningAnnouncerConfig.class);
+    JsonConfigProvider.bind(binder, PROPERTY_BASE, LookupConfig.class);
+    LifecycleModule.register(binder, LookupReferencesManager.class);
+    JsonConfigProvider.bind(binder, PROPERTY_BASE, LookupListeningAnnouncerConfig.class);
     Jerseys.addResource(binder, LookupListeningResource.class);
     LifecycleModule.register(binder, LookupReferencesManager.class);
     LifecycleModule.register(binder, LookupResourceListenerAnnouncer.class);
@@ -123,7 +121,7 @@ class LookupListeningResource extends ListenerResource
                 failedUpdates.put(name, factory);
               }
             }
-            return ImmutableMap.of("status", "accepted", LookupExtractionModule.FAILED_UPDATES_KEY, failedUpdates);
+            return ImmutableMap.of("status", "accepted", LookupModule.FAILED_UPDATES_KEY, failedUpdates);
           }
 
           @Override
@@ -176,6 +174,7 @@ class LookupResourceListenerAnnouncer extends ListenerResourceAnnouncer
   }
 }
 
+
 class LookupListeningAnnouncerConfig extends ListeningAnnouncerConfig
 {
   public static final String DEFAULT_TIER = "__default";
@@ -207,6 +206,6 @@ class LookupListeningAnnouncerConfig extends ListeningAnnouncerConfig
 
   public String getLookupKey()
   {
-    return LookupExtractionModule.getTierListenerPath(getLookupTier());
+    return LookupModule.getTierListenerPath(getLookupTier());
   }
 }
