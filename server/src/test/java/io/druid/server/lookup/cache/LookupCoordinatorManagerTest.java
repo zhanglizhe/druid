@@ -453,7 +453,7 @@ public class LookupCoordinatorManagerTest
       }
 
       @Override
-      void updateAllOnHost(final URL url, Map<String, Map<String, Object>> knownNamespaces)
+      void updateAllOnHost(final URL url, Map<String, Map<String, Object>> knownLookups)
           throws IOException, InterruptedException, ExecutionException
       {
         throw ex;
@@ -514,7 +514,7 @@ public class LookupCoordinatorManagerTest
   }
 
   @Test
-  public void testGetNamespaceURL() throws Exception
+  public void testGetLookupURL() throws Exception
   {
     final String path = ListenerResource.BASE_PATH + "/" + LookupCoordinatorManager.LOOKUP_LISTEN_ANNOUNCE_KEY;
     Assert.assertEquals(
@@ -581,7 +581,7 @@ public class LookupCoordinatorManagerTest
 
 
   @Test
-  public void testUpdateNamespaceFailsUnitialized() throws Exception
+  public void testUpdateLookupFailsUnitialized() throws Exception
   {
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
         client,
@@ -603,7 +603,7 @@ public class LookupCoordinatorManagerTest
   }
 
   @Test
-  public void testUpdateNamespaceUpdates() throws Exception
+  public void testUpdateLookupUpdates() throws Exception
   {
     final Map<String, Object> ignore = ImmutableMap.<String, Object>of("prop", "old");
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(
@@ -652,7 +652,7 @@ public class LookupCoordinatorManagerTest
 
 
   @Test
-  public void testUpdateNamespaceFailsBadUpdates() throws Exception
+  public void testUpdateLookupFailsBadUpdates() throws Exception
   {
     final Map<String, Object> ignore = ImmutableMap.<String, Object>of("prop", "old");
     final LookupCoordinatorManager manager = new LookupCoordinatorManager(

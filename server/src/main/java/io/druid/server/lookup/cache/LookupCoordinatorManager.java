@@ -98,7 +98,7 @@ public class LookupCoordinatorManager
     public URL apply(HostAndPort input)
     {
       if (input == null) {
-        LOG.warn("null entry in namespaces");
+        LOG.warn("null entry in lookups");
         return null;
       }
       try {
@@ -345,11 +345,11 @@ public class LookupCoordinatorManager
       throws IOException, InterruptedException, ExecutionException
   {
     if (knownLookups == null) {
-      LOG.debug("No config for lookup namespaces found");
+      LOG.debug("No config for lookups found");
       return;
     }
     if (knownLookups.isEmpty()) {
-      LOG.debug("No known namespaces. Skipping update");
+      LOG.debug("No known lookups. Skipping update");
       return;
     }
     if (LOG.isDebugEnabled()) {
@@ -420,7 +420,7 @@ public class LookupCoordinatorManager
       final Map<String, Map<String, Map<String, Object>>> priorSpec = getKnownLookups();
       if (priorSpec == null && !updateSpec.isEmpty()) {
         // To prevent accidentally erasing configs if we haven't updated our cache of the values
-        throw new ISE("Not initialized. If this is the first namespace, post an empty map to initialize");
+        throw new ISE("Not initialized. If this is the first lookup, post an empty map to initialize");
       }
       final Map<String, Map<String, Map<String, Object>>> updatedSpec;
 
@@ -499,7 +499,7 @@ public class LookupCoordinatorManager
    *
    * @param lookupName The lookupName to look for
    *
-   * @return The lookupName spec if found or null if not found or if no namespaces at all are found
+   * @return The lookupName spec if found or null if not found or if no lookups at all are found
    */
   public
   @Nullable
@@ -507,7 +507,7 @@ public class LookupCoordinatorManager
   {
     final Map<String, Map<String, Map<String, Object>>> prior = getKnownLookups();
     if (prior == null) {
-      LOG.warn("Requested tier [%s] lookupName [%s]. But no namespaces exist!", tier, lookupName);
+      LOG.warn("Requested tier [%s] lookupName [%s]. But no lookups exist!", tier, lookupName);
       return null;
     }
     final Map<String, Map<String, Object>> tierLookups = prior.get(tier);
@@ -545,7 +545,7 @@ public class LookupCoordinatorManager
               final Map<String, Map<String, Map<String, Object>>> allLookupTiers = lookupMapConfigRef.get();
               // Sanity check for if we are shutting down
               if (Thread.currentThread().isInterrupted()) {
-                LOG.info("Not updating namespace lookups because process was interrupted");
+                LOG.info("Not updating lookups because process was interrupted");
                 return;
               }
               if (!started) {
@@ -575,7 +575,7 @@ public class LookupCoordinatorManager
                   throw Throwables.propagate(e);
                 }
                 catch (Exception e) {
-                  LOG.error(e, "Error updating namespaces for tier [%s]. Will try again soon", tier);
+                  LOG.error(e, "Error updating lookups for tier [%s]. Will try again soon", tier);
                 }
               }
               prior_update = allLookupTiers;

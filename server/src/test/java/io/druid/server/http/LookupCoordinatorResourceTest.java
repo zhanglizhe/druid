@@ -168,7 +168,7 @@ public class LookupCoordinatorResourceTest
   }
 
   @Test
-  public void testSimpleGetNamespace()
+  public void testSimpleGetLookup()
   {
     final Map<String, Object> map = new HashMap<>();
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
@@ -189,7 +189,7 @@ public class LookupCoordinatorResourceTest
   }
 
   @Test
-  public void testMissingGetNamespace()
+  public void testMissingGetLookup()
   {
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
@@ -208,7 +208,7 @@ public class LookupCoordinatorResourceTest
   }
 
   @Test
-  public void testInvalidGetNamespace()
+  public void testInvalidGetLookup()
   {
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
         LookupCoordinatorManager.class);
@@ -226,7 +226,7 @@ public class LookupCoordinatorResourceTest
   }
 
   @Test
-  public void testExceptionalGetNamespace()
+  public void testExceptionalGetLookup()
   {
     final String errMsg = "some message";
     final LookupCoordinatorManager lookupCoordinatorManager = EasyMock.createStrictMock(
