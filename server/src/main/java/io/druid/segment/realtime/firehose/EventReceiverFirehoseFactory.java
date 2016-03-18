@@ -269,6 +269,8 @@ public class EventReceiverFirehoseFactory implements FirehoseFactory<MapInputRow
     }
 
     @Override
+    @POST
+    @Path("/close")
     public void close() throws IOException
     {
       if (!closed) {
