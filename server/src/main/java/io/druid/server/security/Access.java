@@ -21,7 +21,7 @@ package io.druid.server.security;
 
 public class Access
 {
-  private boolean allowed;
+  private final boolean allowed;
   private String message;
 
   public Access(boolean allowed) {

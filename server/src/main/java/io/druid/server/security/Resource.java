@@ -21,8 +21,8 @@ package io.druid.server.security;
 
 public class Resource
 {
-  private String name;
-  private ResourceType type;
+  private final String name;
+  private final ResourceType type;
 
   public Resource(String name, ResourceType type)
   {
@@ -35,19 +35,9 @@ public class Resource
     return name;
   }
 
-  public void setName(String name)
-  {
-    this.name = name;
-  }
-
   public ResourceType getType()
   {
     return type;
-  }
-
-  public void setType(ResourceType type)
-  {
-    this.type = type;
   }
 
   @Override
