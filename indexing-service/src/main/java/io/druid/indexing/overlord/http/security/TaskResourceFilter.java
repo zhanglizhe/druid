@@ -35,7 +35,7 @@ import io.druid.server.security.ResourceType;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 
-// Note - Do not use this filter at MiddleManager as TaskStorageQueryAdapter cannot be injected there
+// Note - Do not use this filter at MiddleManager resources as TaskStorageQueryAdapter cannot be injected there
 public class TaskResourceFilter extends AbstractResourceFilter
 {
   @Inject
