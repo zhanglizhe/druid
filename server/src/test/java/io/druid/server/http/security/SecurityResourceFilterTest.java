@@ -99,6 +99,7 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
     setUpMockExpectations(requestPath, true, requestMethod);
     EasyMock.replay(req, request, authorizationInfo);
     resourceFilter.getRequestFilter().filter(request);
+    Assert.assertTrue(((AbstractResourceFilter) resourceFilter.getRequestFilter()).isApplicable(requestPath));
   }
 
   @Test(expected = WebApplicationException.class)
@@ -106,6 +107,7 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
   {
     setUpMockExpectations(requestPath, false, requestMethod);
     EasyMock.replay(req, request, authorizationInfo);
+    Assert.assertTrue(((AbstractResourceFilter) resourceFilter.getRequestFilter()).isApplicable(requestPath));
     try {
       resourceFilter.getRequestFilter().filter(request);
     } catch (WebApplicationException e) {
@@ -114,18 +116,12 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
     }
   }
 
-  @Test(expected = WebApplicationException.class)
+  @Test
   public void testDatasourcesResourcesFilteringBadPath()
   {
-    final String badRequestPath = requestPath.replaceAll("\\w+", "droid");
-    EasyMock.expect(request.getPath()).andReturn(badRequestPath).anyTimes();
     EasyMock.replay(req, request, authorizationInfo);
-    try {
-      resourceFilter.getRequestFilter().filter(request);
-    } catch (WebApplicationException e) {
-      Assert.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), e.getResponse().getStatus());
-      throw e;
-    }
+    final String badRequestPath = requestPath.replaceAll("\\w+", "droid");
+    Assert.assertFalse(((AbstractResourceFilter) resourceFilter.getRequestFilter()).isApplicable(badRequestPath));
   }
 
   @After

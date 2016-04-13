@@ -33,6 +33,13 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.PathSegment;
 import javax.ws.rs.core.Response;
 
+/**
+ * Use this ResourceFilter when the datasource information is present after "datasources" segment in the request Path
+ * Here are some example paths where this filter is used -
+ * - druid/coordinator/v1/datasources/{dataSourceName}/...
+ * - druid/coordinator/v1/metadata/datasources/{dataSourceName}/...
+ * - druid/v2/datasources/{dataSourceName}/...
+ */
 public class DatasourceResourceFilter extends AbstractResourceFilter
 {
   @Override
@@ -40,50 +47,20 @@ public class DatasourceResourceFilter extends AbstractResourceFilter
   {
     if (getAuthConfig().isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
-
-      /* dataSourceName appears after the "/datasources" fragment in paths
-      *  - druid/coordinator/v1/datasources/{dataSourceName}/...
-      *  - druid/coordinator/v1/metadata/datasources/{dataSourceName}/...
-      *  - druid/v2/datasources/{dataSourceName}/...
-      *  OR
-      *  the 5th fragment in path
-      *  - druid/coordinator/v1/rules/{dataSourceName}
-      */
-      final String dataSourceName;
-
-      if (request.getPath().startsWith("druid/coordinator/v1/rules/")) {
-        dataSourceName = request.getPathSegments().get(4).getPath();
-      } else if (
-          request.getPath().startsWith("druid/coordinator/v1/datasources/") ||
-          request.getPath().startsWith("druid/coordinator/v1/metadata/datasources/") ||
-          request.getPath().startsWith("druid/v2/datasources/")
-          ) {
-
-        dataSourceName = request.getPathSegments()
-                                .get(
-                                    Iterables.indexOf(
-                                        request.getPathSegments(),
-                                        new Predicate<PathSegment>()
-                                        {
-                                          @Override
-                                          public boolean apply(PathSegment input)
-                                          {
-                                            return input.getPath().equals("datasources");
-                                          }
-                                        }
-                                    ) + 1
-                                ).getPath();
-      } else {
-        throw new WebApplicationException(
-            Response.status(Response.Status.BAD_REQUEST)
-                    .entity(
-                        String.format("Do not know how to extract dataSource information "
-                                      + "for authorization check for request path: [%s]", request.getPath()
-                        )
-                    ).build()
-        );
-      }
-
+      final String dataSourceName = request.getPathSegments()
+                                           .get(
+                                               Iterables.indexOf(
+                                                   request.getPathSegments(),
+                                                   new Predicate<PathSegment>()
+                                                   {
+                                                     @Override
+                                                     public boolean apply(PathSegment input)
+                                                     {
+                                                       return input.getPath().equals("datasources");
+                                                     }
+                                                   }
+                                               ) + 1
+                                           ).getPath();
       Preconditions.checkNotNull(dataSourceName);
       final AuthorizationInfo authorizationInfo = (AuthorizationInfo) getReq().getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
       Preconditions.checkNotNull(
@@ -104,5 +81,13 @@ public class DatasourceResourceFilter extends AbstractResourceFilter
     }
 
     return request;
+  }
+
+  @Override
+  public boolean isApplicable(String requestPath)
+  {
+    return requestPath.startsWith("druid/coordinator/v1/datasources/") ||
+           requestPath.startsWith("druid/coordinator/v1/metadata/datasources/") ||
+           requestPath.startsWith("druid/v2/datasources/");
   }
 }

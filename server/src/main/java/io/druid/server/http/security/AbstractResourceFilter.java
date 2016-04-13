@@ -72,4 +72,6 @@ public abstract class AbstractResourceFilter implements ResourceFilter, Containe
     }
     return action;
   }
+
+  public abstract boolean isApplicable(String requestPath);
 }

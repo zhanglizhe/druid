@@ -30,6 +30,21 @@ import io.druid.server.security.ResourceType;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
 
+/**
+ * Use this ResourceFilter at end points where Druid Cluster State is read or written
+ * Here are some example paths where this filter is used -
+ * - druid/broker/v1
+ * - druid/coordinator/v1
+ * - druid/historical/v1
+ * - druid/indexer/v1
+ * - druid/coordinator/v1/rules
+ * - druid/coordinator/v1/tiers
+ * - druid/worker/v1
+ * - druid/coordinator/v1/servers
+ * - status
+ * Note - Currently the resource name for all end points is set to "STATE" however if more fine grained access control
+ * is required the resource name can be set to specific state properties.
+ */
 public class StateResourceFilter extends AbstractResourceFilter
 {
   @Override
@@ -37,37 +52,7 @@ public class StateResourceFilter extends AbstractResourceFilter
   {
     if (getAuthConfig().isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
-
-      final String resourceName;
-      if (request.getPath().startsWith("druid/broker/v1")) {
-        resourceName = "BROKER";
-      } else if (request.getPath().startsWith("druid/coordinator/v1")) {
-        resourceName = "COORDINATOR";
-      } else if (request.getPath().startsWith("druid/historical/v1")) {
-        resourceName = "HISTORICAL";
-      } else if (request.getPath().startsWith("druid/indexer/v1")) {
-        resourceName = "OVERLORD";
-      } else if (request.getPath().startsWith("druid/coordinator/v1/rules")) {
-        resourceName = "RULES";
-      } else if (request.getPath().startsWith("druid/coordinator/v1/tiers")) {
-        resourceName = "TIER";
-      } else if (request.getPath().startsWith("druid/worker/v1")) {
-        resourceName = "WORKER";
-      } else if (request.getPath().startsWith("druid/coordinator/v1/servers")) {
-        resourceName = "SERVER";
-      } else if (request.getPath().startsWith("status")) {
-        resourceName = "STATUS";
-      } else {
-        throw new WebApplicationException(
-            Response.status(Response.Status.BAD_REQUEST).entity(
-                String.format(
-                    "Do not know how to authorize this request path [%s] with StateResourceFilter",
-                    request.getPath()
-                )
-            ).build()
-        );
-      }
-
+      final String resourceName = "STATE";
       final AuthorizationInfo authorizationInfo = (AuthorizationInfo) getReq().getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
       Preconditions.checkNotNull(
           authorizationInfo,
@@ -88,5 +73,18 @@ public class StateResourceFilter extends AbstractResourceFilter
     }
 
     return request;
+  }
+
+  public boolean isApplicable(String requestPath)
+  {
+    return requestPath.startsWith("druid/broker/v1") ||
+           requestPath.startsWith("druid/coordinator/v1") ||
+           requestPath.startsWith("druid/historical/v1") ||
+           requestPath.startsWith("druid/indexer/v1") ||
+           requestPath.startsWith("druid/coordinator/v1/rules") ||
+           requestPath.startsWith("druid/coordinator/v1/tiers") ||
+           requestPath.startsWith("druid/worker/v1") ||
+           requestPath.startsWith("druid/coordinator/v1/servers") ||
+           requestPath.startsWith("status");
   }
 }

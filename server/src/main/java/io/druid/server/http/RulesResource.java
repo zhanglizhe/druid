@@ -27,7 +27,7 @@ import io.druid.audit.AuditInfo;
 import io.druid.audit.AuditManager;
 import io.druid.metadata.MetadataRuleManager;
 import io.druid.server.coordinator.rules.Rule;
-import io.druid.server.http.security.DatasourceResourceFilter;
+import io.druid.server.http.security.RulesResourceFilter;
 import io.druid.server.http.security.StateResourceFilter;
 import org.joda.time.Interval;
 
@@ -49,7 +49,6 @@ import java.util.List;
 /**
  */
 @Path("/druid/coordinator/v1/rules")
-@ResourceFilters(StateResourceFilter.class)
 public class RulesResource
 {
   private final MetadataRuleManager databaseRuleManager;
@@ -76,7 +75,7 @@ public class RulesResource
   @GET
   @Path("/{dataSourceName}")
   @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(DatasourceResourceFilter.class)
+  @ResourceFilters(RulesResourceFilter.class)
   public Response getDatasourceRules(
       @PathParam("dataSourceName") final String dataSourceName,
       @QueryParam("full") final String full
@@ -94,7 +93,7 @@ public class RulesResource
   @POST
   @Path("/{dataSourceName}")
   @Consumes(MediaType.APPLICATION_JSON)
-  @ResourceFilters(DatasourceResourceFilter.class)
+  @ResourceFilters(RulesResourceFilter.class)
   public Response setDatasourceRules(
       @PathParam("dataSourceName") final String dataSourceName,
       final List<Rule> rules,
@@ -116,7 +115,7 @@ public class RulesResource
   @GET
   @Path("/{dataSourceName}/history")
   @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(DatasourceResourceFilter.class)
+  @ResourceFilters(RulesResourceFilter.class)
   public Response getDatasourceRuleHistory(
       @PathParam("dataSourceName") final String dataSourceName,
       @QueryParam("interval") final String interval,

@@ -9,6 +9,7 @@ import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.TaskStorageQueryAdapter;
 import io.druid.indexing.overlord.http.OverlordResource;
 import io.druid.indexing.worker.http.WorkerResource;
+import io.druid.server.http.security.AbstractResourceFilter;
 import io.druid.server.http.security.ResourceFilterTestHelper;
 import org.easymock.EasyMock;
 import org.junit.After;
@@ -77,6 +78,7 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
     EasyMock.expect(request.getMethod()).andReturn(requestMethod).anyTimes();
     EasyMock.replay(req, request, authorizationInfo, tsqa);
     resourceFilter.getRequestFilter().filter(request);
+    Assert.assertTrue(((AbstractResourceFilter) resourceFilter.getRequestFilter()).isApplicable(requestPath));
   }
 
   @Test(expected = WebApplicationException.class)
@@ -86,6 +88,7 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
     EasyMock.expect(request.getEntity(Task.class)).andReturn(noopTask).anyTimes();
     EasyMock.expect(request.getMethod()).andReturn(requestMethod).anyTimes();
     EasyMock.replay(req, request, authorizationInfo, tsqa);
+    Assert.assertTrue(((AbstractResourceFilter) resourceFilter.getRequestFilter()).isApplicable(requestPath));
     try {
       resourceFilter.getRequestFilter().filter(request);
     } catch (WebApplicationException e) {
@@ -94,18 +97,13 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
     }
   }
 
-  @Test(expected = WebApplicationException.class)
+  @Test
   public void testDatasourcesResourcesFilteringBadPath()
   {
     final String badRequestPath = requestPath.replaceAll("\\w+", "droid");
     EasyMock.expect(request.getPath()).andReturn(badRequestPath).anyTimes();
     EasyMock.replay(req, request, authorizationInfo, tsqa);
-    try {
-      resourceFilter.getRequestFilter().filter(request);
-    } catch (WebApplicationException e) {
-      Assert.assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), e.getResponse().getStatus());
-      throw e;
-    }
+    Assert.assertFalse(((AbstractResourceFilter) resourceFilter.getRequestFilter()).isApplicable(badRequestPath));
   }
 
   @After
