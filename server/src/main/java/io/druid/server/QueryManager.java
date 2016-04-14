@@ -41,8 +41,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class QueryManager implements QueryWatcher
 {
 
-  final SetMultimap<String, ListenableFuture> queries;
-  final Map<String, List<String>> queryDatasources;
+  private final SetMultimap<String, ListenableFuture> queries;
+  private final Map<String, List<String>> queryDatasources;
 
   public QueryManager()
   {
