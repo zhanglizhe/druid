@@ -68,8 +68,8 @@ import javax.ws.rs.core.StreamingOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -129,10 +129,11 @@ public class QueryResource
           authorizationInfo,
           "Security is enabled but no authorization info found in the request"
       );
-      if (queryManager.getQueryDatasources(queryId) == null) {
+      Set<String> datasources = queryManager.getQueryDatasources(queryId);
+      if (datasources == null) {
         log.warn("QueryId [%s] not registered with QueryManager, cannot cancel", queryId);
-      } else if (authorizationInfo != null) {
-        for (String dataSource : queryManager.getQueryDatasources(queryId)) {
+      } else {
+        for (String dataSource : datasources) {
           Access authResult = authorizationInfo.isAuthorized(
               new Resource(dataSource, ResourceType.DATASOURCE),
               Action.WRITE
@@ -141,8 +142,6 @@ public class QueryResource
             return Response.status(Response.Status.FORBIDDEN).header("Access-Check-Result", authResult).build();
           }
         }
-      } else {
-        throw new ISE("WTF?! Security is enabled but no authorization info found in the request");
       }
     }
     queryManager.cancelQuery(queryId);
@@ -155,7 +154,7 @@ public class QueryResource
   public Response doPost(
       InputStream in,
       @QueryParam("pretty") String pretty,
-      @Context final HttpServletRequest req // used only to get request content-type and remote address
+      @Context final HttpServletRequest req // used to get request content-type, remote address and AuthorizationInfo
   ) throws IOException
   {
     final long start = System.currentTimeMillis();
@@ -195,13 +194,11 @@ public class QueryResource
         log.debug("Got query [%s]", query);
       }
 
-      final List<String> dataSources = queryManager.getDataSources(query);
-
       if (authConfig.isEnabled()) {
         // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
         AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
         if (authorizationInfo != null) {
-          for (String dataSource : dataSources) {
+          for (String dataSource : query.getDataSource().getNames()) {
             Access authResult = authorizationInfo.isAuthorized(
                 new Resource(dataSource, ResourceType.DATASOURCE),
                 Action.READ

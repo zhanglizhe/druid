@@ -24,36 +24,31 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.metamx.common.IAE;
-import io.druid.query.DataSource;
 import io.druid.query.Query;
-import io.druid.query.QueryDataSource;
 import io.druid.query.QueryWatcher;
-import io.druid.query.TableDataSource;
-import io.druid.query.UnionDataSource;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class QueryManager implements QueryWatcher
 {
 
   private final SetMultimap<String, ListenableFuture> queries;
-  private final Map<String, List<String>> queryDatasources;
+  private final SetMultimap<String, String> queryDatasources;
 
   public QueryManager()
   {
     this.queries = Multimaps.synchronizedSetMultimap(
         HashMultimap.<String, ListenableFuture>create()
     );
-    this.queryDatasources = new ConcurrentHashMap<>();
+    this.queryDatasources = Multimaps.synchronizedSetMultimap(
+        HashMultimap.<String, String>create()
+    );
   }
 
-  public boolean cancelQuery(String id) {
-    queryDatasources.remove(id);
+  public boolean cancelQuery(String id)
+  {
+    queryDatasources.removeAll(id);
     Set<ListenableFuture> futures = queries.removeAll(id);
     boolean success = true;
     for (ListenableFuture future : futures) {
@@ -65,10 +60,9 @@ public class QueryManager implements QueryWatcher
   public void registerQuery(Query query, final ListenableFuture future)
   {
     final String id = query.getId();
+    final List<String> datasources = query.getDataSource().getNames();
     queries.put(id, future);
-    if(queryDatasources.get(id) == null) {
-      queryDatasources.put(id, getDataSources(query));
-    }
+    queryDatasources.putAll(id, datasources);
     future.addListener(
         new Runnable()
         {
@@ -76,35 +70,17 @@ public class QueryManager implements QueryWatcher
           public void run()
           {
             queries.remove(id, future);
-            queryDatasources.remove(id);
+            for (String datasource : datasources) {
+              queryDatasources.remove(id, datasource);
+            }
           }
         },
         MoreExecutors.sameThreadExecutor()
     );
   }
 
-  public List<String> getQueryDatasources(final String queryId) {
+  public Set<String> getQueryDatasources(final String queryId)
+  {
     return queryDatasources.get(queryId);
-  }
-
-  public List<String> getDataSources(final Query query) {
-    List<String> datasources = new ArrayList<>();
-    getDataSourcesHelper(query, datasources);
-    return datasources;
-  }
-
-  private void getDataSourcesHelper(final Query query, List<String> datasources) {
-    if (query.getDataSource() instanceof TableDataSource) {
-      // there will only be one datasource for TableDataSource
-      datasources.addAll(query.getDataSource().getNames());
-    } else if (query.getDataSource() instanceof UnionDataSource) {
-      for (DataSource ds : ((UnionDataSource) query.getDataSource()).getDataSources()) {
-        datasources.addAll(ds.getNames());
-      }
-    } else if (query.getDataSource() instanceof QueryDataSource) {
-      getDataSourcesHelper(((QueryDataSource) query.getDataSource()).getQuery(), datasources);
-    } else {
-      throw new IAE("Do not know how to extract datasource information from this query type [%s]", query.getClass());
-    }
   }
 }
