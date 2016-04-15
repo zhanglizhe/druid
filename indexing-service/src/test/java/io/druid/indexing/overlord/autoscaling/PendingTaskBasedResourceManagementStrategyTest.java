@@ -28,9 +28,8 @@ import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceEventBuilder;
 import io.druid.common.guava.DSuppliers;
 import io.druid.concurrent.Execs;
-import io.druid.indexing.common.TaskLocation;
 import io.druid.indexing.common.TaskStatus;
-import io.druid.indexing.common.TestTasks;
+import io.druid.indexing.common.TestMergeTask;
 import io.druid.indexing.common.task.NoopTask;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.ImmutableWorkerInfo;
@@ -43,8 +42,12 @@ import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.indexing.worker.TaskAnnouncement;
 import io.druid.indexing.worker.Worker;
 import io.druid.jackson.DefaultObjectMapper;
+import io.druid.query.aggregation.AggregatorFactory;
+import io.druid.segment.IndexSpec;
+import io.druid.timeline.DataSegment;
 import org.easymock.EasyMock;
 import org.joda.time.DateTime;
+import org.joda.time.Interval;
 import org.joda.time.Period;
 import org.junit.Assert;
 import org.junit.Before;
@@ -75,7 +78,27 @@ public class PendingTaskBasedResourceManagementStrategyTest
   {
     autoScaler = EasyMock.createMock(AutoScaler.class);
 
-    testTask = TestTasks.immediateSuccess("task1");
+    final IndexSpec indexSpec = new IndexSpec();
+
+    testTask = new TestMergeTask(
+        "task1",
+        "dummyDs",
+        Lists.newArrayList(
+            new DataSegment(
+                "dummyDs",
+                new Interval("2012-01-01/2012-01-02"),
+                new DateTime().toString(),
+                null,
+                null,
+                null,
+                null,
+                0,
+                0
+            )
+        ),
+        Lists.<AggregatorFactory>newArrayList(),
+        indexSpec
+    );
 
     config = new PendingTaskBasedWorkerResourceManagementConfig()
         .setMaxScalingDuration(new Period(1000))
@@ -324,8 +347,7 @@ public class PendingTaskBasedResourceManagementStrategyTest
         Arrays.asList(
             new RemoteTaskRunnerWorkItem(
                 testTask.getId(),
-                null,
-                TaskLocation.unknown()
+                null
             ).withQueueInsertionTime(new DateTime())
         )
     ).times(2);
@@ -595,8 +617,7 @@ public class PendingTaskBasedResourceManagementStrategyTest
           testTask.getId(),
           TaskAnnouncement.create(
               testTask,
-              TaskStatus.running(testTask.getId()),
-              TaskLocation.unknown()
+              TaskStatus.running(testTask.getId())
           )
       );
     }
