@@ -85,39 +85,64 @@ public class MetadataResource
       @QueryParam("full") String full,
       @QueryParam("includeDisabled") String includeDisabled,
       @Context final HttpServletRequest req
-      )
+  )
   {
+    Response.ResponseBuilder builder = Response.status(Response.Status.OK);
+
     final Collection<DruidDataSource> druidDataSources;
-    if(authConfig.isEnabled()) {
+    if (authConfig.isEnabled()) {
       // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
       final Map<Pair<Resource, Action>, Access> resourceAccessMap = new HashMap<>();
       final AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
-      druidDataSources =
-          Collections2.filter(
-              metadataSegmentManager.getInventory(),
-              new Predicate<DruidDataSource>()
-              {
-                @Override
-                public boolean apply(DruidDataSource input)
+      if (includeDisabled != null) {
+        return builder.entity(
+            Collections2.filter(
+                metadataSegmentManager.getAllDatasourceNames(),
+                new Predicate<String>()
                 {
-                  Resource resource = new Resource(input.getName(), ResourceType.DATASOURCE);
-                  Action action = Action.READ;
-                  Pair<Resource, Action> key = new Pair<>(resource, action);
-                  if (resourceAccessMap.containsKey(key)) {
-                    return resourceAccessMap.get(key).isAllowed();
-                  } else {
-                    Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
-                    resourceAccessMap.put(key, access);
-                    return access.isAllowed();
+                  @Override
+                  public boolean apply(String input)
+                  {
+                    Resource resource = new Resource(input, ResourceType.DATASOURCE);
+                    Action action = Action.READ;
+                    Pair<Resource, Action> key = new Pair<>(resource, action);
+                    if (resourceAccessMap.containsKey(key)) {
+                      return resourceAccessMap.get(key).isAllowed();
+                    } else {
+                      Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                      resourceAccessMap.put(key, access);
+                      return access.isAllowed();
+                    }
                   }
                 }
-              }
-          );
+            )).build();
+      } else {
+        druidDataSources =
+            Collections2.filter(
+                metadataSegmentManager.getInventory(),
+                new Predicate<DruidDataSource>()
+                {
+                  @Override
+                  public boolean apply(DruidDataSource input)
+                  {
+                    Resource resource = new Resource(input.getName(), ResourceType.DATASOURCE);
+                    Action action = Action.READ;
+                    Pair<Resource, Action> key = new Pair<>(resource, action);
+                    if (resourceAccessMap.containsKey(key)) {
+                      return resourceAccessMap.get(key).isAllowed();
+                    } else {
+                      Access access = authorizationInfo.isAuthorized(key.lhs, key.rhs);
+                      resourceAccessMap.put(key, access);
+                      return access.isAllowed();
+                    }
+                  }
+                }
+            );
+      }
     } else {
       druidDataSources = metadataSegmentManager.getInventory();
     }
 
-    Response.ResponseBuilder builder = Response.status(Response.Status.OK);
     if (includeDisabled != null) {
       return builder.entity(
           Collections2.transform(
