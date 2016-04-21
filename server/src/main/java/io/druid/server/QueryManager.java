@@ -19,28 +19,42 @@
 
 package io.druid.server;
 
+import com.google.api.client.util.Maps;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.metamx.emitter.EmittingLogger;
+import io.druid.query.DataSource;
 import io.druid.query.Query;
+import io.druid.query.QueryDataSource;
 import io.druid.query.QueryWatcher;
+import io.druid.query.TableDataSource;
+import io.druid.query.UnionDataSource;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class QueryManager implements QueryWatcher
 {
+  private static final EmittingLogger log = new EmittingLogger(QueryManager.class);
+
   final SetMultimap<String, ListenableFuture> queries;
+  final Map<String, List<String>> queryDatasources;
 
   public QueryManager()
   {
     this.queries = Multimaps.synchronizedSetMultimap(
         HashMultimap.<String, ListenableFuture>create()
     );
+    this.queryDatasources = Maps.newHashMap();
   }
 
   public boolean cancelQuery(String id) {
+    queryDatasources.remove(id);
     Set<ListenableFuture> futures = queries.removeAll(id);
     boolean success = true;
     for (ListenableFuture future : futures) {
@@ -53,6 +67,9 @@ public class QueryManager implements QueryWatcher
   {
     final String id = query.getId();
     queries.put(id, future);
+    if(queryDatasources.get(id) == null) {
+      queryDatasources.put(id, getDataSources(query));
+    }
     future.addListener(
         new Runnable()
         {
@@ -60,9 +77,36 @@ public class QueryManager implements QueryWatcher
           public void run()
           {
             queries.remove(id, future);
+            queryDatasources.remove(id);
           }
         },
         MoreExecutors.sameThreadExecutor()
     );
+  }
+
+  public List<String> getQueryDatasources(final String queryId) {
+    return queryDatasources.get(queryId);
+  }
+
+  public List<String> getDataSources(final Query query) {
+    List<String> datasources = new ArrayList<>();
+    getDataSourcesHelper(query, datasources);
+    return datasources;
+  }
+
+  private void getDataSourcesHelper(final Query query, List<String> datasources) {
+    if (query.getDataSource() instanceof TableDataSource) {
+      // there will only be one datasource for TableDataSource
+      datasources.addAll(query.getDataSource().getNames());
+    } else if (query.getDataSource() instanceof UnionDataSource) {
+      for (DataSource ds : ((UnionDataSource) query.getDataSource()).getDataSources()) {
+        datasources.addAll(ds.getNames());
+      }
+    } else if (query.getDataSource() instanceof QueryDataSource) {
+      getDataSourcesHelper(((QueryDataSource) query.getDataSource()).getQuery(), datasources);
+    } else {
+      // Ignore
+      log.error("Do not know how to extract datasource information from this query type [%s]", query.getClass());
+    }
   }
 }

@@ -20,18 +20,26 @@
 package io.druid.server.http;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.metamx.common.ISE;
 import io.druid.client.DruidDataSource;
 import io.druid.client.DruidServer;
 import io.druid.client.InventoryView;
+import io.druid.server.security.Action;
+import io.druid.server.security.AuthorizationInfo;
+import io.druid.server.security.Resource;
+import io.druid.server.security.ResourceType;
 
 import java.util.Comparator;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class InventoryViewUtils {
+public class InventoryViewUtils
+{
 
   public static Set<DruidDataSource> getDataSources(InventoryView serverInventoryView)
   {
@@ -63,5 +71,32 @@ public class InventoryViewUtils {
         )
     );
     return dataSources;
+  }
+
+  public static Set<DruidDataSource> getSecuredDataSources(
+      InventoryView inventoryView,
+      final AuthorizationInfo authorizationInfo
+  )
+  {
+    if (authorizationInfo == null) {
+      throw new ISE("Invalid to call a secured method with null AuthorizationInfo!!");
+    } else {
+      return ImmutableSet.copyOf(
+          Iterables.filter(
+              getDataSources(inventoryView),
+              new Predicate<DruidDataSource>()
+              {
+                @Override
+                public boolean apply(DruidDataSource input)
+                {
+                  return authorizationInfo.isAuthorized(
+                      new Resource(input.getName(), ResourceType.DATASOURCE),
+                      Action.READ
+                  ).isAllowed();
+                }
+              }
+          )
+      );
+    }
   }
 }

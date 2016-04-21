@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MapMaker;
 import com.google.common.io.CountingOutputStream;
 import com.google.inject.Inject;
+import com.metamx.common.ISE;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.guava.Yielder;
@@ -42,6 +43,12 @@ import io.druid.query.QueryInterruptedException;
 import io.druid.query.QuerySegmentWalker;
 import io.druid.server.initialization.ServerConfig;
 import io.druid.server.log.RequestLogger;
+import io.druid.server.security.Access;
+import io.druid.server.security.Action;
+import io.druid.server.security.AuthConfig;
+import io.druid.server.security.AuthorizationInfo;
+import io.druid.server.security.Resource;
+import io.druid.server.security.ResourceType;
 import org.joda.time.DateTime;
 
 import javax.servlet.http.HttpServletRequest;
@@ -60,6 +67,7 @@ import javax.ws.rs.core.StreamingOutput;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -81,6 +89,7 @@ public class QueryResource
   private final ServiceEmitter emitter;
   private final RequestLogger requestLogger;
   private final QueryManager queryManager;
+  private final AuthConfig authConfig;
 
   @Inject
   public QueryResource(
@@ -90,7 +99,8 @@ public class QueryResource
       QuerySegmentWalker texasRanger,
       ServiceEmitter emitter,
       RequestLogger requestLogger,
-      QueryManager queryManager
+      QueryManager queryManager,
+      AuthConfig authConfig
   )
   {
     this.config = config;
@@ -100,15 +110,35 @@ public class QueryResource
     this.emitter = emitter;
     this.requestLogger = requestLogger;
     this.queryManager = queryManager;
+    this.authConfig = authConfig;
   }
 
   @DELETE
   @Path("{id}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getServer(@PathParam("id") String queryId)
+  public Response getServer(@PathParam("id") String queryId, @Context final HttpServletRequest req)
   {
     if (log.isDebugEnabled()) {
       log.debug("Received cancel request for query [%s]", queryId);
+    }
+    if (authConfig.isEnabled()) {
+      // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+      AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+      if (queryManager.getQueryDatasources(queryId) == null) {
+        log.warn("QueryId [%s] not registered with QueryManager, cannot cancel", queryId);
+      } else if (authorizationInfo != null) {
+        for (String dataSource : queryManager.getQueryDatasources(queryId)) {
+          Access authResult = authorizationInfo.isAuthorized(
+              new Resource(dataSource, ResourceType.DATASOURCE),
+              Action.WRITE
+          );
+          if (!authResult.isAllowed()) {
+            return Response.status(Response.Status.FORBIDDEN).header("Access-Check-Result", authResult).build();
+          }
+        }
+      } else {
+        throw new ISE("WTF?! Security is enabled but no authorization info found in the request");
+      }
     }
     queryManager.cancelQuery(queryId);
     return Response.status(Response.Status.ACCEPTED).build();
@@ -158,6 +188,26 @@ public class QueryResource
             .setName(String.format("%s[%s_%s_%s]", currThreadName, query.getType(), query.getDataSource(), queryId));
       if (log.isDebugEnabled()) {
         log.debug("Got query [%s]", query);
+      }
+
+      final List<String> dataSources = queryManager.getDataSources(query);
+
+      if (authConfig.isEnabled()) {
+        // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+        AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+        if (authorizationInfo != null) {
+          for (String dataSource : dataSources) {
+            Access authResult = authorizationInfo.isAuthorized(
+                new Resource(dataSource, ResourceType.DATASOURCE),
+                Action.READ
+            );
+            if (!authResult.isAllowed()) {
+              return Response.status(Response.Status.FORBIDDEN).header("Access-Check-Result", authResult).build();
+            }
+          }
+        } else {
+          throw new ISE("WTF?! Security is enabled but no authorization info found in the request");
+        }
       }
 
       final Map<String, Object> responseContext = new MapMaker().makeMap();

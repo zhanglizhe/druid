@@ -20,7 +20,9 @@
 package io.druid.server.http;
 
 import com.google.common.collect.ImmutableMap;
+import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.server.coordination.ZkCoordinator;
+import io.druid.server.http.security.StateResourceFilter;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -45,6 +47,7 @@ public class HistoricalResource
   @GET
   @Path("/loadstatus")
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(StateResourceFilter.class)
   public Response getLoadStatus()
   {
     return Response.ok(ImmutableMap.of("cacheInitialized", coordinator.isStarted())).build();

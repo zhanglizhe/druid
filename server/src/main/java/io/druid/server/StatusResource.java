@@ -21,8 +21,10 @@ package io.druid.server;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.initialization.DruidModule;
 import io.druid.initialization.Initialization;
+import io.druid.server.http.security.StateResourceFilter;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -39,6 +41,7 @@ public class StatusResource
 {
   @GET
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(StateResourceFilter.class)
   public Status doGet()
   {
     return new Status(Initialization.getLoadedModules(DruidModule.class));

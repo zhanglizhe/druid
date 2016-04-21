@@ -20,24 +20,36 @@
 package io.druid.server.http;
 
 import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.inject.Inject;
+import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.client.DruidDataSource;
 import io.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import io.druid.metadata.MetadataSegmentManager;
+import io.druid.server.http.security.DatasourceResourceFilter;
+import io.druid.server.security.Action;
+import io.druid.server.security.AuthConfig;
+import io.druid.server.security.AuthorizationInfo;
+import io.druid.server.security.Resource;
+import io.druid.server.security.ResourceType;
 import io.druid.timeline.DataSegment;
 import org.joda.time.Interval;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -48,15 +60,18 @@ public class MetadataResource
 {
   private final MetadataSegmentManager metadataSegmentManager;
   private final IndexerMetadataStorageCoordinator metadataStorageCoordinator;
+  private final AuthConfig authConfig;
 
   @Inject
   public MetadataResource(
       MetadataSegmentManager metadataSegmentManager,
-      IndexerMetadataStorageCoordinator metadataStorageCoordinator
+      IndexerMetadataStorageCoordinator metadataStorageCoordinator,
+      AuthConfig authConfig
   )
   {
     this.metadataSegmentManager = metadataSegmentManager;
     this.metadataStorageCoordinator = metadataStorageCoordinator;
+    this.authConfig = authConfig;
   }
 
   @GET
@@ -64,20 +79,56 @@ public class MetadataResource
   @Produces(MediaType.APPLICATION_JSON)
   public Response getDatabaseDataSources(
       @QueryParam("full") String full,
-      @QueryParam("includeDisabled") String includeDisabled
-  )
+      @QueryParam("includeDisabled") String includeDisabled,
+      @Context final HttpServletRequest req
+      )
   {
+    final Collection<DruidDataSource> druidDataSources;
+    if(authConfig.isEnabled()) {
+      // This is an experimental feature, see - https://github.com/druid-io/druid/pull/2424
+      final AuthorizationInfo authorizationInfo = (AuthorizationInfo) req.getAttribute(AuthConfig.DRUID_AUTH_TOKEN);
+      druidDataSources =
+          Collections2.filter(
+              metadataSegmentManager.getInventory(),
+              new Predicate<DruidDataSource>()
+              {
+                @Override
+                public boolean apply(DruidDataSource input)
+                {
+                  return authorizationInfo.isAuthorized(
+                      new Resource(input.getName(), ResourceType.DATASOURCE),
+                      Action.READ
+                  ).isAllowed();
+                }
+              }
+          );
+    } else {
+      druidDataSources = metadataSegmentManager.getInventory();
+    }
+
     Response.ResponseBuilder builder = Response.status(Response.Status.OK);
     if (includeDisabled != null) {
-      return builder.entity(metadataSegmentManager.getAllDatasourceNames()).build();
+      return builder.entity(
+          Collections2.transform(
+              druidDataSources,
+              new Function<DruidDataSource, String>()
+              {
+                @Override
+                public String apply(DruidDataSource input)
+                {
+                  return input.getName();
+                }
+              }
+          )
+      ).build();
     }
     if (full != null) {
-      return builder.entity(metadataSegmentManager.getInventory()).build();
+      return builder.entity(druidDataSources).build();
     }
 
     List<String> dataSourceNames = Lists.newArrayList(
         Iterables.transform(
-            metadataSegmentManager.getInventory(),
+            druidDataSources,
             new Function<DruidDataSource, String>()
             {
               @Override
@@ -96,6 +147,7 @@ public class MetadataResource
 
   @GET
   @Path("/datasources/{dataSourceName}")
+  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getDatabaseSegmentDataSource(
       @PathParam("dataSourceName") final String dataSourceName
@@ -111,6 +163,7 @@ public class MetadataResource
 
   @GET
   @Path("/datasources/{dataSourceName}/segments")
+  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getDatabaseSegmentDataSourceSegments(
       @PathParam("dataSourceName") String dataSourceName,
@@ -151,7 +204,7 @@ public class MetadataResource
       List<Interval> intervals
   )
   {
-    List<DataSegment> segments = null;
+    List<DataSegment> segments;
     try {
       segments = metadataStorageCoordinator.getUsedSegmentsForIntervals(dataSourceName, intervals);
     }
@@ -181,6 +234,7 @@ public class MetadataResource
 
   @GET
   @Path("/datasources/{dataSourceName}/segments/{segmentId}")
+  @ResourceFilters(DatasourceResourceFilter.class)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getDatabaseSegmentDataSourceSegment(
       @PathParam("dataSourceName") String dataSourceName,

@@ -21,7 +21,9 @@ package io.druid.server.http;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.client.BrokerServerView;
+import io.druid.server.http.security.StateResourceFilter;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -43,6 +45,7 @@ public class BrokerResource
   @GET
   @Path("/loadstatus")
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(StateResourceFilter.class)
   public Response getLoadStatus()
   {
     return Response.ok(ImmutableMap.of("inventoryInitialized", brokerServerView.isInitialized())).build();

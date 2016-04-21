@@ -19,14 +19,14 @@
 
 package io.druid.server.http;
 
+import com.google.common.collect.ImmutableMap;
+import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.audit.AuditInfo;
 import io.druid.audit.AuditManager;
 import io.druid.common.config.JacksonConfigManager;
 import io.druid.server.coordinator.CoordinatorDynamicConfig;
-
+import io.druid.server.http.security.ConfigResourceFilter;
 import org.joda.time.Interval;
-
-import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -62,6 +62,7 @@ public class CoordinatorDynamicConfigsResource
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(ConfigResourceFilter.class)
   public Response getDynamicConfigs()
   {
     return Response.ok(
@@ -75,6 +76,7 @@ public class CoordinatorDynamicConfigsResource
   // default value is used for backwards compatibility
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
+  @ResourceFilters(ConfigResourceFilter.class)
   public Response setDynamicConfigs(final CoordinatorDynamicConfig dynamicConfig,
                                     @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
                                     @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
@@ -94,6 +96,7 @@ public class CoordinatorDynamicConfigsResource
   @GET
   @Path("/history")
   @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(ConfigResourceFilter.class)
   public Response getDatasourceRuleHistory(
       @QueryParam("interval") final String interval,
       @QueryParam("count") final Integer count
