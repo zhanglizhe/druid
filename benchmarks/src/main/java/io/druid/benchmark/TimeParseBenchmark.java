@@ -18,10 +18,8 @@
  */
 package io.druid.benchmark;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.concurrent.TimeUnit;
-
+import com.google.common.base.Function;
+import com.metamx.common.parsers.TimestampParser;
 import org.joda.time.DateTime;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -37,8 +35,9 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import com.google.common.base.Function;
-import com.metamx.common.parsers.TimestampParser;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.concurrent.TimeUnit;
 
 @State(Scope.Benchmark)
 public class TimeParseBenchmark
@@ -70,7 +69,7 @@ public class TimeParseBenchmark
         start += 5000; // new batch, add 5 seconds
       }
       rows[i] = format.format(new Date(start));
-      numRowInBatch ++;
+      numRowInBatch++;
     }
   }
 
@@ -100,7 +99,8 @@ public class TimeParseBenchmark
     }
   }
 
-  public static void main(String[] args) throws RunnerException {
+  public static void main(String[] args) throws RunnerException
+  {
     Options opt = new OptionsBuilder()
         .include(TimeParseBenchmark.class.getSimpleName())
         .warmupIterations(1)

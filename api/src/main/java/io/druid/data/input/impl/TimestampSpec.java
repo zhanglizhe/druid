@@ -34,6 +34,7 @@ public class TimestampSpec
     Object lastTimeObject = null;
     DateTime lastDateTime = null;
   }
+
   private static final String DEFAULT_COLUMN = "timestamp";
   private static final String DEFAULT_FORMAT = "auto";
   private static final DateTime DEFAULT_MISSING_VALUE = null;
@@ -59,8 +60,8 @@ public class TimestampSpec
     this.timestampFormat = format == null ? DEFAULT_FORMAT : format;
     this.timestampConverter = TimestampParser.createObjectTimestampParser(timestampFormat);
     this.missingValue = missingValue == null
-                                       ? DEFAULT_MISSING_VALUE
-                                       : missingValue;
+                        ? DEFAULT_MISSING_VALUE
+                        : missingValue;
   }
 
   @JsonProperty("column")

@@ -22,8 +22,8 @@ package io.druid.data.input.impl;
 import com.google.common.collect.ImmutableMap;
 import org.joda.time.DateTime;
 import org.joda.time.format.ISODateTimeFormat;
-import org.junit.Test;
 import org.junit.Assert;
+import org.junit.Test;
 
 public class TimestampSpecTest
 {
@@ -51,13 +51,13 @@ public class TimestampSpecTest
   public void testContextualTimestampList() throws Exception
   {
     String DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ss";
-    String[] dates = new String[] {
-      "2000-01-01T05:00:00",
-      "2000-01-01T05:00:01",
-      "2000-01-01T05:00:01",
-      "2000-01-01T05:00:02",
-      "2000-01-01T05:00:03",
-    };
+    String[] dates = new String[]{
+        "2000-01-01T05:00:00",
+        "2000-01-01T05:00:01",
+        "2000-01-01T05:00:01",
+        "2000-01-01T05:00:02",
+        "2000-01-01T05:00:03",
+        };
     TimestampSpec spec = new TimestampSpec("TIMEstamp", DATE_FORMAT, null);
 
     for (int i = 0; i < dates.length; ++i) {
