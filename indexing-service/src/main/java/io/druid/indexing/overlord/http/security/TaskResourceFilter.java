@@ -46,8 +46,13 @@ import javax.ws.rs.core.Response;
  */
 public class TaskResourceFilter extends AbstractResourceFilter
 {
+  private final TaskStorageQueryAdapter taskStorageQueryAdapter;
+
   @Inject
-  private TaskStorageQueryAdapter taskStorageQueryAdapter;
+  public TaskResourceFilter(TaskStorageQueryAdapter taskStorageQueryAdapter, AuthConfig authConfig) {
+    super(authConfig);
+    this.taskStorageQueryAdapter = taskStorageQueryAdapter;
+  }
 
   @Override
   public ContainerRequest filter(ContainerRequest request)
@@ -106,5 +111,10 @@ public class TaskResourceFilter extends AbstractResourceFilter
   public boolean isApplicable(String requestPath)
   {
     return requestPath.startsWith("druid/indexer/v1/task/");
+  }
+
+  public TaskStorageQueryAdapter getTaskStorageQueryAdapter()
+  {
+    return taskStorageQueryAdapter;
   }
 }

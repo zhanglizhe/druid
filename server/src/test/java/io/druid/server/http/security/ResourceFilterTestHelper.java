@@ -21,10 +21,14 @@ package io.druid.server.http.security;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
-import com.google.common.base.Throwables;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.inject.Binder;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
 import com.sun.jersey.spi.container.ContainerRequest;
 import com.sun.jersey.spi.container.ResourceFilter;
 import com.sun.jersey.spi.container.ResourceFilters;
@@ -33,8 +37,12 @@ import io.druid.server.security.Action;
 import io.druid.server.security.AuthConfig;
 import io.druid.server.security.AuthorizationInfo;
 import io.druid.server.security.Resource;
-import org.easymock.EasyMock;
-
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -42,12 +50,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.PathSegment;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import org.easymock.EasyMock;
 
 public class ResourceFilterTestHelper
 {
@@ -117,8 +120,51 @@ public class ResourceFilterTestHelper
 
   }
 
-  public static Collection<Object[]> getRequestPaths(final Class clazz)
+
+  public static Collection<Object[]> getRequestPaths(
+      final Class clazz,
+      final Iterable<Class<?>> mockableInjections
+  )
   {
+    return getRequestPaths(clazz, mockableInjections, ImmutableList.<Key<?>>of());
+  }
+
+  public static Collection<Object[]> getRequestPaths(
+      final Class clazz,
+      final Iterable<Class<?>> mockableInjections,
+      final Iterable<Key<?>> mockableKeys
+  )
+  {
+    return getRequestPaths(clazz, mockableInjections, mockableKeys, ImmutableList.of());
+  }
+
+  // Feeds in an array of [ PathName, MethodName, ResourceFilter ]
+  public static Collection<Object[]> getRequestPaths(
+      final Class clazz,
+      final Iterable<Class<?>> mockableInjections,
+      final Iterable<Key<?>> mockableKeys,
+      final Iterable<?> injectedObjs
+  )
+  {
+    final Injector injector = Guice.createInjector(
+        new Module()
+        {
+          @Override
+          public void configure(Binder binder)
+          {
+            for (Class clazz : mockableInjections) {
+              binder.bind(clazz).toInstance(EasyMock.createNiceMock(clazz));
+            }
+            for (Object obj : injectedObjs) {
+              binder.bind((Class) obj.getClass()).toInstance(obj);
+            }
+            for (Key<?> key : mockableKeys) {
+              binder.bind((Key<Object>) key).toInstance(EasyMock.createNiceMock(key.getTypeLiteral().getRawType()));
+            }
+            binder.bind(clazz);
+          }
+        }
+    );
     final String basepath = ((Path) clazz.getAnnotation(Path.class)).value().substring(1); //Ignore the first "/"
     final List<Class<? extends ResourceFilter>> baseResourceFilters =
         clazz.getAnnotation(ResourceFilters.class) == null ? Collections.<Class<? extends ResourceFilter>>emptyList() :
@@ -168,20 +214,13 @@ public class ResourceFilterTestHelper
                           @Override
                           public Object[] apply(Class<? extends ResourceFilter> input)
                           {
-                            ResourceFilter resourceFilter = null;
-                            try {
-                              resourceFilter = input.newInstance();
-                            }
-                            catch (Exception e) {
-                              Throwables.propagate(e);
-                            }
                             if (method.getAnnotation(Path.class) != null) {
                               return new Object[]{
                                   String.format("%s%s", basepath, method.getAnnotation(Path.class).value()),
                                   input.getAnnotation(GET.class) == null ? (method.getAnnotation(DELETE.class) == null
                                                                             ? "POST"
                                                                             : "DELETE") : "GET",
-                                  resourceFilter
+                                  injector.getInstance(input)
                               };
                             } else {
                               return new Object[]{
@@ -189,7 +228,7 @@ public class ResourceFilterTestHelper
                                   input.getAnnotation(GET.class) == null ? (method.getAnnotation(DELETE.class) == null
                                                                             ? "POST"
                                                                             : "DELETE") : "GET",
-                                  resourceFilter
+                                  injector.getInstance(input)
                               };
                             }
                           }

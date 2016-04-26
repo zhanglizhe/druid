@@ -4,13 +4,24 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.sun.jersey.spi.container.ResourceFilter;
+import io.druid.audit.AuditManager;
+import io.druid.common.config.JacksonConfigManager;
 import io.druid.indexing.common.task.NoopTask;
 import io.druid.indexing.common.task.Task;
+import io.druid.indexing.overlord.TaskMaster;
+import io.druid.indexing.overlord.TaskRunner;
 import io.druid.indexing.overlord.TaskStorageQueryAdapter;
 import io.druid.indexing.overlord.http.OverlordResource;
+import io.druid.indexing.worker.Worker;
+import io.druid.indexing.worker.WorkerCuratorCoordinator;
 import io.druid.indexing.worker.http.WorkerResource;
 import io.druid.server.http.security.AbstractResourceFilter;
 import io.druid.server.http.security.ResourceFilterTestHelper;
+import io.druid.tasklogs.TaskLogStreamer;
+import java.lang.reflect.Field;
+import java.util.Collection;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.Response;
 import org.easymock.EasyMock;
 import org.junit.After;
 import org.junit.Assert;
@@ -18,11 +29,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import java.lang.reflect.Field;
-import java.util.Collection;
 
 @RunWith(Parameterized.class)
 public class SecurityResourceFilterTest extends ResourceFilterTestHelper
@@ -32,8 +38,18 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
   {
     return ImmutableList.copyOf(
         Iterables.concat(
-            getRequestPaths(OverlordResource.class),
-            getRequestPaths(WorkerResource.class)
+            getRequestPaths(OverlordResource.class, ImmutableList.<Class<?>>of(
+                TaskMaster.class,
+                TaskStorageQueryAdapter.class,
+                TaskLogStreamer.class,
+                JacksonConfigManager.class,
+                AuditManager.class
+            )),
+            getRequestPaths(WorkerResource.class, ImmutableList.<Class<?>>of(
+                Worker.class,
+                WorkerCuratorCoordinator.class,
+                TaskRunner.class
+            ))
         )
     );
   }
@@ -91,7 +107,8 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
     Assert.assertTrue(((AbstractResourceFilter) resourceFilter.getRequestFilter()).isApplicable(requestPath));
     try {
       resourceFilter.getRequestFilter().filter(request);
-    } catch (WebApplicationException e) {
+    }
+    catch (WebApplicationException e) {
       Assert.assertEquals(Response.Status.FORBIDDEN.getStatusCode(), e.getResponse().getStatus());
       throw e;
     }

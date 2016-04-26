@@ -22,6 +22,7 @@ package io.druid.server.http.security;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
+import com.google.inject.Inject;
 import com.sun.jersey.spi.container.ContainerRequest;
 import io.druid.server.security.Access;
 import io.druid.server.security.AuthConfig;
@@ -42,6 +43,12 @@ import javax.ws.rs.core.Response;
 
 public class RulesResourceFilter extends AbstractResourceFilter
 {
+  @Inject
+  public RulesResourceFilter(AuthConfig authConfig)
+  {
+    super(authConfig);
+  }
+
   @Override
   public ContainerRequest filter(ContainerRequest request)
   {

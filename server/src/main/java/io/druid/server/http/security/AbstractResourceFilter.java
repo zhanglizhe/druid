@@ -26,7 +26,6 @@ import com.sun.jersey.spi.container.ContainerResponseFilter;
 import com.sun.jersey.spi.container.ResourceFilter;
 import io.druid.server.security.Action;
 import io.druid.server.security.AuthConfig;
-
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
 
@@ -35,8 +34,14 @@ public abstract class AbstractResourceFilter implements ResourceFilter, Containe
   //https://jsr311.java.net/nonav/releases/1.1/spec/spec3.html#x3-520005
   @Context
   private HttpServletRequest req;
+
+  private final AuthConfig authConfig;
+
   @Inject
-  private AuthConfig authConfig;
+  public AbstractResourceFilter(AuthConfig authConfig)
+  {
+    this.authConfig = authConfig;
+  }
 
   @Override
   public ContainerRequestFilter getRequestFilter()
@@ -60,7 +65,14 @@ public abstract class AbstractResourceFilter implements ResourceFilter, Containe
     return authConfig;
   }
 
-  protected Action getAction(ContainerRequest request) {
+  public AbstractResourceFilter setReq(HttpServletRequest req)
+  {
+    this.req = req;
+    return this;
+  }
+
+  protected Action getAction(ContainerRequest request)
+  {
     Action action;
     switch (request.getMethod()) {
       case "GET":
