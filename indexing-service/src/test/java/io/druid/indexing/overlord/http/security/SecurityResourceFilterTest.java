@@ -3,6 +3,7 @@ package io.druid.indexing.overlord.http.security;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.inject.Injector;
 import com.sun.jersey.spi.container.ResourceFilter;
 import io.druid.audit.AuditManager;
 import io.druid.common.config.JacksonConfigManager;
@@ -18,7 +19,6 @@ import io.druid.indexing.worker.http.WorkerResource;
 import io.druid.server.http.security.AbstractResourceFilter;
 import io.druid.server.http.security.ResourceFilterTestHelper;
 import io.druid.tasklogs.TaskLogStreamer;
-import java.lang.reflect.Field;
 import java.util.Collection;
 import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Response;
@@ -33,6 +33,8 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class SecurityResourceFilterTest extends ResourceFilterTestHelper
 {
+  private final Injector injector;
+
   @Parameterized.Parameters
   public static Collection<Object[]> data()
   {
@@ -57,29 +59,29 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
   private final String requestPath;
   private final String requestMethod;
   private final ResourceFilter resourceFilter;
-  private final TaskStorageQueryAdapter tsqa;
   private final Task noopTask = new NoopTask(null, 0, 0, null, null, null);
+
+  private TaskStorageQueryAdapter tsqa;
 
   public SecurityResourceFilterTest(
       String requestPath,
       String requestMethod,
-      ResourceFilter resourceFilter
+      ResourceFilter resourceFilter,
+      Injector injector
   )
   {
     this.requestPath = requestPath;
     this.requestMethod = requestMethod;
     this.resourceFilter = resourceFilter;
-    tsqa = EasyMock.createStrictMock(TaskStorageQueryAdapter.class);
+    this.injector = injector;
   }
 
   @Before
   public void setUp() throws Exception
   {
     if (resourceFilter instanceof TaskResourceFilter) {
+      tsqa = injector.getInstance(TaskStorageQueryAdapter.class);
       EasyMock.expect(tsqa.getTask(EasyMock.anyString())).andReturn(Optional.of(noopTask)).anyTimes();
-      Field tsqaField = TaskResourceFilter.class.getDeclaredField("taskStorageQueryAdapter");
-      tsqaField.setAccessible(true);
-      tsqaField.set(resourceFilter, tsqa);
     }
     setUp(resourceFilter);
   }

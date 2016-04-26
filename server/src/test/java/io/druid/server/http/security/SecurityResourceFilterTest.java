@@ -22,6 +22,7 @@ package io.druid.server.http.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.sun.jersey.spi.container.ResourceFilter;
@@ -143,16 +144,19 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
   private final String requestPath;
   private final String requestMethod;
   private final ResourceFilter resourceFilter;
+  private final Injector injector;
 
   public SecurityResourceFilterTest(
       String requestPath,
       String requestMethod,
-      ResourceFilter resourceFilter
+      ResourceFilter resourceFilter,
+      Injector injector
   )
   {
     this.requestPath = requestPath;
     this.requestMethod = requestMethod;
     this.resourceFilter = resourceFilter;
+    this.injector = injector;
   }
 
   @Before

@@ -64,14 +64,10 @@ public class ResourceFilterTestHelper
     request = EasyMock.createStrictMock(ContainerRequest.class);
     authorizationInfo = EasyMock.createStrictMock(AuthorizationInfo.class);
 
-    AuthConfig authConfig = new AuthConfig(true);
-
-    Field requestField = AbstractResourceFilter.class.getDeclaredField("req");
-    Field authConfigField = AbstractResourceFilter.class.getDeclaredField("authConfig");
-    requestField.setAccessible(true);
-    authConfigField.setAccessible(true);
-    requestField.set(resourceFilter, req);
-    authConfigField.set(resourceFilter, authConfig);
+    // Memory barrier
+    synchronized (this) {
+      ((AbstractResourceFilter) resourceFilter).setReq(req);
+    }
   }
 
   public void setUpMockExpectations(
@@ -138,7 +134,7 @@ public class ResourceFilterTestHelper
     return getRequestPaths(clazz, mockableInjections, mockableKeys, ImmutableList.of());
   }
 
-  // Feeds in an array of [ PathName, MethodName, ResourceFilter ]
+  // Feeds in an array of [ PathName, MethodName, ResourceFilter , Injector]
   public static Collection<Object[]> getRequestPaths(
       final Class clazz,
       final Iterable<Class<?>> mockableInjections,
@@ -161,6 +157,7 @@ public class ResourceFilterTestHelper
             for (Key<?> key : mockableKeys) {
               binder.bind((Key<Object>) key).toInstance(EasyMock.createNiceMock(key.getTypeLiteral().getRawType()));
             }
+            binder.bind(AuthConfig.class).toInstance(new AuthConfig(true));
             binder.bind(clazz);
           }
         }
@@ -220,7 +217,8 @@ public class ResourceFilterTestHelper
                                   input.getAnnotation(GET.class) == null ? (method.getAnnotation(DELETE.class) == null
                                                                             ? "POST"
                                                                             : "DELETE") : "GET",
-                                  injector.getInstance(input)
+                                  injector.getInstance(input),
+                                  injector
                               };
                             } else {
                               return new Object[]{
@@ -228,7 +226,8 @@ public class ResourceFilterTestHelper
                                   input.getAnnotation(GET.class) == null ? (method.getAnnotation(DELETE.class) == null
                                                                             ? "POST"
                                                                             : "DELETE") : "GET",
-                                  injector.getInstance(input)
+                                  injector.getInstance(input),
+                                  injector
                               };
                             }
                           }
