@@ -42,6 +42,7 @@ import io.druid.query.lookup.LookupExtractor;
 import io.druid.query.lookup.LookupExtractorFactory;
 import io.druid.server.DruidNode;
 import io.druid.server.namespace.cache.NamespaceExtractionCacheManager;
+import java.util.concurrent.ConcurrentHashMap;
 import org.easymock.EasyMock;
 import org.joda.time.Period;
 import org.junit.Assert;
@@ -50,8 +51,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.rules.TemporaryFolder;
-
-import java.util.concurrent.ConcurrentHashMap;
 
 public class NamespaceLookupExtractorFactoryTest
 {
@@ -432,12 +431,14 @@ public class NamespaceLookupExtractorFactoryTest
         )
     );
     final ObjectMapper mapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
-    final Object obj = mapper.readValue("{ \"type\": \"cachedNamespace\", \"extractionNamespace\": { \"type\": \"uri\", \"uriPrefix\": \"s3://some-bucket/some-prefix/\", \"fileRegex\": \"some_file.*\\\\.gz\", \"namespaceParseSpec\": { \"format\": \"customJson\", \"keyFieldName\": \"someFieldKey\", \"valueFieldName\": \"someFieldVal\" }, \"pollPeriod\": \"PT5M\" } } }", LookupExtractorFactory.class);
+    final Object obj = mapper.readValue(
+        "{ \"type\": \"cachedNamespace\", \"extractionNamespace\": { \"type\": \"uri\", \"uriPrefix\": \"s3://some-bucket/some-prefix/\", \"fileRegex\": \"some_file.*\\\\.gz\", \"namespaceParseSpec\": { \"format\": \"customJson\", \"keyFieldName\": \"someFieldKey\", \"valueFieldName\": \"someFieldVal\" }, \"pollPeriod\": \"PT5M\" } } }",
+        LookupExtractorFactory.class
+    );
     Assert.assertTrue(obj instanceof NamespaceLookupExtractorFactory);
     Assert.assertNotNull(mapper.writeValueAsString(obj));
     Assert.assertNotNull(mapper.writeValueAsString(ImmutableList.of(obj)));
   }
-
 
   @Test(expected = ISE.class)
   public void testMustBeStarted()
