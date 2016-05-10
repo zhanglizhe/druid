@@ -23,13 +23,24 @@ import com.fasterxml.jackson.databind.BeanProperty;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Binder;
+import com.google.inject.Injector;
+import com.google.inject.Key;
+import com.google.inject.Module;
 import com.metamx.common.ISE;
+import io.druid.guice.GuiceInjectors;
+import io.druid.guice.JsonConfigProvider;
+import io.druid.guice.annotations.Json;
+import io.druid.guice.annotations.Self;
+import io.druid.initialization.Initialization;
 import io.druid.jackson.DefaultObjectMapper;
 import io.druid.query.extraction.namespace.ExtractionNamespace;
 import io.druid.query.extraction.namespace.URIExtractionNamespace;
 import io.druid.query.lookup.LookupExtractor;
 import io.druid.query.lookup.LookupExtractorFactory;
+import io.druid.server.DruidNode;
 import io.druid.server.namespace.cache.NamespaceExtractionCacheManager;
 import org.easymock.EasyMock;
 import org.joda.time.Period;
@@ -400,6 +411,31 @@ public class NamespaceLookupExtractorFactoryTest
     Assert.assertFalse(f1.replaces(f1));
     Assert.assertTrue(f1.replaces(EasyMock.createNiceMock(LookupExtractorFactory.class)));
     EasyMock.verify(en1, en2);
+  }
+
+  @Test
+  public void testSerDe() throws Exception
+  {
+    final Injector injector = Initialization.makeInjectorWithModules(
+        GuiceInjectors.makeStartupInjector(),
+        ImmutableList.of(
+            new Module()
+            {
+              @Override
+              public void configure(Binder binder)
+              {
+                JsonConfigProvider.bindInstance(
+                    binder, Key.get(DruidNode.class, Self.class), new DruidNode("test-inject", null, null)
+                );
+              }
+            }
+        )
+    );
+    final ObjectMapper mapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
+    final Object obj = mapper.readValue("{ \"type\": \"cachedNamespace\", \"extractionNamespace\": { \"type\": \"uri\", \"uriPrefix\": \"s3://some-bucket/some-prefix/\", \"fileRegex\": \"some_file.*\\\\.gz\", \"namespaceParseSpec\": { \"format\": \"customJson\", \"keyFieldName\": \"someFieldKey\", \"valueFieldName\": \"someFieldVal\" }, \"pollPeriod\": \"PT5M\" } } }", LookupExtractorFactory.class);
+    Assert.assertTrue(obj instanceof NamespaceLookupExtractorFactory);
+    Assert.assertNotNull(mapper.writeValueAsString(obj));
+    Assert.assertNotNull(mapper.writeValueAsString(ImmutableList.of(obj)));
   }
 
 
