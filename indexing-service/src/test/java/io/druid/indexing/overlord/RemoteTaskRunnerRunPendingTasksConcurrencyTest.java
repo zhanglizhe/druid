@@ -92,6 +92,7 @@ public class RemoteTaskRunnerRunPendingTasksConcurrencyTest
     }
 
     //simulate completion of task0 and task1
+
     mockWorkerRunningAndCompletionSuccessfulTasks(tasks[0], tasks[1]);
 
     Assert.assertEquals(TaskStatus.Status.SUCCESS, results[0].get().getStatusCode());
