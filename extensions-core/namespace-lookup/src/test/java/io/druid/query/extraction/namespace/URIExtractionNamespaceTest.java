@@ -19,6 +19,7 @@
 
 package io.druid.query.extraction.namespace;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair;
 import com.google.common.collect.ImmutableList;
@@ -120,10 +121,22 @@ public class URIExtractionNamespaceTest
     URIExtractionNamespace.TSVFlatDataParser parser = new URIExtractionNamespace.TSVFlatDataParser(
         ImmutableList.of("col1", "col2", "col3"),
         "|",
-        "col2",
+        null, "col2",
         "col3"
     );
     Assert.assertEquals(ImmutableMap.of("B", "C"), parser.getParser().parse("A|B|C"));
+  }
+
+  @Test
+  public void testWithListDelimiterTSV()
+  {
+    URIExtractionNamespace.TSVFlatDataParser parser = new URIExtractionNamespace.TSVFlatDataParser(
+        ImmutableList.of("col1", "col2", "col3"),
+        "\\u0001",
+        "\\u0002", "col2",
+        "col3"
+    );
+    Assert.assertEquals(ImmutableMap.of("B", "C"), parser.getParser().parse("A\\u0001B\\u0001C"));
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -132,7 +145,7 @@ public class URIExtractionNamespaceTest
     URIExtractionNamespace.TSVFlatDataParser parser = new URIExtractionNamespace.TSVFlatDataParser(
         ImmutableList.of("col1", "col2", "col3fdsfds"),
         ",",
-        "col2",
+        null, "col2",
         "col3"
     );
     Map<String, String> map = parser.getParser().parse("A,B,C");
@@ -146,7 +159,7 @@ public class URIExtractionNamespaceTest
     URIExtractionNamespace.TSVFlatDataParser parser = new URIExtractionNamespace.TSVFlatDataParser(
         ImmutableList.of("col1", "col2", "col3"),
         ",",
-        "col2",
+        null, "col2",
         "col3"
     );
     Map<String, String> map = parser.getParser().parse("A");
@@ -292,7 +305,7 @@ public class URIExtractionNamespaceTest
         ),
         new URIExtractionNamespace.ObjectMapperFlatDataParser(mapper),
         new URIExtractionNamespace.JSONFlatDataParser(mapper, "keyField", "valueField"),
-        new URIExtractionNamespace.TSVFlatDataParser(ImmutableList.of("A", "B"), ",", "A", "B")
+        new URIExtractionNamespace.TSVFlatDataParser(ImmutableList.of("A", "B"), ",", null, "A", "B")
     )) {
       final String str = mapper.writeValueAsString(parser);
       final URIExtractionNamespace.FlatDataParser parser2 = mapper.readValue(
@@ -317,18 +330,18 @@ public class URIExtractionNamespaceTest
         ),
         new URIExtractionNamespace.ObjectMapperFlatDataParser(mapper),
         new URIExtractionNamespace.JSONFlatDataParser(mapper, "keyField", "valueField"),
-        new URIExtractionNamespace.TSVFlatDataParser(ImmutableList.of("A", "B"), ",", "A", "B")
+        new URIExtractionNamespace.TSVFlatDataParser(ImmutableList.of("A", "B"), ",", null, "A", "B")
     )) {
       Assert.assertFalse(parser.toString().contains("@"));
     }
   }
 
   @Test
-  public void testExplicitJson() throws IOException
+  public void testMatchedJson() throws IOException
   {
     final ObjectMapper mapper = registerTypes(new DefaultObjectMapper());
     URIExtractionNamespace namespace = mapper.readValue(
-        "{\"type\":\"uri\", \"uri\":\"file:/foo\", \"namespaceParseSpec\":{\"format\":\"simpleJson\"}, \"pollPeriod\":\"PT5M\", \"versionRegex\":\"a.b.c\", \"namespace\":\"testNamespace\"}",
+        "{\"type\":\"uri\", \"uriPrefix\":\"file:/foo\", \"namespaceParseSpec\":{\"format\":\"simpleJson\"}, \"pollPeriod\":\"PT5M\", \"versionRegex\":\"a.b.c\", \"namespace\":\"testNamespace\"}",
         URIExtractionNamespace.class
     );
 
@@ -336,10 +349,38 @@ public class URIExtractionNamespaceTest
         URIExtractionNamespace.ObjectMapperFlatDataParser.class.getCanonicalName(),
         namespace.getNamespaceParseSpec().getClass().getCanonicalName()
     );
-    Assert.assertEquals("file:/foo", namespace.getUri().toString());
+    Assert.assertEquals("file:/foo", namespace.getUriPrefix().toString());
     Assert.assertEquals("testNamespace", namespace.getNamespace());
-    Assert.assertEquals("a.b.c", namespace.getVersionRegex());
+    Assert.assertEquals("a.b.c", namespace.getFileRegex());
     Assert.assertEquals(5L * 60_000L, namespace.getPollMs());
+  }
+
+  @Test
+  public void testExplicitJson() throws IOException
+  {
+    final ObjectMapper mapper = registerTypes(new DefaultObjectMapper());
+    URIExtractionNamespace namespace = mapper.readValue(
+        "{\"type\":\"uri\", \"uri\":\"file:/foo/a.b.c\", \"namespaceParseSpec\":{\"format\":\"simpleJson\"}, \"pollPeriod\":\"PT5M\", \"namespace\":\"testNamespace\"}",
+        URIExtractionNamespace.class
+    );
+
+    Assert.assertEquals(
+        URIExtractionNamespace.ObjectMapperFlatDataParser.class.getCanonicalName(),
+        namespace.getNamespaceParseSpec().getClass().getCanonicalName()
+    );
+    Assert.assertEquals("file:/foo/a.b.c", namespace.getUri().toString());
+    Assert.assertEquals("testNamespace", namespace.getNamespace());
+    Assert.assertEquals(5L * 60_000L, namespace.getPollMs());
+  }
+
+  @Test(expected = JsonMappingException.class)
+  public void testExplicitJsonException() throws IOException
+  {
+    final ObjectMapper mapper = registerTypes(new DefaultObjectMapper());
+    mapper.readValue(
+        "{\"type\":\"uri\", \"uri\":\"file:/foo\", \"namespaceParseSpec\":{\"format\":\"simpleJson\"}, \"pollPeriod\":\"PT5M\", \"versionRegex\":\"a.b.c\", \"namespace\":\"testNamespace\"}",
+        URIExtractionNamespace.class
+    );
   }
 
   @Test

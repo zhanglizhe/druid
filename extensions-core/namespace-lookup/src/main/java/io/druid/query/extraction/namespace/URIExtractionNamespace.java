@@ -64,40 +64,58 @@ public class URIExtractionNamespace implements ExtractionNamespace
   @JsonProperty
   private final URI uri;
   @JsonProperty
+  private final URI uriPrefix;
+  @JsonProperty
   private final FlatDataParser namespaceParseSpec;
   @JsonProperty
-  private final Period pollPeriod;
+  private final String fileRegex;
   @JsonProperty
-  private final String versionRegex;
+  private final Period pollPeriod;
 
   @JsonCreator
   public URIExtractionNamespace(
       @NotNull @JsonProperty(value = "namespace", required = true)
-      String namespace,
-      @NotNull @JsonProperty(value = "uri", required = true)
-      URI uri,
+          String namespace,
+      @JsonProperty(value = "uri", required = false)
+          URI uri,
+      @JsonProperty(value = "uriPrefix", required = false)
+          URI uriPrefix,
+      @JsonProperty(value = "fileRegex", required = false)
+          String fileRegex,
       @JsonProperty(value = "namespaceParseSpec", required = true)
-      FlatDataParser namespaceParseSpec,
+          FlatDataParser namespaceParseSpec,
       @Min(0) @Nullable @JsonProperty(value = "pollPeriod", required = false)
-      Period pollPeriod,
+          Period pollPeriod,
+      @Deprecated
       @JsonProperty(value = "versionRegex", required = false)
-      String versionRegex
+          String versionRegex
   )
   {
-    if (versionRegex != null) {
-      try {
-        Pattern.compile(versionRegex);
-      }
-      catch (PatternSyntaxException ex) {
-        throw new IAE(ex, "Could not parse `versionRegex` [%s]", versionRegex);
-      }
-    }
     this.namespace = Preconditions.checkNotNull(namespace, "namespace");
-    this.uri = Preconditions.checkNotNull(uri, "uri");
+    this.uri = uri;
+    this.uriPrefix = uriPrefix;
+    if ((uri != null) == (uriPrefix != null)) {
+      throw new IAE("Either uri xor uriPrefix required");
+    }
     this.namespaceParseSpec = Preconditions.checkNotNull(namespaceParseSpec, "namespaceParseSpec");
     this.pollPeriod = pollPeriod == null ? Period.ZERO : pollPeriod;
+    this.fileRegex = fileRegex == null ? versionRegex : fileRegex;
+    if (fileRegex != null && versionRegex != null) {
+      throw new IAE("Cannot specify both versionRegex and fileRegex. versionRegex is deprecated");
+    }
 
-    this.versionRegex = versionRegex;
+    if (uri != null && this.fileRegex != null) {
+      throw new IAE("Cannot define both uri and fileRegex");
+    }
+
+    if (this.fileRegex != null) {
+      try {
+        Pattern.compile(this.fileRegex);
+      }
+      catch (PatternSyntaxException ex) {
+        throw new IAE(ex, "Could not parse `fileRegex` [%s]", this.fileRegex);
+      }
+    }
   }
 
   @Override
@@ -106,9 +124,9 @@ public class URIExtractionNamespace implements ExtractionNamespace
     return namespace;
   }
 
-  public String getVersionRegex()
+  public String getFileRegex()
   {
-    return versionRegex;
+    return fileRegex;
   }
 
   public FlatDataParser getNamespaceParseSpec()
@@ -121,6 +139,11 @@ public class URIExtractionNamespace implements ExtractionNamespace
     return uri;
   }
 
+  public URI getUriPrefix()
+  {
+    return uriPrefix;
+  }
+
   @Override
   public long getPollMs()
   {
@@ -130,16 +153,15 @@ public class URIExtractionNamespace implements ExtractionNamespace
   @Override
   public String toString()
   {
-    return String.format(
-        "URIExtractionNamespace = { namespace = %s, uri = %s, namespaceParseSpec = %s, pollPeriod = %s, versionRegex = %s }",
-        namespace,
-        uri.toString(),
-        namespaceParseSpec.toString(),
-        pollPeriod.toString(),
-        versionRegex
-    );
+    return "URIExtractionNamespace{" +
+           "namespace='" + namespace + '\'' +
+           ", uri=" + uri +
+           ", uriPrefix=" + uriPrefix +
+           ", namespaceParseSpec=" + namespaceParseSpec +
+           ", fileRegex='" + fileRegex + '\'' +
+           ", pollPeriod=" + pollPeriod +
+           '}';
   }
-
 
   @Override
   public boolean equals(Object o)
@@ -151,21 +173,38 @@ public class URIExtractionNamespace implements ExtractionNamespace
       return false;
     }
 
-    URIExtractionNamespace namespace1 = (URIExtractionNamespace) o;
-    return toString().equals(namespace1.toString());
+    URIExtractionNamespace that = (URIExtractionNamespace) o;
+
+    if (!getNamespace().equals(that.getNamespace())) {
+      return false;
+    }
+    if (getUri() != null ? !getUri().equals(that.getUri()) : that.getUri() != null) {
+      return false;
+    }
+    if (getUriPrefix() != null ? !getUriPrefix().equals(that.getUriPrefix()) : that.getUriPrefix() != null) {
+      return false;
+    }
+    if (!getNamespaceParseSpec().equals(that.getNamespaceParseSpec())) {
+      return false;
+    }
+    if (getFileRegex() != null ? !getFileRegex().equals(that.getFileRegex()) : that.getFileRegex() != null) {
+      return false;
+    }
+    return pollPeriod.equals(that.pollPeriod);
+
   }
 
   @Override
   public int hashCode()
   {
-    int result = namespace.hashCode();
-    result = 31 * result + uri.hashCode();
-    result = 31 * result + namespaceParseSpec.hashCode();
+    int result = getNamespace().hashCode();
+    result = 31 * result + (getUri() != null ? getUri().hashCode() : 0);
+    result = 31 * result + (getUriPrefix() != null ? getUriPrefix().hashCode() : 0);
+    result = 31 * result + getNamespaceParseSpec().hashCode();
+    result = 31 * result + (getFileRegex() != null ? getFileRegex().hashCode() : 0);
     result = 31 * result + pollPeriod.hashCode();
-    result = 31 * result + (versionRegex != null ? versionRegex.hashCode() : 0);
     return result;
   }
-
 
   private static class DelegateParser implements Parser<String, String>
   {
@@ -268,7 +307,11 @@ public class URIExtractionNamespace implements ExtractionNamespace
           Arrays.toString(columns.toArray())
       );
 
-      this.parser = new DelegateParser(new CSVParser(Optional.<String>absent(), columns), this.keyColumn, this.valueColumn);
+      this.parser = new DelegateParser(
+          new CSVParser(Optional.<String>absent(), columns),
+          this.keyColumn,
+          this.valueColumn
+      );
     }
 
     @JsonProperty
@@ -313,6 +356,7 @@ public class URIExtractionNamespace implements ExtractionNamespace
     private final Parser<String, String> parser;
     private final List<String> columns;
     private final String delimiter;
+    private final String listDelimiter;
     private final String keyColumn;
     private final String valueColumn;
 
@@ -320,6 +364,7 @@ public class URIExtractionNamespace implements ExtractionNamespace
     public TSVFlatDataParser(
         @JsonProperty("columns") List<String> columns,
         @JsonProperty("delimiter") String delimiter,
+        @JsonProperty("listDelimiter") String listDelimiter,
         @JsonProperty("keyColumn") final String keyColumn,
         @JsonProperty("valueColumn") final String valueColumn
     )
@@ -329,8 +374,8 @@ public class URIExtractionNamespace implements ExtractionNamespace
           "Must specify more than one column to have a key value pair"
       );
       final DelimitedParser delegate = new DelimitedParser(
-          Optional.fromNullable(Strings.isNullOrEmpty(delimiter) ? null : delimiter),
-          Optional.<String>absent()
+          Optional.fromNullable(Strings.emptyToNull(delimiter)),
+          Optional.fromNullable(Strings.emptyToNull(listDelimiter))
       );
       Preconditions.checkArgument(
           !(Strings.isNullOrEmpty(keyColumn) ^ Strings.isNullOrEmpty(valueColumn)),
@@ -339,6 +384,7 @@ public class URIExtractionNamespace implements ExtractionNamespace
       delegate.setFieldNames(columns);
       this.columns = columns;
       this.delimiter = delimiter;
+      this.listDelimiter = listDelimiter;
       this.keyColumn = Strings.isNullOrEmpty(keyColumn) ? columns.get(0) : keyColumn;
       this.valueColumn = Strings.isNullOrEmpty(valueColumn) ? columns.get(1) : valueColumn;
       Preconditions.checkArgument(
@@ -376,6 +422,12 @@ public class URIExtractionNamespace implements ExtractionNamespace
     }
 
     @JsonProperty
+    public String getListDelimiter()
+    {
+      return listDelimiter;
+    }
+
+    @JsonProperty
     public String getDelimiter()
     {
       return delimiter;
@@ -391,9 +443,10 @@ public class URIExtractionNamespace implements ExtractionNamespace
     public String toString()
     {
       return String.format(
-          "TSVFlatDataParser = { columns = %s, delimiter = '%s', keyColumn = %s, valueColumn = %s }",
+          "TSVFlatDataParser = { columns = %s, delimiter = '%s', listDelimiter = '%s',keyColumn = %s, valueColumn = %s }",
           Arrays.toString(columns.toArray()),
           delimiter,
+          listDelimiter,
           keyColumn,
           valueColumn
       );
