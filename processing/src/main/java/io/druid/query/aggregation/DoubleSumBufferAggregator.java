@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 
 /**
  */
-public class DoubleSumBufferAggregator implements BufferAggregator
+public class DoubleSumBufferAggregator implements BufferAggregator, BlockBufferAggregator
 {
   private final FloatColumnSelector selector;
 
@@ -46,6 +46,66 @@ public class DoubleSumBufferAggregator implements BufferAggregator
   public void aggregate(ByteBuffer buf, int position)
   {
     buf.putDouble(position, buf.getDouble(position) + (double) selector.get());
+  }
+
+  @Override
+  public void aggregateBlock(ByteBuffer buf, int position)
+  {
+    final float[] block = selector.getBlock();
+
+    final int n = block.length;
+    final int ub = (n / 8) * 8 - 1;
+    final int extra = n - (n % 8);
+
+    double acc = 0;
+    double sum = 0;
+    for(int i = 0; i < ub; i += 8)
+    {
+      acc += (double) block[i]
+             + (double) block[i + 1]
+             + (double) block[i + 2]
+             + (double) block[i + 3];
+
+      sum += (double) block[i + 4]
+             + (double) block[i + 5]
+             + (double) block[i + 6]
+             + (double) block[i + 7];
+    }
+    sum += acc;
+    for(int i = extra; i < n; ++i)
+    {
+      sum += block[i];
+    }
+    buf.putDouble(position, buf.getDouble(position) + sum);
+  }
+
+  @Override
+  public void parallelAggregate(ByteBuffer buf, int[] positions)
+  {
+    final int n = positions.length;
+    final int ub = (n / 4) * 4 - 1;
+    final int extra = n - (n % 4);
+
+    final double val = (double) selector.get();
+    for(int i = 0; i < ub; i += 4)
+    {
+      final double v1 = buf.getDouble(positions[i]);
+      final double v2 = buf.getDouble(positions[i + 1]);
+      final double v3 = buf.getDouble(positions[i + 2]);
+      final double v4 = buf.getDouble(positions[i + 3]);
+      final double sum1 = v1 + val;
+      final double sum2 = v2 + val;
+      final double sum3 = v3 + val;
+      final double sum4 = v4 + val;
+      buf.putDouble(positions[i], sum1);
+      buf.putDouble(positions[i], sum2);
+      buf.putDouble(positions[i], sum3);
+      buf.putDouble(positions[i], sum4);
+    }
+    for(int i = extra; i < n; ++i)
+    {
+      buf.putDouble(positions[i], buf.getDouble(positions[i]) + val);
+    }
   }
 
   @Override

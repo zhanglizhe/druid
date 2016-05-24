@@ -31,6 +31,7 @@ public interface DimensionSelector
    * @return all values for the row as an IntBuffer
    */
   public IndexedInts getRow();
+  public default IndexedInts[] getRowBlock() { throw new UnsupportedOperationException(); }
 
   /**
    * Value cardinality is the cardinality of the different occurring values.  If there were 4 rows:

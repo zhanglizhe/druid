@@ -25,6 +25,7 @@ import io.druid.query.QueryRunnerHelper;
 import io.druid.query.Result;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.query.aggregation.AggregatorFactory;
+import io.druid.query.aggregation.BlockAggregator;
 import io.druid.segment.Cursor;
 import io.druid.segment.SegmentMissingException;
 import io.druid.segment.StorageAdapter;
@@ -63,13 +64,33 @@ public class TimeseriesQueryEngine
             if (skipEmptyBuckets && cursor.isDone()) {
               return null;
             }
+            boolean canBlockAggregate = true;
+
+            BlockAggregator[] blockAggregators = new BlockAggregator[aggregators.length];
+            int i = 0;
+            for (Aggregator aggregator : aggregators) {
+              if (!(aggregator instanceof BlockAggregator)) {
+                canBlockAggregate = false;
+                break;
+              }
+              blockAggregators[i++] = (BlockAggregator) aggregator;
+            }
 
             try {
-              while (!cursor.isDone()) {
-                for (Aggregator aggregator : aggregators) {
-                  aggregator.aggregate();
+              if (canBlockAggregate && query.getContextValue("block", false)) {
+                while (!cursor.isDone()) {
+                  for (BlockAggregator aggregator : blockAggregators) {
+                    aggregator.aggregateBlock();
+                  }
+                  cursor.advanceBlock();
                 }
-                cursor.advance();
+              } else {
+                while (!cursor.isDone()) {
+                  for (Aggregator aggregator : aggregators) {
+                    aggregator.aggregate();
+                  }
+                  cursor.advance();
+                }
               }
 
               TimeseriesResultBuilder bob = new TimeseriesResultBuilder(cursor.getTime());

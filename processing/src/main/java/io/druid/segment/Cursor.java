@@ -26,6 +26,7 @@ public interface Cursor extends ColumnSelectorFactory
 {
   public DateTime getTime();
   public void advance();
+  public default void advanceBlock() { throw new UnsupportedOperationException(); }
   public void advanceTo(int offset);
   public boolean isDone();
   public void reset();

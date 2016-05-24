@@ -30,4 +30,9 @@ public interface Offset extends ReadableOffset
   boolean withinBounds();
 
   Offset clone();
+
+  default boolean canBlockIncrement() { return false; }
+  default void incrementBlock() { throw new UnsupportedOperationException(); }
+  default int getBlockIncrement() { throw new UnsupportedOperationException(); }
+  default void setBlockIncrement(int i) { throw new UnsupportedOperationException(); }
 }

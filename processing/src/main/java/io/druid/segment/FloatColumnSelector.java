@@ -27,4 +27,5 @@ package io.druid.segment;
 public interface FloatColumnSelector
 {
   public float get();
+  public default float[] getBlock() { throw new UnsupportedOperationException(); }
 }

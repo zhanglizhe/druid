@@ -345,6 +345,15 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                     }
 
                     @Override
+                    public void advanceBlock()
+                    {
+                      if (Thread.interrupted()) {
+                        throw new QueryInterruptedException(new InterruptedException());
+                      }
+                      cursorOffset.incrementBlock();
+                    }
+
+                    @Override
                     public void advanceTo(int offset)
                     {
                       int count = 0;
@@ -539,6 +548,12 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                         public float get()
                         {
                           return metricVals.getFloatSingleValueRow(cursorOffset.getOffset());
+                        }
+
+                        @Override
+                        public float[] getBlock()
+                        {
+                          return metricVals.getFloatBlock(cursorOffset.getOffset(), cursorOffset.getBlockIncrement());
                         }
                       };
                     }
@@ -796,7 +811,17 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       if (allWithinThreshold) {
         return true;
       }
-      return timeInRange(timestamps.getLongSingleValueRow(baseOffset.getOffset()));
+
+      final int currOffset = baseOffset.getOffset();
+      if(baseOffset.canBlockIncrement()) {
+        final int nextIncr = baseOffset.getBlockIncrement();
+        if (timeInRange(timestamps.getLongSingleValueRow(currOffset + nextIncr - 1))) {
+          return true;
+        }
+
+        baseOffset.setBlockIncrement(1);
+      }
+      return timeInRange(timestamps.getLongSingleValueRow(currOffset));
     }
 
     protected abstract boolean timeInRange(long current);
@@ -805,6 +830,18 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     public void increment()
     {
       baseOffset.increment();
+    }
+
+    @Override
+    public void incrementBlock()
+    {
+      baseOffset.incrementBlock();
+    }
+
+    @Override
+    public int getBlockIncrement()
+    {
+      return baseOffset.getBlockIncrement();
     }
 
     @Override
@@ -883,6 +920,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     private final int rowCount;
     private final boolean descending;
     private volatile int currentOffset;
+    public static final int BLOCK_SIZE = 128;
 
     NoFilterOffset(int currentOffset, int rowCount, boolean descending)
     {
@@ -891,6 +929,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       this.descending = descending;
     }
 
+    private int blockIncr = 0;
+
     @Override
     public void increment()
     {
@@ -898,9 +938,29 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     }
 
     @Override
+    public void incrementBlock()
+    {
+      currentOffset += blockIncr;
+    }
+
+    @Override
+    public int getBlockIncrement()
+    {
+      return blockIncr;
+    }
+
+    @Override
+    public void setBlockIncrement(int i)
+    {
+      blockIncr = Math.min(i, BLOCK_SIZE);
+    }
+
+    @Override
     public boolean withinBounds()
     {
-      return currentOffset < rowCount;
+      final int remaining = rowCount - currentOffset;
+      setBlockIncrement(remaining);
+      return remaining > 0;
     }
 
     @Override

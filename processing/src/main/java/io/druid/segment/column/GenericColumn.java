@@ -36,6 +36,7 @@ public interface GenericColumn extends Closeable
   public String getStringSingleValueRow(int rowNum);
   public Indexed<String> getStringMultiValueRow(int rowNum);
   public float getFloatSingleValueRow(int rowNum);
+  public default float[] getFloatBlock(int rowNum, int size) { throw new UnsupportedOperationException(); }
   public IndexedFloats getFloatMultiValueRow(int rowNum);
   public long getLongSingleValueRow(int rowNum);
   public IndexedLongs getLongMultiValueRow(int rowNum);

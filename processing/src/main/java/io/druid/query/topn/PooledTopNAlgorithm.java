@@ -23,6 +23,9 @@ import com.metamx.common.Pair;
 import com.metamx.common.guava.CloseQuietly;
 import io.druid.collections.ResourceHolder;
 import io.druid.collections.StupidPool;
+import io.druid.query.aggregation.Aggregator;
+import io.druid.query.aggregation.BlockAggregator;
+import io.druid.query.aggregation.BlockBufferAggregator;
 import io.druid.query.aggregation.BufferAggregator;
 import io.druid.segment.Capabilities;
 import io.druid.segment.Cursor;
@@ -109,6 +112,7 @@ public class PooledTopNAlgorithm
                            .withNumBytesPerRecord(numBytesPerRecord)
                            .withNumValuesPerPass(numValuesPerPass)
                            .withAggregatorSizes(aggregatorSizes)
+                           .withBlockBased(query.getContextValue("block", false))
                            .build();
   }
 
@@ -191,6 +195,19 @@ public class PooledTopNAlgorithm
     final int[] aggregatorSizes = params.getAggregatorSizes();
     final Cursor cursor = params.getCursor();
     final DimensionSelector dimSelector = params.getDimSelector();
+    final BlockBufferAggregator[] blockAggregators = new BlockBufferAggregator[theAggregators.length];
+
+    boolean blockBased = params.isBlockBased();
+    {
+      int i = 0;
+      for (BufferAggregator aggregator : theAggregators) {
+        if (!(aggregator instanceof BlockBufferAggregator)) {
+          blockBased = false;
+          break;
+        }
+        blockAggregators[i++] = (BlockBufferAggregator) aggregator;
+      }
+    }
 
     final int[] aggregatorOffsets = new int[aggregatorSizes.length];
     for (int j = 0, offset = 0; j < aggregatorSizes.length; ++j) {
@@ -202,13 +219,138 @@ public class PooledTopNAlgorithm
     final int aggExtra = aggSize % AGG_UNROLL_COUNT;
     final AtomicInteger currentPosition = new AtomicInteger(0);
 
+    int avgDimSize = 0;
+    int count = 0;
     while (!cursor.isDone()) {
       final IndexedInts dimValues = dimSelector.getRow();
 
       final int dimSize = dimValues.size();
-      final int dimExtra = dimSize % AGG_UNROLL_COUNT;
-      switch(dimExtra){
-        case 7:
+
+      avgDimSize += dimSize;
+      count++;
+
+      if (blockBased) {
+        final int[] dimPositions = new int[dimSize];
+        for (int i = 0; i < dimSize; ++i) {
+          final int dimIndex = dimValues.get(i);
+          int position = positions[dimIndex];
+          switch (position) {
+            case SKIP_POSITION_VALUE:
+              break;
+            case INIT_POSITION_VALUE:
+              positions[dimIndex] = (dimIndex - numProcessed) * numBytesPerRecord;
+              position = positions[dimIndex];
+              for (int j = 0; j < theAggregators.length; ++j) {
+                theAggregators[j].init(resultsBuf, position);
+                position += aggregatorSizes[j];
+              }
+              position = positions[dimIndex];
+          }
+          dimPositions[i] = position;
+        }
+
+        for (int j = 0; j < theAggregators.length; ++j) {
+          blockAggregators[j].parallelAggregate(resultsBuf, dimPositions);
+          for (int k = 0; k < dimSize; ++k) {
+            dimPositions[k] += aggregatorSizes[j];
+          }
+        }
+      } else {
+        final int dimExtra = dimSize % AGG_UNROLL_COUNT;
+        switch (dimExtra) {
+          case 7:
+            aggregateDimValue(
+                positions,
+                theAggregators,
+                numProcessed,
+                resultsBuf,
+                numBytesPerRecord,
+                aggregatorOffsets,
+                aggSize,
+                aggExtra,
+                dimValues.get(6),
+                currentPosition
+            );
+          case 6:
+            aggregateDimValue(
+                positions,
+                theAggregators,
+                numProcessed,
+                resultsBuf,
+                numBytesPerRecord,
+                aggregatorOffsets,
+                aggSize,
+                aggExtra,
+                dimValues.get(5),
+                currentPosition
+            );
+          case 5:
+            aggregateDimValue(
+                positions,
+                theAggregators,
+                numProcessed,
+                resultsBuf,
+                numBytesPerRecord,
+                aggregatorOffsets,
+                aggSize,
+                aggExtra,
+                dimValues.get(4),
+                currentPosition
+            );
+          case 4:
+            aggregateDimValue(
+                positions,
+                theAggregators,
+                numProcessed,
+                resultsBuf,
+                numBytesPerRecord,
+                aggregatorOffsets,
+                aggSize,
+                aggExtra,
+                dimValues.get(3),
+                currentPosition
+            );
+          case 3:
+            aggregateDimValue(
+                positions,
+                theAggregators,
+                numProcessed,
+                resultsBuf,
+                numBytesPerRecord,
+                aggregatorOffsets,
+                aggSize,
+                aggExtra,
+                dimValues.get(2),
+                currentPosition
+            );
+          case 2:
+            aggregateDimValue(
+                positions,
+                theAggregators,
+                numProcessed,
+                resultsBuf,
+                numBytesPerRecord,
+                aggregatorOffsets,
+                aggSize,
+                aggExtra,
+                dimValues.get(1),
+                currentPosition
+            );
+          case 1:
+            aggregateDimValue(
+                positions,
+                theAggregators,
+                numProcessed,
+                resultsBuf,
+                numBytesPerRecord,
+                aggregatorOffsets,
+                aggSize,
+                aggExtra,
+                dimValues.get(0),
+                currentPosition
+            );
+        }
+        for (int i = dimExtra; i < dimSize; i += AGG_UNROLL_COUNT) {
           aggregateDimValue(
               positions,
               theAggregators,
@@ -218,10 +360,9 @@ public class PooledTopNAlgorithm
               aggregatorOffsets,
               aggSize,
               aggExtra,
-              dimValues.get(6),
+              dimValues.get(i),
               currentPosition
           );
-        case 6:
           aggregateDimValue(
               positions,
               theAggregators,
@@ -231,10 +372,9 @@ public class PooledTopNAlgorithm
               aggregatorOffsets,
               aggSize,
               aggExtra,
-              dimValues.get(5),
+              dimValues.get(i + 1),
               currentPosition
           );
-        case 5:
           aggregateDimValue(
               positions,
               theAggregators,
@@ -244,10 +384,9 @@ public class PooledTopNAlgorithm
               aggregatorOffsets,
               aggSize,
               aggExtra,
-              dimValues.get(4),
+              dimValues.get(i + 2),
               currentPosition
           );
-        case 4:
           aggregateDimValue(
               positions,
               theAggregators,
@@ -257,10 +396,9 @@ public class PooledTopNAlgorithm
               aggregatorOffsets,
               aggSize,
               aggExtra,
-              dimValues.get(3),
+              dimValues.get(i + 3),
               currentPosition
           );
-        case 3:
           aggregateDimValue(
               positions,
               theAggregators,
@@ -270,10 +408,9 @@ public class PooledTopNAlgorithm
               aggregatorOffsets,
               aggSize,
               aggExtra,
-              dimValues.get(2),
+              dimValues.get(i + 4),
               currentPosition
           );
-        case 2:
           aggregateDimValue(
               positions,
               theAggregators,
@@ -283,10 +420,9 @@ public class PooledTopNAlgorithm
               aggregatorOffsets,
               aggSize,
               aggExtra,
-              dimValues.get(1),
+              dimValues.get(i + 5),
               currentPosition
           );
-        case 1:
           aggregateDimValue(
               positions,
               theAggregators,
@@ -296,110 +432,26 @@ public class PooledTopNAlgorithm
               aggregatorOffsets,
               aggSize,
               aggExtra,
-              dimValues.get(0),
+              dimValues.get(i + 6),
               currentPosition
           );
-      }
-      for (int i = dimExtra; i < dimSize; i += AGG_UNROLL_COUNT) {
-        aggregateDimValue(
-            positions,
-            theAggregators,
-            numProcessed,
-            resultsBuf,
-            numBytesPerRecord,
-            aggregatorOffsets,
-            aggSize,
-            aggExtra,
-            dimValues.get(i),
-            currentPosition
-        );
-        aggregateDimValue(
-            positions,
-            theAggregators,
-            numProcessed,
-            resultsBuf,
-            numBytesPerRecord,
-            aggregatorOffsets,
-            aggSize,
-            aggExtra,
-            dimValues.get(i + 1),
-            currentPosition
-        );
-        aggregateDimValue(
-            positions,
-            theAggregators,
-            numProcessed,
-            resultsBuf,
-            numBytesPerRecord,
-            aggregatorOffsets,
-            aggSize,
-            aggExtra,
-            dimValues.get(i + 2),
-            currentPosition
-        );
-        aggregateDimValue(
-            positions,
-            theAggregators,
-            numProcessed,
-            resultsBuf,
-            numBytesPerRecord,
-            aggregatorOffsets,
-            aggSize,
-            aggExtra,
-            dimValues.get(i + 3),
-            currentPosition
-        );
-        aggregateDimValue(
-            positions,
-            theAggregators,
-            numProcessed,
-            resultsBuf,
-            numBytesPerRecord,
-            aggregatorOffsets,
-            aggSize,
-            aggExtra,
-            dimValues.get(i + 4),
-            currentPosition
-        );
-        aggregateDimValue(
-            positions,
-            theAggregators,
-            numProcessed,
-            resultsBuf,
-            numBytesPerRecord,
-            aggregatorOffsets,
-            aggSize,
-            aggExtra,
-            dimValues.get(i + 5),
-            currentPosition
-        );
-        aggregateDimValue(
-            positions,
-            theAggregators,
-            numProcessed,
-            resultsBuf,
-            numBytesPerRecord,
-            aggregatorOffsets,
-            aggSize,
-            aggExtra,
-            dimValues.get(i + 6),
-            currentPosition
-        );
-        aggregateDimValue(
-            positions,
-            theAggregators,
-            numProcessed,
-            resultsBuf,
-            numBytesPerRecord,
-            aggregatorOffsets,
-            aggSize,
-            aggExtra,
-            dimValues.get(i + 7),
-            currentPosition
-        );
+          aggregateDimValue(
+              positions,
+              theAggregators,
+              numProcessed,
+              resultsBuf,
+              numBytesPerRecord,
+              aggregatorOffsets,
+              aggSize,
+              aggExtra,
+              dimValues.get(i + 7),
+              currentPosition
+          );
+        }
       }
       cursor.advance();
     }
+    System.err.printf("Average dimension length: %d\n", avgDimSize / count);
   }
 
   private static void aggregateDimValue(
@@ -513,6 +565,7 @@ public class PooledTopNAlgorithm
     private final int[] aggregatorSizes;
     private final int numBytesPerRecord;
     private final TopNMetricSpecBuilder<int[]> arrayProvider;
+    private final boolean blockBased;
 
     public PooledTopNParams(
         DimensionSelector dimSelector,
@@ -523,7 +576,8 @@ public class PooledTopNAlgorithm
         int[] aggregatorSizes,
         int numBytesPerRecord,
         int numValuesPerPass,
-        TopNMetricSpecBuilder<int[]> arrayProvider
+        TopNMetricSpecBuilder<int[]> arrayProvider,
+        boolean blockBased
     )
     {
       super(dimSelector, cursor, cardinality, numValuesPerPass);
@@ -533,6 +587,7 @@ public class PooledTopNAlgorithm
       this.aggregatorSizes = aggregatorSizes;
       this.numBytesPerRecord = numBytesPerRecord;
       this.arrayProvider = arrayProvider;
+      this.blockBased = blockBased;
     }
 
     public static Builder builder()
@@ -565,6 +620,11 @@ public class PooledTopNAlgorithm
       return arrayProvider;
     }
 
+    public boolean isBlockBased()
+    {
+      return blockBased;
+    }
+
     public static class Builder
     {
       private DimensionSelector dimSelector;
@@ -576,6 +636,7 @@ public class PooledTopNAlgorithm
       private int numBytesPerRecord;
       private int numValuesPerPass;
       private TopNMetricSpecBuilder<int[]> arrayProvider;
+      private boolean blockBased;
 
       public Builder()
       {
@@ -588,6 +649,7 @@ public class PooledTopNAlgorithm
         numBytesPerRecord = 0;
         numValuesPerPass = 0;
         arrayProvider = null;
+        blockBased = false;
       }
 
       public Builder withDimSelector(DimensionSelector dimSelector)
@@ -644,6 +706,12 @@ public class PooledTopNAlgorithm
         return this;
       }
 
+      public Builder withBlockBased(boolean blockBased)
+      {
+        this.blockBased = blockBased;
+        return this;
+      }
+
       public PooledTopNParams build()
       {
         return new PooledTopNParams(
@@ -655,7 +723,8 @@ public class PooledTopNAlgorithm
             aggregatorSizes,
             numBytesPerRecord,
             numValuesPerPass,
-            arrayProvider
+            arrayProvider,
+            blockBased
         );
       }
     }
