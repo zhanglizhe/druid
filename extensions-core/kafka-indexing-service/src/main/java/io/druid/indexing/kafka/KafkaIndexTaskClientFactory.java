@@ -17,50 +17,29 @@
  * under the License.
  */
 
-package io.druid.query.groupby;
+package io.druid.indexing.kafka;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
+import com.metamx.http.client.HttpClient;
+import io.druid.guice.annotations.Global;
+import io.druid.guice.annotations.Json;
+import io.druid.indexing.common.TaskInfoProvider;
 
-/**
- */
-public class GroupByQueryConfig
+public class KafkaIndexTaskClientFactory
 {
-  @JsonProperty
-  private boolean singleThreaded = false;
+  private HttpClient httpClient;
+  private ObjectMapper mapper;
 
-  @JsonProperty
-  private int maxIntermediateRows = 50000;
-
-  @JsonProperty
-  private int maxResults = 500000;
-
-  public boolean isSingleThreaded()
+  @Inject
+  public KafkaIndexTaskClientFactory(@Global HttpClient httpClient, @Json ObjectMapper mapper)
   {
-    return singleThreaded;
+    this.httpClient = httpClient;
+    this.mapper = mapper;
   }
 
-  public void setSingleThreaded(boolean singleThreaded)
+  public KafkaIndexTaskClient build(TaskInfoProvider taskInfoProvider)
   {
-    this.singleThreaded = singleThreaded;
-  }
-
-  public int getMaxIntermediateRows()
-  {
-    return maxIntermediateRows;
-  }
-
-  public void setMaxIntermediateRows(int maxIntermediateRows)
-  {
-    this.maxIntermediateRows = maxIntermediateRows;
-  }
-
-  public int getMaxResults()
-  {
-    return maxResults;
-  }
-
-  public void setMaxResults(int maxResults)
-  {
-    this.maxResults = maxResults;
+    return new KafkaIndexTaskClient(httpClient, mapper, taskInfoProvider);
   }
 }
