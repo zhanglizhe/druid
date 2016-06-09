@@ -1,0 +1,12 @@
+{
+  "type": "cachedNamespace",
+  "extractionNamespace": {
+    "type": "uri",
+    "uri": "file://quickstart/wikiticker-country-code-lookup.json",
+    "namespaceParseSpec": {
+      "format": "simpleJson"
+    },
+    "pollPeriod": "PT10S"
+  },
+  "firstCacheTimeout": 1000
+}

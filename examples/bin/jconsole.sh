@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -eu
 ############################
 # Licensed to Metamarkets Group Inc. (Metamarkets) under one
 # or more contributor license agreements.  See the NOTICE file
