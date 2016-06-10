@@ -23,7 +23,7 @@ import json
 import gzip
 
 # Regenerate the country code lookup with
-# python wikiticker-lookup-generatory.py > wikiticker-country-code-lookup.json
+# python wikiticker-lookup-generatory.py > wikiticker-country-code-lookup-data.json
 if __name__ == "__main__":
     d = dict()
     with gzip.open('wikiticker-2015-09-12-sampled.json.gz', 'rb') as gzf:

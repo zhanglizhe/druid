@@ -2,7 +2,7 @@
   "type": "cachedNamespace",
   "extractionNamespace": {
     "type": "uri",
-    "uri": "file://quickstart/wikiticker-country-code-lookup.json",
+    "uri": "file://quickstart/wikiticker-country-code-lookup-data.json",
     "namespaceParseSpec": {
       "format": "simpleJson"
     },
