@@ -223,6 +223,15 @@ public class LookupCoordinatorManager
         catch (IOException e2) {
           LOG.warn(e2, "Error reading response");
         }
+        final byte[] errMsg = baos.toByteArray();
+        Object errInfo;
+        
+        try {
+          errInfo = smileMapper.readValue(errMsg, MAP_STRING_OBJ_TYPE);
+        } catch (IOException ioe) {
+          LOG.debug(ioe, "Unable to parse response from [%s]. Falling back to UTF-8", url);
+          errInfo = StringUtils.fromUtf8(errMsg);
+        }
 
         throw new IOException(
             String.format(
@@ -230,7 +239,7 @@ public class LookupCoordinatorManager
                 url,
                 returnCode.get(),
                 reasonString.get(),
-                StringUtils.fromUtf8(baos.toByteArray())
+                errInfo
             )
         );
       } else {
