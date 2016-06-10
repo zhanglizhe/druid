@@ -757,6 +757,7 @@ public class QueryGranularityTest
     for(int i = 0; i < 1000; ++i) {
       final ClassLoader loader = new URLClassLoader(urls, null);
       Assert.assertNotNull(Class.forName(className, true, loader));
+      Assert.assertFalse(Thread.interrupted());
     }
   }
 }
