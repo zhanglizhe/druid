@@ -4,8 +4,12 @@ set -eux
 # cleanup 
 for node in druid-historical druid-coordinator druid-overlord druid-router druid-broker druid-middlemanager druid-zookeeper-kafka druid-metadata-storage;
 do
-docker stop $node
-docker rm $node
+  if [ ! -z "$(docker ps | grep druid-historical)" ]; then
+    docker stop $node
+    docker rm $node
+  else
+    echo "Skipping removal. No docker nodes of type $node"
+  fi
 done
 
 # environment variables
