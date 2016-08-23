@@ -176,6 +176,7 @@ public class TaskSerdeTest
         "foo",
         segments,
         aggregators,
+        true,
         indexSpec,
         null
     );
@@ -331,7 +332,7 @@ public class TaskSerdeTest
                 null,
                 null,
                 1,
-                new NoneShardSpec(),
+                NoneShardSpec.instance(),
                 indexSpec,
                 null,
                 0,
@@ -487,7 +488,7 @@ public class TaskSerdeTest
             ImmutableMap.<String, Object>of(),
             ImmutableList.of("dim1", "dim2"),
             ImmutableList.of("metric1", "metric2"),
-            new NoneShardSpec(),
+            NoneShardSpec.instance(),
             0,
             12345L
         ),
@@ -511,13 +512,13 @@ public class TaskSerdeTest
         ImmutableMap.<String, Object>of(),
         ImmutableList.of("dim1", "dim2"),
         ImmutableList.of("metric1", "metric2"),
-        new NoneShardSpec(),
+        NoneShardSpec.instance(),
         0,
         12345L
     );
     final ConvertSegmentTask convertSegmentTaskOriginal = ConvertSegmentTask.create(
         segment,
-        new IndexSpec(new RoaringBitmapSerdeFactory(), "lzf", "uncompressed"),
+        new IndexSpec(new RoaringBitmapSerdeFactory(null), "lzf", "uncompressed"),
         false,
         true,
         null

@@ -61,6 +61,7 @@ import io.druid.query.groupby.GroupByQueryConfig;
 import io.druid.query.groupby.GroupByQueryEngine;
 import io.druid.query.groupby.GroupByQueryQueryToolChest;
 import io.druid.query.groupby.GroupByQueryRunnerFactory;
+import io.druid.query.groupby.GroupByQueryRunnerTest;
 import io.druid.query.groupby.GroupByQueryRunnerTestHelper;
 import io.druid.query.spec.MultipleIntervalSegmentSpec;
 import io.druid.query.spec.MultipleSpecificSegmentSpec;
@@ -605,13 +606,15 @@ public class RealtimeManagerTest
         interval_26_28,
         QueryRunnerTestHelper.makeQueryRunner(
             factory,
-            "druid.sample.tsv.top"
+            "druid.sample.tsv.top",
+            null
         )
         ,
         interval_28_29,
         QueryRunnerTestHelper.makeQueryRunner(
             factory,
-            "druid.sample.tsv.bottom"
+            "druid.sample.tsv.bottom",
+            null
         )
     );
     plumber.setRunners(runnerMap);
@@ -672,31 +675,9 @@ public class RealtimeManagerTest
 
   private static GroupByQueryRunnerFactory initFactory()
   {
-    final ObjectMapper mapper = new DefaultObjectMapper();
-    final StupidPool<ByteBuffer> pool = new StupidPool<>(
-        new Supplier<ByteBuffer>()
-        {
-          @Override
-          public ByteBuffer get()
-          {
-            return ByteBuffer.allocate(1024 * 1024);
-          }
-        }
-    );
     final GroupByQueryConfig config = new GroupByQueryConfig();
     config.setMaxIntermediateRows(10000);
-    final Supplier<GroupByQueryConfig> configSupplier = Suppliers.ofInstance(config);
-    final GroupByQueryEngine engine = new GroupByQueryEngine(configSupplier, pool);
-    return new GroupByQueryRunnerFactory(
-        engine,
-        QueryRunnerTestHelper.NOOP_QUERYWATCHER,
-        configSupplier,
-        new GroupByQueryQueryToolChest(
-            configSupplier, mapper, engine, TestQueryRunners.pool,
-            QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()
-        ),
-        TestQueryRunners.pool
-    );
+    return GroupByQueryRunnerTest.makeQueryRunnerFactory(config);
   }
 
   @After

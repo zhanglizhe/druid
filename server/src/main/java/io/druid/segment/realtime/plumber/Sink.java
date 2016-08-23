@@ -228,13 +228,27 @@ public class Sink implements Iterable<FireHydrant>
     }
   }
 
+  public int getNumRowsInMemory()
+  {
+    synchronized (hydrantLock) {
+      IncrementalIndex index = currHydrant.getIndex();
+      if (index == null) {
+        return 0;
+      }
+
+      return currHydrant.getIndex().size();
+    }
+  }
+
   private FireHydrant makeNewCurrIndex(long minTimestamp, DataSchema schema)
   {
     final IncrementalIndexSchema indexSchema = new IncrementalIndexSchema.Builder()
         .withMinTimestamp(minTimestamp)
+        .withTimestampSpec(schema.getParser())
         .withQueryGranularity(schema.getGranularitySpec().getQueryGranularity())
         .withDimensionsSpec(schema.getParser())
         .withMetrics(schema.getAggregators())
+        .withRollup(schema.getGranularitySpec().isRollup())
         .build();
     final IncrementalIndex newIndex = new OnheapIncrementalIndex(indexSchema, reportParseExceptions, maxRowsInMemory);
 

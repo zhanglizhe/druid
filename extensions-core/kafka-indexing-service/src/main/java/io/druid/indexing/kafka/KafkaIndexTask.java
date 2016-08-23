@@ -241,7 +241,7 @@ public class KafkaIndexTask extends AbstractTask implements ChatHandler
 
     if (chatHandlerProvider.isPresent()) {
       log.info("Found chat handler of class[%s]", chatHandlerProvider.get().getClass().getName());
-      chatHandlerProvider.get().register(getId(), this);
+      chatHandlerProvider.get().register(getId(), this, false);
     } else {
       log.warn("No chat handler detected");
     }
@@ -533,6 +533,11 @@ public class KafkaIndexTask extends AbstractTask implements ChatHandler
 
       log.info("The task was asked to stop before completing");
     }
+    finally {
+      if (chatHandlerProvider.isPresent()) {
+        chatHandlerProvider.get().unregister(getId());
+      }
+    }
 
     return success();
   }
@@ -753,9 +758,12 @@ public class KafkaIndexTask extends AbstractTask implements ChatHandler
 
   private Appenderator newAppenderator(FireDepartmentMetrics metrics, TaskToolbox toolbox)
   {
+    final int maxRowsInMemoryPerPartition = (tuningConfig.getMaxRowsInMemory() /
+                                             ioConfig.getStartPartitions().getPartitionOffsetMap().size());
     return Appenderators.createRealtime(
         dataSchema,
-        tuningConfig.withBasePersistDirectory(new File(toolbox.getTaskWorkDir(), "persist")),
+        tuningConfig.withBasePersistDirectory(new File(toolbox.getTaskWorkDir(), "persist"))
+                    .withMaxRowsInMemory(maxRowsInMemoryPerPartition),
         metrics,
         toolbox.getSegmentPusher(),
         toolbox.getObjectMapper(),

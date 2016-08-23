@@ -37,6 +37,7 @@ import com.metamx.common.guava.nary.BinaryFn;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.common.guava.CombiningSequence;
 import io.druid.common.utils.JodaUtils;
+import io.druid.data.input.impl.TimestampSpec;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.CacheStrategy;
 import io.druid.query.DruidMetrics;
@@ -295,8 +296,10 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
       // Merge each aggregator individually, ignoring nulls
       for (SegmentAnalysis analysis : ImmutableList.of(arg1, arg2)) {
         if (analysis.getAggregators() != null) {
-          for (AggregatorFactory aggregator : analysis.getAggregators().values()) {
-            AggregatorFactory merged = aggregators.get(aggregator.getName());
+          for (Map.Entry<String, AggregatorFactory> entry : analysis.getAggregators().entrySet()) {
+            final String aggregatorName = entry.getKey();
+            final AggregatorFactory aggregator = entry.getValue();
+            AggregatorFactory merged = aggregators.get(aggregatorName);
             if (merged != null) {
               try {
                 merged = merged.getMergingFactory(aggregator);
@@ -307,7 +310,7 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
             } else {
               merged = aggregator;
             }
-            aggregators.put(aggregator.getName(), merged);
+            aggregators.put(aggregatorName, merged);
           }
         }
       }
@@ -330,6 +333,13 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
       }
     }
 
+    final TimestampSpec timestampSpec = TimestampSpec.mergeTimestampSpec(
+        Lists.newArrayList(
+            arg1.getTimestampSpec(),
+            arg2.getTimestampSpec()
+        )
+    );
+
     final QueryGranularity queryGranularity = QueryGranularity.mergeQueryGranularities(
         Lists.newArrayList(
             arg1.getQueryGranularity(),
@@ -345,6 +355,14 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
       mergedId = "merged";
     }
 
+    final Boolean rollup;
+
+    if (arg1.isRollup() != null && arg2.isRollup() != null && arg1.isRollup().equals(arg2.isRollup())) {
+      rollup = arg1.isRollup();
+    } else {
+      rollup = null;
+    }
+
     return new SegmentAnalysis(
         mergedId,
         newIntervals,
@@ -352,7 +370,9 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
         arg1.getSize() + arg2.getSize(),
         arg1.getNumRows() + arg2.getNumRows(),
         aggregators.isEmpty() ? null : aggregators,
-        queryGranularity
+        timestampSpec,
+        queryGranularity,
+        rollup
     );
   }
 
@@ -366,7 +386,9 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
         analysis.getSize(),
         analysis.getNumRows(),
         analysis.getAggregators(),
-        analysis.getQueryGranularity()
+        analysis.getTimestampSpec(),
+        analysis.getQueryGranularity(),
+        analysis.isRollup()
     );
   }
 }

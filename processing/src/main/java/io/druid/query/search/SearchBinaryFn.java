@@ -25,8 +25,8 @@ import com.metamx.common.guava.nary.BinaryFn;
 import io.druid.granularity.AllGranularity;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.Result;
-import io.druid.query.search.search.SearchHit;
 import io.druid.query.search.search.SearchSortSpec;
+import io.druid.query.search.search.SearchHit;
 import org.joda.time.DateTime;
 
 import java.util.Arrays;
@@ -86,11 +86,16 @@ public class SearchBinaryFn
         continue;
       }
       if (prev.equals(searchHit)) {
-        if (prev.getCount() != null) {
+        if (prev.getCount() != null && searchHit.getCount() != null) {
           prev = new SearchHit(
               prev.getDimension(),
               prev.getValue(),
               prev.getCount() + searchHit.getCount()
+          );
+        } else {
+          prev = new SearchHit(
+                  prev.getDimension(),
+                  prev.getValue()
           );
         }
       } else {

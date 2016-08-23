@@ -47,8 +47,6 @@ import kafka.serializer.Decoder;
 
 import javax.annotation.Nullable;
 import javax.validation.constraints.Min;
-import javax.ws.rs.GET;
-import javax.ws.rs.core.Response;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -323,11 +321,7 @@ public class KafkaLookupExtractorFactory implements LookupExtractorFactory
       return false;
     }
 
-    if (other == null) {
-      return false;
-    }
-
-    if (getClass() != other.getClass()) {
+    if (other == null || getClass() != other.getClass()) {
       return true;
     }
 
@@ -344,7 +338,7 @@ public class KafkaLookupExtractorFactory implements LookupExtractorFactory
   @Override
   public LookupIntrospectHandler getIntrospectHandler()
   {
-    return new KafkaLookupExtractorIntrospectionHandler();
+    return new KafkaLookupExtractorIntrospectionHandler(this);
   }
 
   @Override
@@ -405,20 +399,5 @@ public class KafkaLookupExtractorFactory implements LookupExtractorFactory
   ListenableFuture<?> getFuture()
   {
     return future;
-  }
-
-
-  class KafkaLookupExtractorIntrospectionHandler implements LookupIntrospectHandler
-  {
-    @GET
-    public Response getActive()
-    {
-      final ListenableFuture<?> future = getFuture();
-      if (future != null && !future.isDone()) {
-        return Response.ok().build();
-      } else {
-        return Response.status(Response.Status.GONE).build();
-      }
-    }
   }
 }

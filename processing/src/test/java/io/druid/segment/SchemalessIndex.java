@@ -197,6 +197,7 @@ public class SchemalessIndex
         mergedIndex = INDEX_IO.loadIndex(
             INDEX_MERGER.mergeQueryableIndex(
                 Arrays.asList(INDEX_IO.loadIndex(topFile), INDEX_IO.loadIndex(bottomFile)),
+                true,
                 METRIC_AGGS,
                 mergedFile,
                 indexSpec
@@ -242,6 +243,7 @@ public class SchemalessIndex
         QueryableIndex index = INDEX_IO.loadIndex(
             INDEX_MERGER.mergeQueryableIndex(
                 Arrays.asList(rowPersistedIndexes.get(index1), rowPersistedIndexes.get(index2)),
+                true,
                 METRIC_AGGS,
                 mergedFile,
                 indexSpec
@@ -280,7 +282,7 @@ public class SchemalessIndex
         }
 
         QueryableIndex index = INDEX_IO.loadIndex(
-            INDEX_MERGER.mergeQueryableIndex(indexesToMerge, METRIC_AGGS, mergedFile, indexSpec)
+            INDEX_MERGER.mergeQueryableIndex(indexesToMerge, true, METRIC_AGGS, mergedFile, indexSpec)
         );
 
         return index;
@@ -445,7 +447,7 @@ public class SchemalessIndex
           Ordering.natural().nullsFirst()
       );
 
-      ShardSpec noneShardSpec = new NoneShardSpec();
+      ShardSpec noneShardSpec = NoneShardSpec.instance();
 
       for (int i = 0; i < intervals.size(); i++) {
         timeline.add(intervals.get(i), i, noneShardSpec.createChunk(filesToMap.get(i)));
@@ -533,6 +535,7 @@ public class SchemalessIndex
                       }
                   )
               ),
+              true,
               METRIC_AGGS,
               mergedFile,
               indexSpec

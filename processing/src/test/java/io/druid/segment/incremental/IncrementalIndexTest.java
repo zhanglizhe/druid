@@ -87,12 +87,13 @@ public class IncrementalIndexTest
             new SelectorDimFilter("billy", "A", null)
         )
     };
-    final IncrementalIndexSchema schema = new IncrementalIndexSchema(
-        0,
-        QueryGranularities.MINUTE,
-        dimensions,
-        metrics
-    );
+    final IncrementalIndexSchema schema = new IncrementalIndexSchema.Builder()
+        .withMinTimestamp(0)
+        .withQueryGranularity(QueryGranularities.MINUTE)
+        .withDimensionsSpec(dimensions)
+        .withMetrics(metrics)
+        .withRollup(true)
+        .build();
 
     final List<Object[]> constructors = Lists.newArrayList();
     for (final Boolean sortFacts : ImmutableList.of(false, true)) {
@@ -214,9 +215,9 @@ public class IncrementalIndexTest
 
     Row row = index.iterator().next();
 
-    Assert.assertArrayEquals(new String[]{"", "", "A"}, (Object[]) row.getRaw("string"));
-    Assert.assertArrayEquals(new Float[]{null, null, Float.MAX_VALUE}, (Object[]) row.getRaw("float"));
-    Assert.assertArrayEquals(new Long[]{null, null, Long.MIN_VALUE}, (Object[]) row.getRaw("long"));
+    Assert.assertEquals(Arrays.asList(new String[]{"", "", "A"}), row.getRaw("string"));
+    Assert.assertEquals(Arrays.asList(new Float[]{null, null, Float.MAX_VALUE}), row.getRaw("float"));
+    Assert.assertEquals(Arrays.asList(new Long[]{null, null, Long.MIN_VALUE}), row.getRaw("long"));
   }
 
   @Test

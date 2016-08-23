@@ -20,10 +20,8 @@
 package io.druid.segment.filter;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.metamx.common.Pair;
 import io.druid.data.input.InputRow;
@@ -36,15 +34,14 @@ import io.druid.js.JavaScriptConfig;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.extraction.JavaScriptExtractionFn;
 import io.druid.query.extraction.MapLookupExtractor;
-import io.druid.query.filter.BoundDimFilter;
 import io.druid.query.filter.DimFilter;
-import io.druid.query.filter.Filter;
 import io.druid.query.filter.InDimFilter;
 import io.druid.query.lookup.LookupExtractionFn;
 import io.druid.query.lookup.LookupExtractor;
 import io.druid.segment.IndexBuilder;
 import io.druid.segment.StorageAdapter;
 import org.joda.time.DateTime;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -53,7 +50,6 @@ import org.junit.runners.Parameterized;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -79,12 +75,6 @@ public class InFilterTest extends BaseFilterTest
       PARSER.parse(ImmutableMap.<String, Object>of("dim0", "f", "dim1", "abc"))
   );
 
-  @Parameterized.Parameters(name = "{0}")
-  public static Collection<Object[]> constructorFeeder() throws IOException
-  {
-    return makeConstructors();
-  }
-
   public InFilterTest(
       String testName,
       IndexBuilder indexBuilder,
@@ -92,17 +82,13 @@ public class InFilterTest extends BaseFilterTest
       boolean optimize
   )
   {
-    super(ROWS, indexBuilder, finisher, optimize);
+    super(testName, ROWS, indexBuilder, finisher, optimize);
   }
 
-  @Before
-  public void setUp() throws IOException
+  @AfterClass
+  public static void tearDown() throws Exception
   {
-    final Pair<StorageAdapter, Closeable> pair = finisher.apply(
-        indexBuilder.tmpDir(temporaryFolder.newFolder()).add(ROWS)
-    );
-    this.adapter = pair.lhs;
-    this.closeable = pair.rhs;
+    BaseFilterTest.tearDown(InFilterTest.class.getName());
   }
 
   @Test
