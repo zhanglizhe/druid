@@ -25,14 +25,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CountingOutputStream;
-import com.google.common.io.InputSupplier;
 import com.google.common.primitives.Ints;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
@@ -136,26 +134,35 @@ public class GenericIndexedWriter<T> implements Closeable
 
   public ByteSource combineStreams()
   {
-    return ByteSource.concat(
-        Iterables.transform(
-            Arrays.asList("meta", "header", "values"),
-            new Function<String,ByteSource>() {
-
-              @Override
-              public ByteSource apply(final String input)
-              {
-                return new ByteSource()
+    // ByteSource.concat is only available in guava 15 and higher
+    return new ByteSource()
+    {
+      @Override
+      public InputStream openStream() throws IOException
+      {
+        // When we no longer have to maintain compat with Guava 14, this can be upgraded
+        return ByteStreams.join(
+            Iterables.transform(
+                Arrays.asList("meta", "header", "values"),
+                new Function<String, ByteSource>()
                 {
                   @Override
-                  public InputStream openStream() throws IOException
+                  public ByteSource apply(final String input)
                   {
-                    return ioPeon.makeInputStream(makeFilename(input));
+                    return new ByteSource()
+                    {
+                      @Override
+                      public InputStream openStream() throws IOException
+                      {
+                        return ioPeon.makeInputStream(makeFilename(input));
+                      }
+                    };
                   }
-                };
-              }
-            }
-        )
-    );
+                }
+            )
+        ).getInput();
+      }
+    };
   }
 
   public void writeToChannel(WritableByteChannel channel) throws IOException
