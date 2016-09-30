@@ -319,17 +319,6 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     return columnObj.getCapabilities();
   }
 
-  private interface CursorAdvancer
-  {
-    public void advance();
-
-    public void advanceTo(int offset);
-
-    public boolean isDone();
-
-    public void reset();
-  }
-
   private static class CursorSequenceBuilder
   {
     private final ColumnSelector index;
