@@ -23,6 +23,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.metamx.common.guava.Sequences;
+import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.collections.StupidPool;
 import io.druid.data.input.MapBasedInputRow;
 import io.druid.granularity.QueryGranularities;
@@ -53,7 +54,7 @@ public class DistinctCountTopNQueryTest
   public void testTopNWithDistinctCountAgg() throws Exception
   {
     TopNQueryEngine engine = new TopNQueryEngine(
-        new StupidPool<ByteBuffer>(
+        new StupidPool<>(
             new Supplier<ByteBuffer>()
             {
               @Override
@@ -111,7 +112,8 @@ public class DistinctCountTopNQueryTest
     final Iterable<Result<TopNResultValue>> results = Sequences.toList(
         engine.query(
             query,
-            new IncrementalIndexStorageAdapter(index)
+            new IncrementalIndexStorageAdapter(index),
+            null
         ),
         Lists.<Result<TopNResultValue>>newLinkedList()
     );

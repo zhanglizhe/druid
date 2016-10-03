@@ -29,11 +29,11 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.metamx.collections.bitmap.ImmutableBitmap;
-import com.metamx.common.IAE;
-import com.metamx.common.UOE;
 import com.metamx.common.guava.CloseQuietly;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
+import com.metamx.common.logger.Logger;
+import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.QueryInterruptedException;
 import io.druid.query.dimension.DefaultDimensionSpec;
@@ -63,6 +63,7 @@ import org.joda.time.DateTime;
 import org.joda.time.Interval;
 import org.roaringbitmap.IntIterator;
 
+import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -70,10 +71,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static io.druid.query.QueryMetrics.BITMAP_FILTERED_ROWS;
+import static io.druid.query.QueryMetrics.POST_FILTERS;
+import static io.druid.query.QueryMetrics.TOTAL_ROWS;
+import static io.druid.query.QueryMetrics.roundMetric;
+import static io.druid.query.QueryMetrics.setDimension;
+
 /**
  */
 public class QueryableIndexStorageAdapter implements StorageAdapter
 {
+  private static final Logger log = new Logger(QueryableIndexStorageAdapter.class);
   private static final NullDimensionSelector NULL_DIMENSION_SELECTOR = new NullDimensionSelector();
 
   private final QueryableIndex index;
@@ -214,7 +222,13 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   }
 
   @Override
-  public Sequence<Cursor> makeCursors(Filter filter, Interval interval, QueryGranularity gran, boolean descending)
+  public Sequence<Cursor> makeCursors(
+      Filter filter,
+      Interval interval,
+      QueryGranularity gran,
+      boolean descending,
+      @Nullable ServiceMetricEvent.Builder metricBuilder
+  )
   {
     Interval actualInterval = interval;
 
@@ -241,6 +255,13 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
         index
     );
 
+    int totalRows = index.getNumRows();
+    String roundedTotalRows = null;
+    if (metricBuilder != null) {
+      roundedTotalRows = String.valueOf(roundMetric(totalRows, 2));
+      setDimension(metricBuilder, TOTAL_ROWS, roundedTotalRows);
+    }
+
 
     /**
      * Filters can be applied in two stages:
@@ -259,7 +280,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     final Offset offset;
     final List<Filter> postFilters = new ArrayList<>();
     if (filter == null) {
-      offset = new NoFilterOffset(0, index.getNumRows(), descending);
+      offset = new NoFilterOffset(0, totalRows, descending);
     } else {
       final List<Filter> preFilters = new ArrayList<>();
 
@@ -282,20 +303,30 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       }
 
       if (preFilters.size() == 0) {
-        offset = new NoFilterOffset(0, index.getNumRows(), descending);
+        offset = new NoFilterOffset(0, totalRows, descending);
+        // No bitmap filter => number of "filtered" rows is the same as the total
+        setDimension(metricBuilder, BITMAP_FILTERED_ROWS, roundedTotalRows);
       } else {
         List<ImmutableBitmap> bitmaps = Lists.newArrayList();
         for (Filter prefilter : preFilters) {
           bitmaps.add(prefilter.getBitmapIndex(selector));
         }
+        ImmutableBitmap intersectionBitmap = selector.getBitmapFactory().intersection(bitmaps);
+        if (metricBuilder != null) {
+          // It is chosen to compute bitmap size here (that usually requires a separate scan of a bitmap) rather than
+          // accumulate it during the rows processing, because it is simpler and incurs zero runtime cost
+          // if metricBuilder is null.
+          metricBuilder.setDimension(BITMAP_FILTERED_ROWS, String.valueOf(roundMetric(intersectionBitmap.size(), 2)));
+        }
         offset = new BitmapOffset(
             selector.getBitmapFactory(),
-            selector.getBitmapFactory().intersection(bitmaps),
+            intersectionBitmap,
             descending
         );
       }
     }
 
+    setDimension(metricBuilder, POST_FILTERS, postFilters.size());
     final Filter postFilter;
     if (postFilters.size() == 0) {
       postFilter = null;
@@ -303,6 +334,9 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       postFilter = postFilters.get(0);
     } else {
       postFilter = new AndFilter(postFilters);
+    }
+    if (metricBuilder != null) { // indicates that we are interested in debug output during this call of makeCursors()
+      log.debug("TopN filter: %s", postFilter);
     }
 
     return Sequences.filter(

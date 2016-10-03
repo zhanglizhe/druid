@@ -26,6 +26,8 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
+import com.metamx.common.logger.Logger;
+import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.QueryInterruptedException;
 import io.druid.query.dimension.DefaultDimensionSpec;
@@ -67,6 +69,7 @@ import java.util.Map;
  */
 public class IncrementalIndexStorageAdapter implements StorageAdapter
 {
+  private static final Logger log = new Logger(IncrementalIndexStorageAdapter.class);
   private static final NullDimensionSelector NULL_DIMENSION_SELECTOR = new NullDimensionSelector();
 
   private final IncrementalIndex index;
@@ -196,7 +199,8 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
       final Filter filter,
       final Interval interval,
       final QueryGranularity gran,
-      final boolean descending
+      final boolean descending,
+      @Nullable ServiceMetricEvent.Builder metricBuilder
   )
   {
     if (index.isEmpty()) {
@@ -212,6 +216,10 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
 
     if (!actualIntervalTmp.overlaps(dataInterval)) {
       return Sequences.empty();
+    }
+
+    if (metricBuilder != null) { // indicates that we are interested in debug output during this call of makeCursors()
+      log.debug("TopN filter: %s", filter);
     }
 
     if (actualIntervalTmp.getStart().isBefore(dataInterval.getStart())) {

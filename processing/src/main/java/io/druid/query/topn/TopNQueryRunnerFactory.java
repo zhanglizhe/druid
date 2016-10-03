@@ -22,6 +22,7 @@ package io.druid.query.topn;
 import com.google.inject.Inject;
 import com.metamx.common.ISE;
 import com.metamx.common.guava.Sequence;
+import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.collections.StupidPool;
 import io.druid.guice.annotations.Global;
 import io.druid.query.ChainedExecutionQueryRunner;
@@ -72,8 +73,9 @@ public class TopNQueryRunnerFactory implements QueryRunnerFactory<Result<TopNRes
         if (!(input instanceof TopNQuery)) {
           throw new ISE("Got a [%s] which isn't a %s", input.getClass(), TopNQuery.class);
         }
-
-        return queryEngine.query((TopNQuery) input, segment.asStorageAdapter());
+        // This metricBuilder is put into the responseContext in MetricsEmittingQueryRunner.run() method.
+        ServiceMetricEvent.Builder metricBuilder = (ServiceMetricEvent.Builder) responseContext.get("metricBuilder");
+        return queryEngine.query((TopNQuery) input, segment.asStorageAdapter(), metricBuilder);
       }
     };
 

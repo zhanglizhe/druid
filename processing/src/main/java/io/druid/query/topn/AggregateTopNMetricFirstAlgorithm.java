@@ -66,9 +66,7 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
   }
 
   @Override
-  public void run(
-      TopNParams params, TopNResultBuilder resultBuilder, int[] ints
-  )
+  public long run(TopNParams params, TopNResultBuilder resultBuilder, int[] ints)
   {
     final String metric = query.getTopNMetricSpec().getMetricName(query.getDimensionSpec());
     Pair<List<AggregatorFactory>, List<PostAggregator>> condensedAggPostAggPair = AggregatorUtil.condensedAggregators(
@@ -110,7 +108,7 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
     try {
       // Run topN for all metrics for top N dimension values
       allMetricsParam = allMetricAlgo.makeInitParams(params.getDimSelector(), params.getCursor());
-      allMetricAlgo.run(
+      return allMetricAlgo.run(
           allMetricsParam,
           resultBuilder,
           dimValSelector
