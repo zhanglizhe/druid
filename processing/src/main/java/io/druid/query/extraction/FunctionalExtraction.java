@@ -121,4 +121,15 @@ public abstract class FunctionalExtraction extends DimExtractionFn
   {
     return extractionType;
   }
+
+  @Override
+  public String toString()
+  {
+    return "FunctionalExtraction{" +
+           "retainMissingValue=" + retainMissingValue +
+           ", replaceMissingValueWith='" + replaceMissingValueWith + '\'' +
+           ", extractionFunction=" + extractionFunction +
+           ", extractionType=" + extractionType +
+           '}';
+  }
 }

@@ -468,8 +468,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                       if (column == null) {
                         return NULL_DIMENSION_SELECTOR;
                       } else if (columnDesc.getCapabilities().hasMultipleValues()) {
-                        return new DimensionSelector()
-                        {
+                        class MultiValueDimensionSelector implements DimensionSelector {
                           @Override
                           public IndexedInts getRow()
                           {
@@ -501,9 +500,10 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                             }
                             return column.lookupId(name);
                           }
-                        };
+                        }
+                        return new MultiValueDimensionSelector();
                       } else {
-                        return new DimensionSelector()
+                        class SingleValueDimensionSelector implements DimensionSelector
                         {
                           @Override
                           public IndexedInts getRow()
@@ -566,7 +566,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                             }
                             return column.lookupId(name);
                           }
-                        };
+                        }
+                        return new SingleValueDimensionSelector();
                       }
                     }
 
@@ -622,14 +623,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                       }
 
                       if (cachedMetricVals == null) {
-                        return new LongColumnSelector()
-                        {
-                          @Override
-                          public long get()
-                          {
-                            return 0L;
-                          }
-                        };
+                        return LongZeroSelector.singleton();
                       }
 
                       final GenericColumn metricVals = cachedMetricVals;

@@ -612,14 +612,16 @@ public class RowBasedGrouperHelper
     public LongColumnSelector makeLongColumnSelector(final String columnName)
     {
       if (columnName.equals(Column.TIME_COLUMN_NAME)) {
-        return new LongColumnSelector()
+        // Local class has a name => more readable toString()
+        class TimeColumnSelector implements LongColumnSelector
         {
           @Override
           public long get()
           {
             return row.get().getTimestampFromEpoch();
           }
-        };
+        }
+        return new TimeColumnSelector();
       }
       return new LongColumnSelector()
       {
