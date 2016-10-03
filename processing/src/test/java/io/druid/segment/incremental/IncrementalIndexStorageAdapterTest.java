@@ -264,7 +264,8 @@ public class IncrementalIndexStorageAdapterTest
           new SelectorFilter("sally", "bo"),
           interval,
           QueryGranularities.NONE,
-          descending
+          descending,
+          null
       );
 
       Cursor cursor = Sequences.toList(Sequences.limit(cursorSequence, 1), Lists.<Cursor>newArrayList()).get(0);
@@ -303,7 +304,7 @@ public class IncrementalIndexStorageAdapterTest
     );
 
     TopNQueryEngine engine = new TopNQueryEngine(
-        new StupidPool<ByteBuffer>(
+        new StupidPool<>(
             new Supplier<ByteBuffer>()
             {
               @Override
@@ -332,7 +333,8 @@ public class IncrementalIndexStorageAdapterTest
                                       )
                                   )
                                   .build(),
-            new IncrementalIndexStorageAdapter(index)
+            new IncrementalIndexStorageAdapter(index),
+            null
         ),
         Lists.<Result<TopNResultValue>>newLinkedList()
     );
@@ -402,7 +404,7 @@ public class IncrementalIndexStorageAdapterTest
     final StorageAdapter sa = new IncrementalIndexStorageAdapter(index);
 
     Sequence<Cursor> cursors = sa.makeCursors(
-        null, new Interval(timestamp - 60_000, timestamp + 60_000), QueryGranularities.ALL, false
+        null, new Interval(timestamp - 60_000, timestamp + 60_000), QueryGranularities.ALL, false, null
     );
 
     Sequences.toList(

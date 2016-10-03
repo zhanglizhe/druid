@@ -86,7 +86,7 @@ public class DimExtractionTopNAlgorithm extends BaseTopNAlgorithm<Aggregator[][]
   }
 
   @Override
-  public void scanAndAggregate(
+  public long scanAndAggregate(
       TopNParams params,
       Aggregator[][] rowSelector,
       Map<String, Aggregator[]> aggregatesStore,
@@ -96,6 +96,7 @@ public class DimExtractionTopNAlgorithm extends BaseTopNAlgorithm<Aggregator[][]
     final Cursor cursor = params.getCursor();
     final DimensionSelector dimSelector = params.getDimSelector();
 
+    long rowsScanned = 0;
     while (!cursor.isDone()) {
       final IndexedInts dimValues = dimSelector.getRow();
 
@@ -117,9 +118,10 @@ public class DimExtractionTopNAlgorithm extends BaseTopNAlgorithm<Aggregator[][]
           aggregator.aggregate();
         }
       }
-
+      rowsScanned++;
       cursor.advance();
     }
+    return rowsScanned;
   }
 
   @Override

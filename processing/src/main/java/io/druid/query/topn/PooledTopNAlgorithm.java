@@ -182,7 +182,7 @@ public class PooledTopNAlgorithm
    * (they simply take longer to start with).
    */
   @Override
-  protected void scanAndAggregate(
+  protected long scanAndAggregate(
       final PooledTopNParams params,
       final int[] positions,
       final BufferAggregator[] theAggregators,
@@ -205,6 +205,7 @@ public class PooledTopNAlgorithm
     final int aggExtra = aggSize % AGG_UNROLL_COUNT;
     final AtomicInteger currentPosition = new AtomicInteger(0);
 
+    long rowsScanned = 0;
     while (!cursor.isDone()) {
       final IndexedInts dimValues = dimSelector.getRow();
 
@@ -401,8 +402,10 @@ public class PooledTopNAlgorithm
             currentPosition
         );
       }
+      rowsScanned++;
       cursor.advance();
     }
+    return rowsScanned;
   }
 
   private static void aggregateDimValue(

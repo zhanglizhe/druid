@@ -20,6 +20,7 @@
 package io.druid.segment;
 
 import com.metamx.common.guava.Sequence;
+import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.filter.Filter;
 import org.joda.time.Interval;
@@ -28,5 +29,11 @@ import org.joda.time.Interval;
  */
 public interface CursorFactory
 {
-  public Sequence<Cursor> makeCursors(Filter filter, Interval interval, QueryGranularity gran, boolean descending);
+  public Sequence<Cursor> makeCursors(
+      Filter filter,
+      Interval interval,
+      QueryGranularity gran,
+      boolean descending,
+      ServiceMetricEvent.Builder metricBuilder
+  );
 }
