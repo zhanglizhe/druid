@@ -148,4 +148,13 @@ public class SingleScanTimeDimSelector implements DimensionSelector
   {
     throw new UnsupportedOperationException("time column does not support lookups");
   }
+
+  @Override
+  public String toString()
+  {
+    return "SingleScanTimeDimSelector{" +
+           "extractionFn=" + extractionFn +
+           ", selector=" + selector +
+           '}';
+  }
 }

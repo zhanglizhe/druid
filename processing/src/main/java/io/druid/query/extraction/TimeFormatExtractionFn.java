@@ -161,4 +161,15 @@ public class TimeFormatExtractionFn implements ExtractionFn
     result = 31 * result + granularity.hashCode();
     return result;
   }
+
+  @Override
+  public String toString()
+  {
+    return "TimeFormatExtractionFn{" +
+           "tz=" + tz +
+           ", format='" + format + '\'' +
+           ", locale=" + locale +
+           ", granularity=" + granularity +
+           '}';
+  }
 }
