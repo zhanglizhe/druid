@@ -162,4 +162,13 @@ public class LookupExtractionFn extends FunctionalExtraction
     result = 31 * result + (isInjective() ? 1 : 0);
     return result;
   }
+
+  @Override
+  public String toString()
+  {
+    return "LookupExtractionFn{" +
+           "lookup=" + lookup +
+           ", optimize=" + optimize +
+           '}';
+  }
 }

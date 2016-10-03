@@ -83,40 +83,65 @@ public abstract class BaseFilteredDimensionSpec implements DimensionSpec
       return selector;
     }
 
-    return new DimensionSelector()
+    return new ForwardingDimensionSelector(selector, forwardMapping, reverseMapping);
+  }
+
+  private static class ForwardingDimensionSelector implements DimensionSelector
+  {
+    private final DimensionSelector selector;
+    private final Map<Integer, Integer> forwardMapping;
+    private final int[] reverseMapping;
+
+    public ForwardingDimensionSelector(
+        DimensionSelector selector,
+        Map<Integer, Integer> forwardMapping,
+        int[] reverseMapping
+    )
     {
-      @Override
-      public IndexedInts getRow()
-      {
-        IndexedInts baseRow = selector.getRow();
-        List<Integer> result = new ArrayList<>(baseRow.size());
+      this.selector = selector;
+      this.forwardMapping = forwardMapping;
+      this.reverseMapping = reverseMapping;
+    }
 
-        for (int i : baseRow) {
-          if (forwardMapping.containsKey(i)) {
-            result.add(forwardMapping.get(i));
-          }
+    @Override
+    public IndexedInts getRow()
+    {
+      IndexedInts baseRow = selector.getRow();
+      List<Integer> result = new ArrayList<>(baseRow.size());
+
+      for (int i : baseRow) {
+        if (forwardMapping.containsKey(i)) {
+          result.add(forwardMapping.get(i));
         }
-
-        return new ListBasedIndexedInts(result);
       }
 
-      @Override
-      public int getValueCardinality()
-      {
-        return forwardMapping.size();
-      }
+      return new ListBasedIndexedInts(result);
+    }
 
-      @Override
-      public String lookupName(int id)
-      {
-        return selector.lookupName(reverseMapping[id]);
-      }
+    @Override
+    public int getValueCardinality()
+    {
+      return forwardMapping.size();
+    }
 
-      @Override
-      public int lookupId(String name)
-      {
-        return forwardMapping.get(selector.lookupId(name));
-      }
-    };
+    @Override
+    public String lookupName(int id)
+    {
+      return selector.lookupName(reverseMapping[id]);
+    }
+
+    @Override
+    public int lookupId(String name)
+    {
+      return forwardMapping.get(selector.lookupId(name));
+    }
+
+    @Override
+    public String toString()
+    {
+      return "ForwardingDimensionSelector{" +
+             "selector=" + selector +
+             '}';
+    }
   }
 }
