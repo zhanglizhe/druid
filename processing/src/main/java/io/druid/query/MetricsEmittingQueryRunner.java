@@ -20,14 +20,13 @@
 package io.druid.query;
 
 import com.google.common.base.Function;
-import com.google.common.base.Strings;
-import com.google.common.collect.Maps;
 import com.metamx.common.guava.Accumulator;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Yielder;
 import com.metamx.common.guava.YieldingAccumulator;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceMetricEvent;
+import io.druid.query.topn.TopNQuery;
 
 import java.io.IOException;
 import java.util.Map;
@@ -101,6 +100,14 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
 
         long startTime = System.currentTimeMillis();
         try {
+          if (query instanceof TopNQuery) {
+            // Response context seems to be the easiest way to transmit metricBuilder between queryRunner and
+            // queryEngine, because it doesn't require to change interfaces throughout the codebase. If more queries
+            // become interested in metricBuilder, it should probably be added to queryRunner.run() parameters.
+            //
+            // This metricBuilder is extracted from the responseContext in TopNQueryRunnerFactory.createRunner() method.
+            responseContext.put("metricBuilder", builder);
+          }
           retVal = queryRunner.run(query, responseContext).accumulate(outType, accumulator);
         }
         catch (RuntimeException e) {

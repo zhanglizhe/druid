@@ -197,7 +197,7 @@ public class SearchQueryRunner implements QueryRunner<Result<SearchResultValue>>
       dimsToSearch = dimensions;
     }
 
-    final Sequence<Cursor> cursors = adapter.makeCursors(filter, interval, query.getGranularity(), descending);
+    final Sequence<Cursor> cursors = adapter.makeCursors(filter, interval, query.getGranularity(), descending, null);
 
     final TreeMap<SearchHit, MutableInt> retVal = cursors.accumulate(
         Maps.<SearchHit, SearchHit, MutableInt>newTreeMap(query.getSort().getComparator()),

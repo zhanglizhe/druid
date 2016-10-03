@@ -66,7 +66,7 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
   }
 
   @Override
-  public void run(
+  public long run(
       Parameters params,
       TopNResultBuilder resultBuilder,
       DimValSelector dimValSelector
@@ -75,6 +75,7 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
     boolean hasDimValSelector = (dimValSelector != null);
 
     final int cardinality = params.getCardinality();
+    long rowsScanned = 0;
     int numProcessed = 0;
     while (numProcessed < cardinality) {
       final int numToProcess;
@@ -92,7 +93,7 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
 
       DimValAggregateStore aggregatesStore = makeDimValAggregateStore(params);
 
-      scanAndAggregate(params, theDimValSelector, aggregatesStore, numProcessed);
+      rowsScanned = scanAndAggregate(params, theDimValSelector, aggregatesStore, numProcessed);
 
       updateResults(params, theDimValSelector, aggregatesStore, resultBuilder);
 
@@ -101,6 +102,7 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
       numProcessed += numToProcess;
       params.getCursor().reset();
     }
+    return rowsScanned;
   }
 
   protected abstract DimValSelector makeDimValSelector(Parameters params, int numProcessed, int numToProcess);
@@ -127,7 +129,10 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
 
   protected abstract DimValAggregateStore makeDimValAggregateStore(Parameters params);
 
-  protected abstract void scanAndAggregate(
+  /**
+   * Returns the number of rows scanned.
+   */
+  protected abstract long scanAndAggregate(
       Parameters params,
       DimValSelector dimValSelector,
       DimValAggregateStore dimValAggregateStore,

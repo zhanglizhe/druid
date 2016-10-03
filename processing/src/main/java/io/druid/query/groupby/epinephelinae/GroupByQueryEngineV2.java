@@ -84,7 +84,8 @@ public class GroupByQueryEngineV2
         Filters.toFilter(query.getDimFilter()),
         intervals.get(0),
         query.getGranularity(),
-        false
+        false,
+        null
     );
 
     final Grouper.KeySerde<ByteBuffer> keySerde = new GroupByEngineKeySerde(query.getDimensions().size());

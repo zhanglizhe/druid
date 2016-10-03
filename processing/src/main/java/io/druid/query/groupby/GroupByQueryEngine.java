@@ -40,7 +40,6 @@ import io.druid.collections.StupidPool;
 import io.druid.data.input.MapBasedRow;
 import io.druid.data.input.Row;
 import io.druid.guice.annotations.Global;
-import io.druid.query.Query;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.BufferAggregator;
 import io.druid.query.aggregation.PostAggregator;
@@ -102,7 +101,8 @@ public class GroupByQueryEngine
         filter,
         intervals.get(0),
         query.getGranularity(),
-        false
+        false,
+        null
     );
 
     final ResourceHolder<ByteBuffer> bufferHolder = intermediateResultsBufferPool.take();
