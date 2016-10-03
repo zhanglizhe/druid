@@ -251,7 +251,8 @@ public class DumpSegment extends GuiceRunnable
         Filters.toFilter(filter),
         index.getDataInterval().withChronology(ISOChronology.getInstanceUTC()),
         QueryGranularities.ALL,
-        false
+        false,
+        null
     );
 
     withOutputStream(

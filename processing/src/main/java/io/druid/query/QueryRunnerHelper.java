@@ -70,7 +70,7 @@ public class QueryRunnerHelper
 
     return Sequences.filter(
         Sequences.map(
-            adapter.makeCursors(filter, queryIntervals.get(0), granularity, descending),
+            adapter.makeCursors(filter, queryIntervals.get(0), granularity, descending, null),
             new Function<Cursor, Result<T>>()
             {
               @Override

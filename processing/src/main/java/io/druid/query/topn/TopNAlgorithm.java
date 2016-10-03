@@ -33,7 +33,10 @@ public interface TopNAlgorithm<DimValSelector, Parameters extends TopNParams>
 
   public TopNParams makeInitParams(DimensionSelector dimSelector, Cursor cursor);
 
-  public void run(
+  /**
+   * Returns the number of rows scanned.
+   */
+  public long run(
       Parameters params,
       TopNResultBuilder resultBuilder,
       DimValSelector dimValSelector
