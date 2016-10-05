@@ -27,6 +27,7 @@ import io.druid.collections.StupidPool;
 import io.druid.guice.annotations.Global;
 import io.druid.query.ChainedExecutionQueryRunner;
 import io.druid.query.Query;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.QueryRunner;
 import io.druid.query.QueryRunnerFactory;
 import io.druid.query.QueryToolChest;
@@ -73,9 +74,9 @@ public class TopNQueryRunnerFactory implements QueryRunnerFactory<Result<TopNRes
         if (!(input instanceof TopNQuery)) {
           throw new ISE("Got a [%s] which isn't a %s", input.getClass(), TopNQuery.class);
         }
-        // This metricBuilder is put into the responseContext in MetricsEmittingQueryRunner.run() method.
-        ServiceMetricEvent.Builder metricBuilder = (ServiceMetricEvent.Builder) responseContext.get("metricBuilder");
-        return queryEngine.query((TopNQuery) input, segment.asStorageAdapter(), metricBuilder);
+        // This queryMetricsContext is put into the responseContext in MetricsEmittingQueryRunner.run() method.
+        QueryMetricsContext queryMetricsContext = (QueryMetricsContext) responseContext.get("queryMetricsContext");
+        return queryEngine.query((TopNQuery) input, segment.asStorageAdapter(), queryMetricsContext);
       }
     };
 

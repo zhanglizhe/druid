@@ -33,9 +33,9 @@ import com.metamx.common.guava.CloseQuietly;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.logger.Logger;
-import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.QueryInterruptedException;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.dimension.DefaultDimensionSpec;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.extraction.ExtractionFn;
@@ -70,12 +70,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-
-import static io.druid.query.QueryMetrics.BITMAP_FILTERED_ROWS;
-import static io.druid.query.QueryMetrics.POST_FILTERS;
-import static io.druid.query.QueryMetrics.TOTAL_ROWS;
-import static io.druid.query.QueryMetrics.roundMetric;
-import static io.druid.query.QueryMetrics.setDimension;
 
 /**
  */
@@ -227,7 +221,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       Interval interval,
       QueryGranularity gran,
       boolean descending,
-      @Nullable ServiceMetricEvent.Builder metricBuilder
+      @Nullable QueryMetricsContext queryMetricsContext
   )
   {
     Interval actualInterval = interval;
@@ -256,11 +250,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     );
 
     int totalRows = index.getNumRows();
-    String roundedTotalRows = null;
-    if (metricBuilder != null) {
-      roundedTotalRows = String.valueOf(roundMetric(totalRows, 2));
-      setDimension(metricBuilder, TOTAL_ROWS, roundedTotalRows);
-    }
+    QueryMetricsContext.putMetric(queryMetricsContext, "query/totalRows", totalRows);
 
 
     /**
@@ -302,21 +292,24 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
         }
       }
 
+      String bitmapFilteredRowsMetricName = "query/bitmapFilteredRows";
       if (preFilters.size() == 0) {
         offset = new NoFilterOffset(0, totalRows, descending);
         // No bitmap filter => number of "filtered" rows is the same as the total
-        setDimension(metricBuilder, BITMAP_FILTERED_ROWS, roundedTotalRows);
+        QueryMetricsContext.putMetric(queryMetricsContext, bitmapFilteredRowsMetricName, totalRows);
       } else {
         List<ImmutableBitmap> bitmaps = Lists.newArrayList();
         for (Filter prefilter : preFilters) {
           bitmaps.add(prefilter.getBitmapIndex(selector));
         }
         ImmutableBitmap intersectionBitmap = selector.getBitmapFactory().intersection(bitmaps);
-        if (metricBuilder != null) {
+        // Make this test explicitly rather than call QueryMetricsContext.putMetric() to avoid paying for
+        // intersectionBitmap.size(), that could have non-trivial cost, if queryMetricsContext is null.
+        if (queryMetricsContext != null) {
           // It is chosen to compute bitmap size here (that usually requires a separate scan of a bitmap) rather than
           // accumulate it during the rows processing, because it is simpler and incurs zero runtime cost
           // if metricBuilder is null.
-          metricBuilder.setDimension(BITMAP_FILTERED_ROWS, String.valueOf(roundMetric(intersectionBitmap.size(), 2)));
+          queryMetricsContext.metrics.put(bitmapFilteredRowsMetricName, intersectionBitmap.size());
         }
         offset = new BitmapOffset(
             selector.getBitmapFactory(),
@@ -326,7 +319,9 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       }
     }
 
-    setDimension(metricBuilder, POST_FILTERS, postFilters.size());
+    if (queryMetricsContext != null) {
+      queryMetricsContext.setDimension("postFilters", postFilters.size());
+    }
     final Filter postFilter;
     if (postFilters.size() == 0) {
       postFilter = null;
@@ -335,7 +330,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     } else {
       postFilter = new AndFilter(postFilters);
     }
-    if (metricBuilder != null) { // indicates that we are interested in debug output during this call of makeCursors()
+    // indicates that we are interested in debug output during this call of makeCursors()
+    if (queryMetricsContext != null) {
       log.debug("TopN filter: %s", postFilter);
     }
 

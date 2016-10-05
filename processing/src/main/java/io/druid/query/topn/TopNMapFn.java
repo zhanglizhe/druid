@@ -20,8 +20,7 @@
 package io.druid.query.topn;
 
 import com.metamx.common.logger.Logger;
-import com.metamx.emitter.service.ServiceMetricEvent;
-import io.druid.query.QueryMetrics;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.Result;
 import io.druid.segment.Cursor;
 import io.druid.segment.DimensionSelector;
@@ -58,13 +57,13 @@ public class TopNMapFn
 
   /**
    * @param cursor cursor over rows to process
-   * @param metricBuilder to emit metrics to
+   * @param queryMetricsContext to emit metrics to
    * @param first if this is a first call of apply() in a series of similar calls over different ranges of rows, to
    *              emit metrics and log some diagnostic things only once
    * @return
    */
   @SuppressWarnings("unchecked")
-  public TopNResult apply(Cursor cursor, @Nullable ServiceMetricEvent.Builder metricBuilder, boolean first)
+  public TopNResult apply(Cursor cursor, @Nullable QueryMetricsContext queryMetricsContext, boolean first)
   {
     final DimensionSelector dimSelector = cursor.makeDimensionSelector(
         query.getDimensionSpec()
@@ -76,18 +75,18 @@ public class TopNMapFn
     TopNParams params = null;
     try {
       params = topNAlgorithm.makeInitParams(dimSelector, cursor);
-      if (first && metricBuilder != null) {
+      if (first && queryMetricsContext != null) {
         log.debug("TopN cursor: %s", cursor);
         log.debug("TopN dimension selector: %s", dimSelector);
-        String numValuesPerPass = String.valueOf(QueryMetrics.roundMetric(params.getNumValuesPerPass(), 2));
-        metricBuilder.setDimension("numValuesPerPass", numValuesPerPass);
-        String valueCardinality = String.valueOf(QueryMetrics.roundMetric(params.getCardinality(), 2));
-        metricBuilder.setDimension("valueCardinality", valueCardinality);
+        Long numValuesPerPass = QueryMetricsContext.roundMetric(params.getNumValuesPerPass(), 2);
+        queryMetricsContext.setDimension("numValuesPerPass", numValuesPerPass);
+        Long valueCardinality = QueryMetricsContext.roundMetric(params.getCardinality(), 2);
+        queryMetricsContext.setDimension("valueCardinality", valueCardinality);
       }
 
       TopNResultBuilder resultBuilder = BaseTopNAlgorithm.makeResultBuilder(params, query);
 
-      long rowsScanned = topNAlgorithm.run(params, resultBuilder, null);
+      long rowsScanned = topNAlgorithm.run(params, resultBuilder, null, queryMetricsContext);
 
       return new TopNResult(resultBuilder.build(), rowsScanned);
     }
