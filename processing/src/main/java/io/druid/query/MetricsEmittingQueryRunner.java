@@ -38,7 +38,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
   private final ServiceEmitter emitter;
   private final Function<Query<T>, ServiceMetricEvent.Builder> builderFn;
   private final QueryRunner<T> queryRunner;
-  private final long creationTime;
+  private final long creationTimeNs;
   private final String metricName;
   private final Map<String, String> userDimensions;
 
@@ -46,7 +46,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
       ServiceEmitter emitter,
       Function<Query<T>, ServiceMetricEvent.Builder> builderFn,
       QueryRunner<T> queryRunner,
-      long creationTime,
+      long creationTimeNs,
       String metricName,
       Map<String, String> userDimensions
   )
@@ -54,7 +54,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
     this.emitter = emitter;
     this.builderFn = builderFn;
     this.queryRunner = queryRunner;
-    this.creationTime = creationTime;
+    this.creationTimeNs = creationTimeNs;
     this.metricName = metricName;
     this.userDimensions = userDimensions;
   }
@@ -72,11 +72,11 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
 
   public MetricsEmittingQueryRunner<T> withWaitMeasuredFromNow()
   {
-    return new MetricsEmittingQueryRunner<T>(
+    return new MetricsEmittingQueryRunner<>(
         emitter,
         builderFn,
         queryRunner,
-        System.currentTimeMillis(),
+        System.nanoTime(),
         metricName,
         userDimensions
     );
@@ -98,7 +98,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
       {
         OutType retVal;
 
-        long startTime = System.currentTimeMillis();
+        long startTimeNs = System.nanoTime();
         try {
           if (query instanceof TopNQuery) {
             // Response context seems to be the easiest way to transmit metricBuilder between queryRunner and
@@ -119,12 +119,12 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
           throw e;
         }
         finally {
-          long timeTaken = System.currentTimeMillis() - startTime;
+          long timeTakenNs = System.nanoTime() - startTimeNs;
 
-          emitter.emit(builder.build(metricName, timeTaken));
+          emitter.emit(builder.build(metricName, timeTakenNs));
 
-          if (creationTime > 0) {
-            emitter.emit(builder.build("query/wait/time", startTime - creationTime));
+          if (creationTimeNs > 0) {
+            emitter.emit(builder.build("query/wait/timeNs", startTimeNs - creationTimeNs));
           }
         }
 
@@ -136,7 +136,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
       {
         Yielder<OutType> retVal;
 
-        long startTime = System.currentTimeMillis();
+        long startTimeNs = System.nanoTime();
         try {
           retVal = queryRunner.run(query, responseContext).toYielder(initValue, accumulator);
         }
@@ -149,11 +149,11 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
           throw e;
         }
 
-        return makeYielder(startTime, retVal, builder);
+        return makeYielder(startTimeNs, retVal, builder);
       }
 
       private <OutType> Yielder<OutType> makeYielder(
-          final long startTime,
+          final long startTimeNs,
           final Yielder<OutType> yielder,
           final ServiceMetricEvent.Builder builder
       )
@@ -170,7 +170,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
           public Yielder<OutType> next(OutType initValue)
           {
             try {
-              return makeYielder(startTime, yielder.next(initValue), builder);
+              return makeYielder(startTimeNs, yielder.next(initValue), builder);
             }
             catch (RuntimeException e) {
               builder.setDimension(DruidMetrics.STATUS, "failed");
@@ -196,11 +196,11 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
                 builder.setDimension(DruidMetrics.STATUS, "short");
               }
 
-              long timeTaken = System.currentTimeMillis() - startTime;
-              emitter.emit(builder.build(metricName, timeTaken));
+              long timeTakenNs = System.nanoTime() - startTimeNs;
+              emitter.emit(builder.build(metricName, timeTakenNs));
 
-              if (creationTime > 0) {
-                emitter.emit(builder.build("query/wait/time", startTime - creationTime));
+              if (creationTimeNs > 0) {
+                emitter.emit(builder.build("query/wait/timeNs", startTimeNs - creationTimeNs));
               }
             }
             finally {
