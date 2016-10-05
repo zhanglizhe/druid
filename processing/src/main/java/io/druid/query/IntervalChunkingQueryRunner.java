@@ -111,7 +111,7 @@ public class IntervalChunkingQueryRunner<T> implements QueryRunner<T>
                                   }
                                 },
                                 baseRunner,
-                                "query/intervalChunk/time",
+                                "query/intervalChunk/timeNs",
                                 ImmutableMap.of("chunkInterval", singleInterval.toString())
                             ).withWaitMeasuredFromNow()
                         ),
