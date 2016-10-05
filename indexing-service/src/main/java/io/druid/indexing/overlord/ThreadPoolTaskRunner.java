@@ -166,9 +166,10 @@ public class ThreadPoolTaskRunner implements TaskRunner, QuerySegmentWalker
 
     for (ThreadPoolTaskRunnerWorkItem item : runningItems) {
       final Task task = item.getTask();
-      final long start = System.currentTimeMillis();
+      final long startNs = System.nanoTime();
+      final long startMs = System.currentTimeMillis();
       final boolean graceful;
-      final long elapsed;
+      final long elapsedNs;
       boolean error = false;
 
       if (taskConfig.isRestoreTasksOnRestart() && task.canRestore()) {
@@ -179,7 +180,7 @@ public class ThreadPoolTaskRunner implements TaskRunner, QuerySegmentWalker
         try {
           task.stopGracefully();
           final TaskStatus taskStatus = item.getResult().get(
-              new Interval(new DateTime(start), taskConfig.getGracefulShutdownTimeout()).toDurationMillis(),
+              new Interval(new DateTime(startMs), taskConfig.getGracefulShutdownTimeout()).toDurationMillis(),
               TimeUnit.MILLISECONDS
           );
 
@@ -187,7 +188,7 @@ public class ThreadPoolTaskRunner implements TaskRunner, QuerySegmentWalker
           log.info(
               "Graceful shutdown of task[%s] finished in %,dms.",
               task.getId(),
-              System.currentTimeMillis() - start
+              System.currentTimeMillis() - startMs
           );
 
           TaskRunnerUtils.notifyStatusChanged(listeners, task.getId(), taskStatus);
@@ -206,7 +207,7 @@ public class ThreadPoolTaskRunner implements TaskRunner, QuerySegmentWalker
         TaskRunnerUtils.notifyStatusChanged(listeners, task.getId(), TaskStatus.failure(task.getId()));
       }
 
-      elapsed = System.currentTimeMillis() - start;
+      elapsedNs = System.nanoTime() - startNs;
 
       final ServiceMetricEvent.Builder metricBuilder = ServiceMetricEvent
           .builder()
@@ -216,7 +217,7 @@ public class ThreadPoolTaskRunner implements TaskRunner, QuerySegmentWalker
           .setDimension("error", String.valueOf(error));
 
       emitter.emit(metricBuilder.build("task/interrupt/count", 1L));
-      emitter.emit(metricBuilder.build("task/interrupt/elapsed", elapsed));
+      emitter.emit(metricBuilder.build("task/interrupt/elapsedNs", elapsedNs));
     }
 
     // Ok, now interrupt everything.

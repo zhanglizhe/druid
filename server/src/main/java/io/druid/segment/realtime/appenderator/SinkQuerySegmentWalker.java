@@ -306,10 +306,10 @@ public class SinkQuerySegmentWalker implements QuerySegmentWalker
                 emitter,
                 builderFn,
                 sinkRunner,
-                "query/segment/time",
+                "query/segment/timeNs",
                 dims
             ),
-            "query/segmentAndCache/time",
+            "query/segmentAndCache/timeNs",
             dims
         ).withWaitMeasuredFromNow(),
         builderFn,
