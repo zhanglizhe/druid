@@ -99,14 +99,17 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
         OutType retVal;
 
         long startTimeNs = System.nanoTime();
+        QueryMetricsContext queryMetricsContext = new QueryMetricsContext(builder);
         try {
           if (query instanceof TopNQuery) {
-            // Response context seems to be the easiest way to transmit metricBuilder between queryRunner and
-            // queryEngine, because it doesn't require to change interfaces throughout the codebase. If more queries
-            // become interested in metricBuilder, it should probably be added to queryRunner.run() parameters.
+            // Response context seems to be the easiest way to transmit queryMetricsContext between queryRunner and
+            // queryEngine, because it doesn't require to change interfaces throughout the codebase. If more types of
+            // queries (not just topN) are interested in queryMetricsContext, it should probably be added to
+            // queryRunner.run() parameters.
             //
-            // This metricBuilder is extracted from the responseContext in TopNQueryRunnerFactory.createRunner() method.
-            responseContext.put("metricBuilder", builder);
+            // This queryMetricsContext is extracted from the responseContext in TopNQueryRunnerFactory.createRunner()
+            // method.
+            responseContext.put("queryMetricsContext", queryMetricsContext);
           }
           retVal = queryRunner.run(query, responseContext).accumulate(outType, accumulator);
         }
@@ -125,6 +128,10 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
 
           if (creationTimeNs > 0) {
             emitter.emit(builder.build("query/wait/timeNs", startTimeNs - creationTimeNs));
+          }
+
+          for (Map.Entry<String, Number> queryMetric : queryMetricsContext.metrics.entrySet()) {
+            emitter.emit(builder.build(queryMetric.getKey(), queryMetric.getValue()));
           }
         }
 

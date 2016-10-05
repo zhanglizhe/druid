@@ -25,10 +25,9 @@ import com.google.common.base.Predicates;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.logger.Logger;
-import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.collections.StupidPool;
 import io.druid.granularity.QueryGranularity;
-import io.druid.query.QueryMetrics;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.Result;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.extraction.ExtractionFn;
@@ -44,9 +43,6 @@ import org.joda.time.Interval;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
-
-import static io.druid.query.QueryMetrics.roundMetric;
-import static io.druid.query.QueryMetrics.setDimension;
 
 /**
  */
@@ -64,7 +60,7 @@ public class TopNQueryEngine
   public Sequence<Result<TopNResultValue>> query(
       final TopNQuery query,
       final StorageAdapter adapter,
-      final @Nullable ServiceMetricEvent.Builder metricBuilder
+      final @Nullable QueryMetricsContext queryMetricsContext
   )
   {
     if (adapter == null) {
@@ -76,7 +72,7 @@ public class TopNQueryEngine
     final List<Interval> queryIntervals = query.getQuerySegmentSpec().getIntervals();
     final Filter filter = Filters.convertToCNFFromQueryContext(query, Filters.toFilter(query.getDimensionsFilter()));
     final QueryGranularity granularity = query.getGranularity();
-    final TopNMapFn mapFn = getMapFn(query, adapter, metricBuilder);
+    final TopNMapFn mapFn = getMapFn(query, adapter, queryMetricsContext);
 
     Preconditions.checkArgument(
         queryIntervals.size() == 1, "Can only handle a single interval, got[%s]", queryIntervals
@@ -84,7 +80,7 @@ public class TopNQueryEngine
 
     return Sequences.filter(
         Sequences.map(
-            adapter.makeCursors(filter, queryIntervals.get(0), granularity, query.isDescending(), metricBuilder),
+            adapter.makeCursors(filter, queryIntervals.get(0), granularity, query.isDescending(), queryMetricsContext),
             new Function<Cursor, Result<TopNResultValue>>()
             {
               private boolean first = true;
@@ -94,13 +90,13 @@ public class TopNQueryEngine
               public Result<TopNResultValue> apply(Cursor cursor)
               {
                 log.debug("Running over cursor[%s]", adapter.getInterval(), cursor.getTime());
-                TopNMapFn.TopNResult topNResult = mapFn.apply(cursor, first ? metricBuilder : null, first);
+                TopNMapFn.TopNResult topNResult = mapFn.apply(cursor, first ? queryMetricsContext : null, first);
                 first = false;
                 totalRowsScanned += topNResult.rowsScanned;
                 // rowsScanned would better be set only once, after all cursors are processed, but it's impossible
                 // within this TopNQueryEngine.query() method because of the laziness of Sequence class.
-                if (metricBuilder != null) {
-                  setDimension(metricBuilder, "rowsScanned", roundMetric(totalRowsScanned, 2));
+                if (queryMetricsContext != null) {
+                  queryMetricsContext.metrics.put("query/rowsScanned", totalRowsScanned);
                 }
                 return topNResult.queryResult;
               }
@@ -113,16 +109,16 @@ public class TopNQueryEngine
   private TopNMapFn getMapFn(
       final TopNQuery query,
       final StorageAdapter adapter,
-      final @Nullable  ServiceMetricEvent.Builder metricBuilder
+      final @Nullable QueryMetricsContext queryMetricsContext
   )
   {
     final Capabilities capabilities = adapter.getCapabilities();
     final String dimension = query.getDimensionSpec().getDimension();
 
     final int cardinality = adapter.getDimensionCardinality(dimension);
-    if (metricBuilder != null) {
-      setDimension(metricBuilder, "dimensionCardinality", QueryMetrics.roundMetric(cardinality, 2));
-      setDimension(metricBuilder, "aggregators", query.getAggregatorSpecs().size());
+    if (queryMetricsContext != null) {
+      queryMetricsContext.setDimension("dimensionCardinality", QueryMetricsContext.roundMetric(cardinality, 2));
+      queryMetricsContext.setDimension("aggregators", query.getAggregatorSpecs().size());
       log.error("TopN aggregators: %s", query.getAggregatorSpecs());
     }
 
@@ -154,7 +150,7 @@ public class TopNQueryEngine
     } else {
       topNAlgorithm = new PooledTopNAlgorithm(capabilities, query, bufferPool);
     }
-    if (metricBuilder != null) {
+    if (queryMetricsContext != null) {
       log.debug("TopN algorithm: %s", topNAlgorithm.getClass());
     }
     return new TopNMapFn(query, topNAlgorithm);
