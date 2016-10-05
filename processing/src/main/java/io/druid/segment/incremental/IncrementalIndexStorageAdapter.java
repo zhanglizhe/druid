@@ -27,9 +27,9 @@ import com.google.common.collect.Lists;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.logger.Logger;
-import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.QueryInterruptedException;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.dimension.DefaultDimensionSpec;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.extraction.ExtractionFn;
@@ -200,7 +200,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
       final Interval interval,
       final QueryGranularity gran,
       final boolean descending,
-      @Nullable ServiceMetricEvent.Builder metricBuilder
+      @Nullable QueryMetricsContext queryMetricsContext
   )
   {
     if (index.isEmpty()) {
@@ -218,7 +218,8 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
       return Sequences.empty();
     }
 
-    if (metricBuilder != null) { // indicates that we are interested in debug output during this call of makeCursors()
+    // indicates that we are interested in debug output during this call of makeCursors()
+    if (queryMetricsContext != null) {
       log.debug("TopN filter: %s", filter);
     }
 

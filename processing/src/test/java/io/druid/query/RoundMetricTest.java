@@ -21,7 +21,7 @@ package io.druid.query;
 
 import org.junit.Test;
 
-import static io.druid.query.QueryMetrics.roundMetric;
+import static io.druid.query.QueryMetricsContext.roundMetric;
 import static org.junit.Assert.assertEquals;
 
 public class RoundMetricTest
