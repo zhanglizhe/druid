@@ -443,14 +443,14 @@ public class ServerManager implements QuerySegmentWalker
                               }
                             },
                             new ReferenceCountingSegmentQueryRunner<T>(factory, adapter, segmentDescriptor),
-                            "query/segment/time",
+                            "query/segment/timeNs",
                             ImmutableMap.of("segment", adapter.getIdentifier())
                         ),
                         cachingExec,
                         cacheConfig
                     )
                 ),
-                "query/segmentAndCache/time",
+                "query/segmentAndCache/timeNs",
                 ImmutableMap.of("segment", adapter.getIdentifier())
             ).withWaitMeasuredFromNow(),
             segmentSpec
