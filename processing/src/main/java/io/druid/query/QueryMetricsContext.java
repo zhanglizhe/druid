@@ -27,13 +27,17 @@ import com.metamx.emitter.service.ServiceMetricEvent;
 
 import javax.annotation.Nullable;
 import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.Map;
 
-public final class QueryMetrics
+/**
+ * This object facilitates collecting dimensions and metrics during the query run. Those metrics are emitted in
+ * {@link MetricsEmittingQueryRunner}. This class is union of relatively independent entities - {@link #metricBuilder}
+ * and {@link #metrics}, and it's purpose is merely to be passed as a single argument around methods during the query
+ * execution: {@code queryMetricsContext}, rather than two arguments: {@code metricBuilder} and {@code metrics}.
+ */
+public final class QueryMetricsContext
 {
-
-  public static final String TOTAL_ROWS = "totalRows";
-  public static final String BITMAP_FILTERED_ROWS = "bitmapFilteredRows";
-  public static final String POST_FILTERS = "postFilters";
 
   /**
    * Return the closest number to the given {@code metric}, that has not more than {@code significantDigits} non-zero
@@ -62,18 +66,28 @@ public final class QueryMetrics
     return metricUp - (metricUp % granularity);
   }
 
-  /**
-   * Checks if {@code metricBuilder} is non-null and converts the given {@code metric} (e. g. Integer or Long) to String
-   * itself.
-   *
-   * @param metricBuilder if null, this method call is a no-op
-   */
-  public static void setDimension(@Nullable ServiceMetricEvent.Builder metricBuilder, String dimension, Object metric)
+  public static void putMetric(@Nullable QueryMetricsContext queryMetricsContext, String metricName, Number metric)
   {
-    if (metricBuilder != null) {
-      metricBuilder.setDimension(dimension, metric.toString());
+    if (queryMetricsContext != null) {
+      queryMetricsContext.metrics.put(metricName, metric);
     }
   }
 
-  private QueryMetrics() {}
+  public final ServiceMetricEvent.Builder metricBuilder;
+  public final Map<String, Number> metrics = new HashMap<>();
+
+  public QueryMetricsContext(ServiceMetricEvent.Builder metricBuilder)
+  {
+    this.metricBuilder = metricBuilder;
+  }
+
+  /**
+   * Equivalent to {@link #metricBuilder}{@link
+   * com.metamx.emitter.service.ServiceMetricEvent.Builder#setDimension(String, String)
+   * .setDimension(dimension, value.toString())}.
+   */
+  public void setDimension(String dimension, Object value)
+  {
+    metricBuilder.setDimension(dimension, value.toString());
+  }
 }

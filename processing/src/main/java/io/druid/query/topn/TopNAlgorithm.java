@@ -19,9 +19,12 @@
 
 package io.druid.query.topn;
 
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.segment.Cursor;
 import io.druid.segment.DimensionSelector;
+
+import javax.annotation.Nullable;
 
 /**
  */
@@ -39,7 +42,8 @@ public interface TopNAlgorithm<DimValSelector, Parameters extends TopNParams>
   public long run(
       Parameters params,
       TopNResultBuilder resultBuilder,
-      DimValSelector dimValSelector
+      DimValSelector dimValSelector,
+      @Nullable QueryMetricsContext queryMetricsContext
   );
 
   public void cleanup(Parameters params);
