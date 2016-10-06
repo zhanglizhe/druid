@@ -119,7 +119,7 @@ public class TopNQueryEngine
     if (queryMetricsContext != null) {
       queryMetricsContext.setDimension("dimensionCardinality", QueryMetricsContext.roundMetric(cardinality, 2));
       queryMetricsContext.setDimension("aggregators", query.getAggregatorSpecs().size());
-      log.error("TopN aggregators: %s", query.getAggregatorSpecs());
+      log.debug("TopN aggregators: %s", query.getAggregatorSpecs());
     }
 
     int numBytesPerRecord = 0;
