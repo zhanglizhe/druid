@@ -20,6 +20,8 @@
 package io.druid.query;
 
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.math.IntMath;
 import com.google.common.math.LongMath;
 import com.metamx.common.IAE;
@@ -73,21 +75,31 @@ public final class QueryMetricsContext
     }
   }
 
-  public final ServiceMetricEvent.Builder metricBuilder;
-  public final Map<String, Number> metrics = new HashMap<>();
+  @JsonProperty("metricBuilder")
+  public final Map<String, String> metricBuilder;
+  @JsonProperty("metrics")
+  public final Map<String, Number> metrics;
 
-  public QueryMetricsContext(ServiceMetricEvent.Builder metricBuilder)
+  public QueryMetricsContext()
+  {
+    this(new HashMap<String, String>(), new HashMap<String, Number>());
+  }
+
+  @JsonCreator
+  public QueryMetricsContext(
+      @JsonProperty("metricBuilder") Map<String, String> metricBuilder,
+      @JsonProperty("metrics") Map<String, Number> metrics
+  )
   {
     this.metricBuilder = metricBuilder;
+    this.metrics = metrics;
   }
 
   /**
-   * Equivalent to {@link #metricBuilder}{@link
-   * com.metamx.emitter.service.ServiceMetricEvent.Builder#setDimension(String, String)
-   * .setDimension(dimension, value.toString())}.
+   * Equivalent to {@link #metricBuilder}{@code .put(dimension, value.toString())}.
    */
   public void setDimension(String dimension, Object value)
   {
-    metricBuilder.setDimension(dimension, value.toString());
+    metricBuilder.put(dimension, value.toString());
   }
 }
