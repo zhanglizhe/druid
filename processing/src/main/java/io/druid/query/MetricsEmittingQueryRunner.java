@@ -99,7 +99,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
         OutType retVal;
 
         long startTimeNs = System.nanoTime();
-        QueryMetricsContext queryMetricsContext = new QueryMetricsContext(builder);
+        QueryMetricsContext queryMetricsContext = new QueryMetricsContext();
         try {
           if (query instanceof TopNQuery) {
             // Response context seems to be the easiest way to transmit queryMetricsContext between queryRunner and
@@ -112,6 +112,9 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
             responseContext.put("queryMetricsContext", queryMetricsContext);
           }
           retVal = queryRunner.run(query, responseContext).accumulate(outType, accumulator);
+          if (query instanceof TopNQuery) {
+            responseContext.remove("queryMetricsContext");
+          }
         }
         catch (RuntimeException e) {
           builder.setDimension(DruidMetrics.STATUS, "failed");
@@ -123,6 +126,10 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
         }
         finally {
           long timeTakenNs = System.nanoTime() - startTimeNs;
+
+          for (Map.Entry<String, String> dimension : queryMetricsContext.metricBuilder.entrySet()) {
+            builder.setDimension(dimension.getKey(), dimension.getValue());
+          }
 
           emitter.emit(builder.build(metricName, timeTakenNs));
 
