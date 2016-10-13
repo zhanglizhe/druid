@@ -20,12 +20,12 @@
 package io.druid.segment;
 
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterators;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.historical.SingleValueHistoricalDimensionSelector;
+import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.ints.IntIterators;
 
 import java.io.IOException;
-import java.util.Iterator;
 
 public class NullDimensionSelector implements SingleValueHistoricalDimensionSelector
 {
@@ -42,8 +42,8 @@ public class NullDimensionSelector implements SingleValueHistoricalDimensionSele
     }
 
     @Override
-    public Iterator<Integer> iterator() {
-      return Iterators.singletonIterator(0);
+    public IntIterator iterator() {
+      return IntIterators.singleton(0);
     }
 
     @Override

@@ -19,18 +19,13 @@
 
 package io.druid.segment;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Ordering;
 import com.google.common.io.Closer;
 import com.google.common.primitives.Ints;
 import com.metamx.collections.bitmap.BitmapFactory;
-import com.metamx.collections.bitmap.MutableBitmap;
 import com.metamx.collections.spatial.ImmutableRTree;
 import com.metamx.collections.spatial.RTree;
 import com.metamx.collections.spatial.split.LinearGutmanSplitStrategy;
 import com.metamx.common.logger.Logger;
-import io.druid.collections.CombiningIterable;
 import io.druid.common.utils.SerializerUtils;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.data.BitmapSerdeFactory;
@@ -83,19 +78,18 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
   public void writeIndexes(List<IntBuffer> segmentRowNumConversions, Closer closer) throws IOException
   {
     long dimStartTime = System.currentTimeMillis();
+    final BitmapSerdeFactory bitmapSerdeFactory = indexSpec.getBitmapSerdeFactory();
 
-    bitmapWriter = new GenericIndexedWriter<>(indexSpec.getBitmapSerdeFactory().getObjectStrategy());
+    bitmapWriter = new GenericIndexedWriter<>(bitmapSerdeFactory.getObjectStrategy());
     bitmapWriter.open();
 
-    final BitmapSerdeFactory bitmapSerdeFactory = indexSpec.getBitmapSerdeFactory();
     final BitmapFactory bitmapFactory = bitmapSerdeFactory.getBitmapFactory();
 
     RTree tree = null;
     spatialWriter = null;
     boolean hasSpatial = capabilities.hasSpatialIndexes();
     if (hasSpatial) {
-      BitmapFactory bmpFactory = bitmapSerdeFactory.getBitmapFactory();
-      spatialWriter = new ByteBufferWriter<>(new IndexedRTree.ImmutableRTreeObjectStrategy(bmpFactory));
+      spatialWriter = new ByteBufferWriter<>(new IndexedRTree.ImmutableRTreeObjectStrategy(bitmapFactory));
       spatialWriter.open();
       tree = new RTree(2, new LinearGutmanSplitStrategy(0, 50, bitmapFactory), bitmapFactory);
     }
@@ -105,46 +99,18 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
     //Iterate all dim values's dictionary id in ascending order which in line with dim values's compare result.
     for (int dictId = 0; dictId < dictionarySize; dictId++) {
       progress.progress();
-      List<Iterable<Integer>> convertedInverteds = Lists.newArrayListWithCapacity(adapters.size());
-      for (int j = 0; j < adapters.size(); ++j) {
-        int seekedDictId = dictIdSeeker[j].seek(dictId);
-        if (seekedDictId != IndexSeeker.NOT_EXIST) {
-          convertedInverteds.add(
-              new ConvertingIndexedInts(
-                  adapters.get(j).getBitmapIndex(dimensionName, seekedDictId), segmentRowNumConversions.get(j)
-              )
-          );
-        }
-      }
-
-      MutableBitmap bitset = bitmapSerdeFactory.getBitmapFactory().makeEmptyMutableBitmap();
-      for (Integer row : CombiningIterable.createSplatted(
-          convertedInverteds,
-          Ordering.<Integer>natural().nullsFirst()
-      )) {
-        if (row != IndexMerger.INVALID_ROW) {
-          bitset.add(row);
-        }
-      }
-      if (dictId == 0 && firstDictionaryValue == null) {
-        bitset.or(nullRowsBitmap);
-      }
-
-      bitmapWriter.write(
-          bitmapSerdeFactory.getBitmapFactory().makeImmutableBitmap(bitset)
+      mergeBitmaps(
+          segmentRowNumConversions,
+          bitmapFactory,
+          tree,
+          hasSpatial,
+          dictIdSeeker,
+          dictId,
+          adapters,
+          dimensionName,
+          nullRowsBitmap,
+          bitmapWriter
       );
-
-      if (hasSpatial) {
-        String dimVal = dictionary.get(dictId);
-        if (dimVal != null) {
-          List<String> stringCoords = Lists.newArrayList(SPLITTER.split(dimVal));
-          float[] coords = new float[stringCoords.size()];
-          for (int j = 0; j < coords.length; j++) {
-            coords[j] = Float.valueOf(stringCoords.get(j));
-          }
-          tree.insert(coords, bitset);
-        }
-      }
     }
 
     log.info("Completed dimension[%s] in %,d millis.", dimensionName, System.currentTimeMillis() - dimStartTime);

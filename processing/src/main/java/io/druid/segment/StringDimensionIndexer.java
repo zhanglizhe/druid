@@ -38,6 +38,9 @@ import io.druid.segment.data.ListBasedIndexedInts;
 import io.druid.segment.filter.BooleanValueMatcher;
 import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.IncrementalIndexStorageAdapter;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntLists;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -352,14 +355,13 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
         }
 
         int nullId = getEncodedValue(null, false);
-        List<Integer> valsTmp = null;
+        IntList valsTmp = null;
         if ((indices == null || indices.length == 0) && nullId > -1) {
           if (nullId < maxId) {
-            valsTmp = new ArrayList<>(1);
-            valsTmp.add(nullId);
+            valsTmp = IntLists.singleton(nullId);
           }
         } else if (indices != null && indices.length > 0) {
-          valsTmp = new ArrayList<>(indices.length);
+          valsTmp = new IntArrayList(indices.length);
           for (int i = 0; i < indices.length; i++) {
             int id = indices[i];
             if (id < maxId) {

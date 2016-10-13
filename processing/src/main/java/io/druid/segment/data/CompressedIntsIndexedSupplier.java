@@ -28,6 +28,7 @@ import io.druid.collections.ResourceHolder;
 import io.druid.collections.StupidResourceHolder;
 import io.druid.io.Channels;
 import io.druid.segment.CompressedPools;
+import it.unimi.dsi.fastutil.ints.IntIterator;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -304,7 +305,7 @@ public class CompressedIntsIndexedSupplier implements WritableSupplier<IndexedIn
     }
 
     @Override
-    public Iterator<Integer> iterator()
+    public IntIterator iterator()
     {
       return new IndexedIntsIterator(this);
     }

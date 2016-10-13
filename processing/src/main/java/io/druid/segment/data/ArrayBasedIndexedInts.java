@@ -19,8 +19,9 @@
 
 package io.druid.segment.data;
 
+import it.unimi.dsi.fastutil.ints.IntIterator;
+
 import java.io.IOException;
-import java.util.Iterator;
 
 /**
 */
@@ -43,7 +44,7 @@ public class ArrayBasedIndexedInts extends IndexedInts
   }
 
   @Override
-  public Iterator<Integer> iterator()
+  public IntIterator iterator()
   {
     return new IndexedIntsIterator(this);
   }

@@ -51,11 +51,13 @@ import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.ListBasedIndexedInts;
+import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.ints.IntIterators;
 import org.joda.time.DateTime;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -524,22 +526,53 @@ public class RowBasedGrouperHelper
       return new DimensionSelector()
       {
         @Override
-        public IndexedInts getRow()
-        {
-          final List<String> dimensionValues = row.get().getDimension(dimension);
-          final ArrayList<Integer> vals = Lists.newArrayList();
-          if (dimensionValues != null) {
-            for (int i = 0; i < dimensionValues.size(); ++i) {
-              vals.add(i);
-            }
-          }
-          return new ListBasedIndexedInts(vals);
-        }
-
-        @Override
         public int constantRowSize()
         {
           return VARIABLE_ROW_SIZE;
+        }
+
+        @Override
+        public IndexedInts getRow()
+        {
+          final List<String> dimensionValues = row.get().getDimension(dimension);
+
+          final int dimensionValuesSize = dimensionValues != null ? dimensionValues.size() : 0;
+
+          return new IndexedInts()
+          {
+            @Override
+            public int size()
+            {
+              return dimensionValuesSize;
+            }
+
+            @Override
+            public int get(int index)
+            {
+              if (index < 0 || index >= dimensionValuesSize) {
+                throw new IndexOutOfBoundsException("index: " + index);
+              }
+              return index;
+            }
+
+            @Override
+            public IntIterator iterator()
+            {
+              return IntIterators.fromTo(0, dimensionValuesSize);
+            }
+
+            @Override
+            public void close() throws IOException
+            {
+
+            }
+
+            @Override
+            public void fill(int index, int[] toFill)
+            {
+              throw new UnsupportedOperationException("fill not supported");
+            }
+          };
         }
 
         @Override

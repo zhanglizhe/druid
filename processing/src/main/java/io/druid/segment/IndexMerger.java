@@ -1183,7 +1183,10 @@ public class IndexMerger
   {
     private final AggregatorFactory[] metricAggs;
 
-    public AggFactoryStringIndexed(AggregatorFactory[] metricAggs) {this.metricAggs = metricAggs;}
+    public AggFactoryStringIndexed(AggregatorFactory[] metricAggs)
+    {
+      this.metricAggs = metricAggs;
+    }
 
     @Override
     public Class<? extends String> getClazz()
