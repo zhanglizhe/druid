@@ -74,7 +74,7 @@ public class TimeExtractionTopNAlgorithm extends BaseTopNAlgorithm<int[], Map<St
   {
     final Cursor cursor = params.getCursor();
     final DimensionSelector dimSelector = params.getDimSelector();
-    long rowsScanned = 0;
+    long scannedRows = 0;
     while (!cursor.isDone()) {
       final String key = dimSelector.lookupName(dimSelector.getRow().get(0));
 
@@ -87,10 +87,10 @@ public class TimeExtractionTopNAlgorithm extends BaseTopNAlgorithm<int[], Map<St
       for (Aggregator aggregator : theAggregators) {
         aggregator.aggregate();
       }
-      rowsScanned++;
+      scannedRows++;
       cursor.advance();
     }
-    return rowsScanned;
+    return scannedRows;
   }
 
   @Override
