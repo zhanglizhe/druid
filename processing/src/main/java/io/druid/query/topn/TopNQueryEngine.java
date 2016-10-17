@@ -26,6 +26,7 @@ import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.logger.Logger;
 import io.druid.collections.StupidPool;
+import io.druid.common.guava.MoreSequences;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.QueryMetricsContext;
 import io.druid.query.Result;
@@ -41,6 +42,7 @@ import io.druid.segment.filter.Filters;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
+import java.io.Closeable;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -78,32 +80,39 @@ public class TopNQueryEngine
         queryIntervals.size() == 1, "Can only handle a single interval, got[%s]", queryIntervals
     );
 
-    return Sequences.filter(
+    final TopNQueryMetrics topNQueryMetrics = queryMetricsContext != null ? new TopNQueryMetrics() : null;
+
+    Sequence<Result<TopNResultValue>> topNQueryResults = Sequences.filter(
         Sequences.map(
             adapter.makeCursors(filter, queryIntervals.get(0), granularity, query.isDescending(), queryMetricsContext),
             new Function<Cursor, Result<TopNResultValue>>()
             {
               private boolean first = true;
-              private long totalRowsScanned = 0;
 
               @Override
               public Result<TopNResultValue> apply(Cursor cursor)
               {
                 log.debug("Running over cursor[%s]", adapter.getInterval(), cursor.getTime());
-                TopNMapFn.TopNResult topNResult = mapFn.apply(cursor, first ? queryMetricsContext : null, first);
+                Result<TopNResultValue> topNResult =
+                    mapFn.apply(cursor, first, first ? queryMetricsContext : null, topNQueryMetrics);
                 first = false;
-                totalRowsScanned += topNResult.rowsScanned;
-                // rowsScanned would better be set only once, after all cursors are processed, but it's impossible
-                // within this TopNQueryEngine.query() method because of the laziness of Sequence class.
-                if (queryMetricsContext != null) {
-                  queryMetricsContext.metrics.put("query/rowsScanned", totalRowsScanned);
-                }
-                return topNResult.queryResult;
+                return topNResult;
               }
             }
         ),
         Predicates.<Result<TopNResultValue>>notNull()
     );
+    return MoreSequences.withBaggage(topNQueryResults, new Closeable()
+    {
+      @Override
+      public void close()
+      {
+        if (queryMetricsContext != null) {
+          queryMetricsContext.metrics.put("query/scannedRows", topNQueryMetrics.scannedRows);
+          queryMetricsContext.metrics.put("query/scanTimeNs", topNQueryMetrics.scanTimeNs);
+        }
+      }
+    });
   }
 
   private TopNMapFn getMapFn(
