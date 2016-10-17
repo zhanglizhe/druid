@@ -20,7 +20,6 @@
 package io.druid.query.topn;
 
 import com.metamx.common.Pair;
-import io.druid.query.QueryMetricsContext;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.BufferAggregator;
@@ -68,18 +67,18 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
   }
 
   @Override
-  public long run(
+  public void run(
       Parameters params,
-      TopNResultBuilder resultBuilder,
       DimValSelector dimValSelector,
-      @Nullable QueryMetricsContext queryMetricsContext
+      TopNResultBuilder resultBuilder,
+      @Nullable TopNQueryMetrics topNQueryMetrics
   )
   {
-    long startTimeNs = queryMetricsContext != null ? System.nanoTime() : 0;
+    long startTimeNs = topNQueryMetrics != null ? System.nanoTime() : 0;
     boolean hasDimValSelector = (dimValSelector != null);
 
     final int cardinality = params.getCardinality();
-    long rowsScanned = 0;
+    long scannedRows = 0;
     int numProcessed = 0;
     while (numProcessed < cardinality) {
       final int numToProcess;
@@ -97,7 +96,7 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
 
       DimValAggregateStore aggregatesStore = makeDimValAggregateStore(params);
 
-      rowsScanned = scanAndAggregate(params, theDimValSelector, aggregatesStore, numProcessed);
+      scannedRows = scanAndAggregate(params, theDimValSelector, aggregatesStore, numProcessed);
 
       updateResults(params, theDimValSelector, aggregatesStore, resultBuilder);
 
@@ -106,11 +105,11 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
       numProcessed += numToProcess;
       params.getCursor().reset();
     }
-    if (queryMetricsContext != null) {
+    if (topNQueryMetrics != null) {
       long scanTimeNs = System.nanoTime() - startTimeNs;
-      queryMetricsContext.metrics.put("query/scanTimeNs", scanTimeNs);
+      topNQueryMetrics.scannedRows += scannedRows;
+      topNQueryMetrics.scanTimeNs += scanTimeNs;
     }
-    return rowsScanned;
   }
 
   protected abstract DimValSelector makeDimValSelector(Parameters params, int numProcessed, int numToProcess);

@@ -31,18 +31,6 @@ public class TopNMapFn
 {
   private static final Logger log = new Logger(TopNMapFn.class);
 
-  static class TopNResult
-  {
-    final Result<TopNResultValue> queryResult;
-    final long rowsScanned;
-
-    TopNResult(Result<TopNResultValue> queryResult, long rowsScanned)
-    {
-      this.queryResult = queryResult;
-      this.rowsScanned = rowsScanned;
-    }
-  }
-
   private final TopNQuery query;
   private final TopNAlgorithm topNAlgorithm;
 
@@ -57,13 +45,19 @@ public class TopNMapFn
 
   /**
    * @param cursor cursor over rows to process
-   * @param queryMetricsContext to emit metrics to
    * @param first if this is a first call of apply() in a series of similar calls over different ranges of rows, to
-   *              emit metrics and log some diagnostic things only once
+   *              set some dimensions in queryMetricsContext and log some diagnostic things only once
+   * @param queryMetricsContext "output parameter", to set some dimensions to, if the given first argument is true
+   * @param topNQueryMetrics to accumulate metrics to
    * @return
    */
   @SuppressWarnings("unchecked")
-  public TopNResult apply(Cursor cursor, @Nullable QueryMetricsContext queryMetricsContext, boolean first)
+  public Result<TopNResultValue> apply(
+      Cursor cursor,
+      boolean first,
+      @Nullable QueryMetricsContext queryMetricsContext,
+      @Nullable TopNQueryMetrics topNQueryMetrics
+  )
   {
     final DimensionSelector dimSelector = cursor.makeDimensionSelector(
         query.getDimensionSpec()
@@ -86,9 +80,9 @@ public class TopNMapFn
 
       TopNResultBuilder resultBuilder = BaseTopNAlgorithm.makeResultBuilder(params, query);
 
-      long rowsScanned = topNAlgorithm.run(params, resultBuilder, null, queryMetricsContext);
+      topNAlgorithm.run(params, null, resultBuilder, topNQueryMetrics);
 
-      return new TopNResult(resultBuilder.build(), rowsScanned);
+      return resultBuilder.build();
     }
     finally {
       topNAlgorithm.cleanup(params);

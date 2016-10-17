@@ -22,7 +22,6 @@ package io.druid.query.topn;
 import com.metamx.common.ISE;
 import com.metamx.common.Pair;
 import io.druid.collections.StupidPool;
-import io.druid.query.QueryMetricsContext;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.AggregatorUtil;
 import io.druid.query.aggregation.PostAggregator;
@@ -68,11 +67,11 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
   }
 
   @Override
-  public long run(
+  public void run(
       TopNParams params,
-      TopNResultBuilder resultBuilder,
       int[] ints,
-      @Nullable QueryMetricsContext queryMetricsContext
+      TopNResultBuilder resultBuilder,
+      @Nullable TopNQueryMetrics topNQueryMetrics
   )
   {
     final String metric = query.getTopNMetricSpec().getMetricName(query.getDimensionSpec());
@@ -99,8 +98,8 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
       singleMetricParam = singleMetricAlgo.makeInitParams(params.getDimSelector(), params.getCursor());
       singleMetricAlgo.run(
           singleMetricParam,
-          singleMetricResultBuilder,
           null,
+          singleMetricResultBuilder,
           null // don't collect metrics during the preparation run
       );
 
@@ -116,11 +115,11 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
     try {
       // Run topN for all metrics for top N dimension values
       allMetricsParam = allMetricAlgo.makeInitParams(params.getDimSelector(), params.getCursor());
-      return allMetricAlgo.run(
+      allMetricAlgo.run(
           allMetricsParam,
-          resultBuilder,
           dimValSelector,
-          queryMetricsContext
+          resultBuilder,
+          topNQueryMetrics
       );
     }
     finally {

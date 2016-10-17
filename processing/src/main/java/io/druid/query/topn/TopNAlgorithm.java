@@ -19,7 +19,6 @@
 
 package io.druid.query.topn;
 
-import io.druid.query.QueryMetricsContext;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.segment.Cursor;
 import io.druid.segment.DimensionSelector;
@@ -37,13 +36,15 @@ public interface TopNAlgorithm<DimValSelector, Parameters extends TopNParams>
   public TopNParams makeInitParams(DimensionSelector dimSelector, Cursor cursor);
 
   /**
-   * Returns the number of rows scanned.
+   * @param resultBuilder "output parameter"
+   * @param topNQueryMetrics "ouput parameter", if topNQueryMetrics is not null, increment it's metrics with the values
+   *                         accumulated during this algorithm run
    */
-  public long run(
+  public void run(
       Parameters params,
-      TopNResultBuilder resultBuilder,
       DimValSelector dimValSelector,
-      @Nullable QueryMetricsContext queryMetricsContext
+      TopNResultBuilder resultBuilder,
+      @Nullable TopNQueryMetrics topNQueryMetrics
   );
 
   public void cleanup(Parameters params);

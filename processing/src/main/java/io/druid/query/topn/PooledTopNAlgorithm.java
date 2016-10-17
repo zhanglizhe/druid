@@ -205,7 +205,7 @@ public class PooledTopNAlgorithm
     final int aggExtra = aggSize % AGG_UNROLL_COUNT;
     final AtomicInteger currentPosition = new AtomicInteger(0);
 
-    long rowsScanned = 0;
+    long scannedRows = 0;
     while (!cursor.isDone()) {
       final IndexedInts dimValues = dimSelector.getRow();
 
@@ -402,10 +402,10 @@ public class PooledTopNAlgorithm
             currentPosition
         );
       }
-      rowsScanned++;
+      scannedRows++;
       cursor.advance();
     }
-    return rowsScanned;
+    return scannedRows;
   }
 
   private static void aggregateDimValue(

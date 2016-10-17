@@ -26,6 +26,8 @@ import com.metamx.common.guava.Yielder;
 import com.metamx.common.guava.YieldingAccumulator;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceMetricEvent;
+import io.druid.common.guava.MoreSequences;
+import io.druid.common.guava.SequenceWrapper;
 import io.druid.query.topn.TopNQuery;
 
 import java.io.IOException;
@@ -91,83 +93,34 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
       builder.setDimension(userDimension.getKey(), userDimension.getValue());
     }
 
-    return new Sequence<T>()
+    Sequence<T> statusRecordingSequence = new Sequence<T>()
     {
       @Override
       public <OutType> OutType accumulate(OutType outType, Accumulator<OutType, T> accumulator)
       {
-        OutType retVal;
-
-        long startTimeNs = System.nanoTime();
-        QueryMetricsContext queryMetricsContext = new QueryMetricsContext();
         try {
-          if (query instanceof TopNQuery) {
-            // Response context seems to be the easiest way to transmit queryMetricsContext between queryRunner and
-            // queryEngine, because it doesn't require to change interfaces throughout the codebase. If more types of
-            // queries (not just topN) are interested in queryMetricsContext, it should probably be added to
-            // queryRunner.run() parameters.
-            //
-            // This queryMetricsContext is extracted from the responseContext in TopNQueryRunnerFactory.createRunner()
-            // method.
-            responseContext.put("queryMetricsContext", queryMetricsContext);
-          }
-          retVal = queryRunner.run(query, responseContext).accumulate(outType, accumulator);
-          if (query instanceof TopNQuery) {
-            responseContext.remove("queryMetricsContext");
-          }
+          return queryRunner.run(query, responseContext).accumulate(outType, accumulator);
         }
-        catch (RuntimeException e) {
+        catch (Throwable t) {
           builder.setDimension(DruidMetrics.STATUS, "failed");
-          throw e;
+          throw t;
         }
-        catch (Error e) {
-          builder.setDimension(DruidMetrics.STATUS, "failed");
-          throw e;
-        }
-        finally {
-          long timeTakenNs = System.nanoTime() - startTimeNs;
-
-          for (Map.Entry<String, String> dimension : queryMetricsContext.metricBuilder.entrySet()) {
-            builder.setDimension(dimension.getKey(), dimension.getValue());
-          }
-
-          emitter.emit(builder.build(metricName, timeTakenNs));
-
-          if (creationTimeNs > 0) {
-            emitter.emit(builder.build("query/wait/timeNs", startTimeNs - creationTimeNs));
-          }
-
-          for (Map.Entry<String, Number> queryMetric : queryMetricsContext.metrics.entrySet()) {
-            emitter.emit(builder.build(queryMetric.getKey(), queryMetric.getValue()));
-          }
-        }
-
-        return retVal;
       }
 
       @Override
       public <OutType> Yielder<OutType> toYielder(OutType initValue, YieldingAccumulator<OutType, T> accumulator)
       {
-        Yielder<OutType> retVal;
-
-        long startTimeNs = System.nanoTime();
         try {
-          retVal = queryRunner.run(query, responseContext).toYielder(initValue, accumulator);
+          Yielder<OutType> baseYielder = queryRunner.run(query, responseContext).toYielder(initValue, accumulator);
+          return makeYielder(baseYielder, builder);
         }
-        catch (RuntimeException e) {
+        catch (Throwable t) {
           builder.setDimension(DruidMetrics.STATUS, "failed");
-          throw e;
+          throw t;
         }
-        catch (Error e) {
-          builder.setDimension(DruidMetrics.STATUS, "failed");
-          throw e;
-        }
-
-        return makeYielder(startTimeNs, retVal, builder);
       }
 
       private <OutType> Yielder<OutType> makeYielder(
-          final long startTimeNs,
           final Yielder<OutType> yielder,
           final ServiceMetricEvent.Builder builder
       )
@@ -184,15 +137,11 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
           public Yielder<OutType> next(OutType initValue)
           {
             try {
-              return makeYielder(startTimeNs, yielder.next(initValue), builder);
+              return makeYielder(yielder.next(initValue), builder);
             }
-            catch (RuntimeException e) {
+            catch (Throwable t) {
               builder.setDimension(DruidMetrics.STATUS, "failed");
-              throw e;
-            }
-            catch (Error e) {
-              builder.setDimension(DruidMetrics.STATUS, "failed");
-              throw e;
+              throw t;
             }
           }
 
@@ -205,24 +154,60 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
           @Override
           public void close() throws IOException
           {
-            try {
+            //noinspection unused
+            try (Yielder<?> toClose = yielder) {
               if (!isDone() && builder.getDimension(DruidMetrics.STATUS) == null) {
                 builder.setDimension(DruidMetrics.STATUS, "short");
               }
-
-              long timeTakenNs = System.nanoTime() - startTimeNs;
-              emitter.emit(builder.build(metricName, timeTakenNs));
-
-              if (creationTimeNs > 0) {
-                emitter.emit(builder.build("query/wait/timeNs", startTimeNs - creationTimeNs));
-              }
-            }
-            finally {
-              yielder.close();
             }
           }
         };
       }
     };
+    return MoreSequences.wrap(statusRecordingSequence, new SequenceWrapper()
+    {
+      private long startTimeNs;
+      private QueryMetricsContext queryMetricsContext;
+
+      @Override
+      public void open()
+      {
+        startTimeNs = System.nanoTime();
+        queryMetricsContext = new QueryMetricsContext();
+        if (query instanceof TopNQuery) {
+          // Response context seems to be the easiest way to transmit queryMetricsContext between queryRunner and
+          // queryEngine, because it doesn't require to change interfaces throughout the codebase. If more types of
+          // queries (not just topN) are interested in queryMetricsContext, it should probably be added to
+          // queryRunner.run() parameters.
+          //
+          // This queryMetricsContext is extracted from the responseContext in TopNQueryRunnerFactory.createRunner()
+          // method.
+          responseContext.put("queryMetricsContext", queryMetricsContext);
+        }
+      }
+
+      @Override
+      public void close()
+      {
+        if (query instanceof TopNQuery) {
+          responseContext.remove("queryMetricsContext");
+        }
+        long timeTakenNs = System.nanoTime() - startTimeNs;
+
+        for (Map.Entry<String, String> dimension : queryMetricsContext.metricBuilder.entrySet()) {
+          builder.setDimension(dimension.getKey(), dimension.getValue());
+        }
+
+        emitter.emit(builder.build(metricName, timeTakenNs));
+
+        if (creationTimeNs > 0) {
+          emitter.emit(builder.build("query/wait/timeNs", startTimeNs - creationTimeNs));
+        }
+
+        for (Map.Entry<String, Number> queryMetric : queryMetricsContext.metrics.entrySet()) {
+          emitter.emit(builder.build(queryMetric.getKey(), queryMetric.getValue()));
+        }
+      }
+    });
   }
 }
