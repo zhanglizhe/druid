@@ -72,9 +72,9 @@ public class TopNMapFn
       if (first && queryMetricsContext != null) {
         log.debug("TopN cursor: %s", cursor);
         log.debug("TopN dimension selector: %s", dimSelector);
-        Long numValuesPerPass = QueryMetricsContext.roundMetric(params.getNumValuesPerPass(), 2);
+        long numValuesPerPass = QueryMetricsContext.roundMetric(params.getNumValuesPerPass(), 2);
         queryMetricsContext.setDimension("numValuesPerPass", numValuesPerPass);
-        Long valueCardinality = QueryMetricsContext.roundMetric(params.getCardinality(), 2);
+        long valueCardinality = QueryMetricsContext.roundMetric(params.getCardinality(), 2);
         queryMetricsContext.setDimension("valueCardinality", valueCardinality);
       }
 
