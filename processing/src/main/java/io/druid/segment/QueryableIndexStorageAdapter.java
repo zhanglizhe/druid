@@ -320,7 +320,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     }
 
     if (queryMetricsContext != null) {
-      queryMetricsContext.setDimension("postFilters", postFilters.size());
+      queryMetricsContext.setDimension("numPostFilters", postFilters.size());
     }
     final Filter postFilter;
     if (postFilters.size() == 0) {

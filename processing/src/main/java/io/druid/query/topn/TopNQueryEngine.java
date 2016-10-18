@@ -127,7 +127,7 @@ public class TopNQueryEngine
     final int cardinality = adapter.getDimensionCardinality(dimension);
     if (queryMetricsContext != null) {
       queryMetricsContext.setDimension("dimensionCardinality", QueryMetricsContext.roundMetric(cardinality, 2));
-      queryMetricsContext.setDimension("aggregators", query.getAggregatorSpecs().size());
+      queryMetricsContext.setDimension("numAggregators", query.getAggregatorSpecs().size());
       log.debug("TopN aggregators: %s", query.getAggregatorSpecs());
     }
 
