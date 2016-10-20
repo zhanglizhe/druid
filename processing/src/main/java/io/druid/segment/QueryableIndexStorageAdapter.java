@@ -241,8 +241,6 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     );
 
     int totalRows = index.getNumRows();
-    QueryMetricsContext.putMetric(queryMetricsContext, "query/totalRows", totalRows);
-
 
     /**
      * Filters can be applied in two stages:
@@ -260,6 +258,9 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
      */
     final Offset offset;
     final List<Filter> postFilters = new ArrayList<>();
+    int numPreFilters = 0;
+    long bitmapFilteredRows = totalRows;
+    long bitmapIntersectionTimeNs = 0L;
     if (filter == null) {
       offset = new NoFilterOffset(0, totalRows, descending);
     } else {
@@ -282,25 +283,23 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
           postFilters.add(filter);
         }
       }
+      numPreFilters = preFilters.size();
 
-      String bitmapFilteredRowsMetricName = "query/bitmapFilteredRows";
       if (preFilters.size() == 0) {
         offset = new NoFilterOffset(0, totalRows, descending);
-        // No bitmap filter => number of "filtered" rows is the same as the total
-        QueryMetricsContext.putMetric(queryMetricsContext, bitmapFilteredRowsMetricName, totalRows);
       } else {
         List<ImmutableBitmap> bitmaps = Lists.newArrayList();
         for (Filter prefilter : preFilters) {
           bitmaps.add(prefilter.getBitmapIndex(selector));
         }
+        final long bitmapIntersectionStartTimeNs = queryMetricsContext != null ? System.nanoTime() : 0;
         ImmutableBitmap intersectionBitmap = selector.getBitmapFactory().intersection(bitmaps);
-        // Make this test explicitly rather than call QueryMetricsContext.putMetric() to avoid paying for
-        // intersectionBitmap.size(), that could have non-trivial cost, if queryMetricsContext is null.
         if (queryMetricsContext != null) {
+          bitmapIntersectionTimeNs = System.nanoTime() - bitmapIntersectionStartTimeNs;
           // It is chosen to compute bitmap size here (that usually requires a separate scan of a bitmap) rather than
           // accumulate it during the rows processing, because it is simpler and incurs zero runtime cost
           // if metricBuilder is null.
-          queryMetricsContext.metrics.put(bitmapFilteredRowsMetricName, intersectionBitmap.size());
+          bitmapFilteredRows = intersectionBitmap.size();
         }
         offset = new BitmapOffset(
             selector.getBitmapFactory(),
@@ -310,9 +309,6 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       }
     }
 
-    if (queryMetricsContext != null) {
-      queryMetricsContext.setDimension("numPostFilters", postFilters.size());
-    }
     final Filter postFilter;
     if (postFilters.size() == 0) {
       postFilter = null;
@@ -321,9 +317,15 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     } else {
       postFilter = new AndFilter(postFilters);
     }
-    // indicates that we are interested in debug output during this call of makeCursors()
+
     if (queryMetricsContext != null) {
-      log.debug("TopN filter: %s", postFilter);
+      queryMetricsContext.metrics.put("query/totalRows", totalRows);
+      queryMetricsContext.metrics.put("query/bitmapFilteredRows", bitmapFilteredRows);
+      queryMetricsContext.metrics.put("query/bitmapIntersectionTimeNs", bitmapIntersectionTimeNs);
+      queryMetricsContext.setDimension("numPreFilters", numPreFilters);
+      queryMetricsContext.setDimension("numPostFilters", postFilters.size());
+      queryMetricsContext.setDimension("postFilterClassNames", postFilterClassNames(postFilters));
+      log.debug("TopN filters: %s", postFilters);
     }
 
     return Sequences.filter(
@@ -340,6 +342,15 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
         ).build(),
         Predicates.<Cursor>notNull()
     );
+  }
+
+  private static String[] postFilterClassNames(List<Filter> postFilters)
+  {
+    String[] postFilterClassNames = new String[postFilters.size()];
+    for (int i = 0; i < postFilters.size(); i++) {
+      postFilterClassNames[i] = postFilters.get(i).getClass().getName();
+    }
+    return postFilterClassNames;
   }
 
   private static ColumnCapabilities getColumnCapabilites(ColumnSelector index, String columnName)

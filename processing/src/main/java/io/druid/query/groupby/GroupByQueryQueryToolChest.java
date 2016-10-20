@@ -180,13 +180,10 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<Row, GroupByQuery
   @Override
   public ServiceMetricEvent.Builder makeMetricBuilder(GroupByQuery query)
   {
-    return DruidMetrics.makePartialQueryTimeMetric(query)
-                       .setDimension("numDimensions", String.valueOf(query.getDimensions().size()))
-                       .setDimension("numMetrics", String.valueOf(query.getAggregatorSpecs().size()))
-                       .setDimension(
-                           "numComplexMetrics",
-                           String.valueOf(DruidMetrics.findNumComplexAggs(query.getAggregatorSpecs()))
-                       );
+    ServiceMetricEvent.Builder metricBuilder = DruidMetrics.makePartialQueryTimeMetric(query);
+    metricBuilder.setDimension("numDimensions", String.valueOf(query.getDimensions().size()));
+    DruidMetrics.setAggregatorDimensions(metricBuilder, query.getAggregatorSpecs());
+    return metricBuilder;
   }
 
   @Override

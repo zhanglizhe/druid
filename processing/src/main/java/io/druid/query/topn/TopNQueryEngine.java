@@ -127,7 +127,6 @@ public class TopNQueryEngine
     final int cardinality = adapter.getDimensionCardinality(dimension);
     if (queryMetricsContext != null) {
       queryMetricsContext.setDimension("dimensionCardinality", QueryMetricsContext.roundMetric(cardinality, 2));
-      queryMetricsContext.setDimension("numAggregators", query.getAggregatorSpecs().size());
       log.debug("TopN aggregators: %s", query.getAggregatorSpecs());
     }
 
@@ -160,7 +159,7 @@ public class TopNQueryEngine
       topNAlgorithm = new PooledTopNAlgorithm(capabilities, query, bufferPool);
     }
     if (queryMetricsContext != null) {
-      log.debug("TopN algorithm: %s", topNAlgorithm.getClass());
+      queryMetricsContext.setDimension("topNAlgorithmClass", topNAlgorithm.getClass().getName());
     }
     return new TopNMapFn(query, topNAlgorithm);
   }
