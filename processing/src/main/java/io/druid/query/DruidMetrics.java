@@ -62,6 +62,32 @@ public class DruidMetrics
     return retVal;
   }
 
+  public static void setAggregatorDimensions(ServiceMetricEvent.Builder metricBuilder, List<AggregatorFactory> aggs)
+  {
+    metricBuilder.setDimension("numAggregators", String.valueOf(aggs.size()));
+    metricBuilder.setDimension("numComplexAggregators", String.valueOf(findNumComplexAggs(aggs)));
+    metricBuilder.setDimension("aggregatorClassNames", aggregatorClassNames(aggs));
+    metricBuilder.setDimension("aggregatorTypeNames", aggregatorTypeNames(aggs));
+  }
+
+  private static String[] aggregatorClassNames(List<AggregatorFactory> aggs)
+  {
+    String[] aggregatorClassNames = new String[aggs.size()];
+    for (int i = 0; i < aggs.size(); i++) {
+      aggregatorClassNames[i] = aggs.get(i).getClass().getName();
+    }
+    return aggregatorClassNames;
+  }
+
+  private static String[] aggregatorTypeNames(List<AggregatorFactory> aggs)
+  {
+    String[] aggregatorTypeNames = new String[aggs.size()];
+    for (int i = 0; i < aggs.size(); i++) {
+      aggregatorTypeNames[i] = aggs.get(i).getTypeName();
+    }
+    return aggregatorTypeNames;
+  }
+
   public static <T> ServiceMetricEvent.Builder makePartialQueryTimeMetric(Query<T> query)
   {
     return new ServiceMetricEvent.Builder()
