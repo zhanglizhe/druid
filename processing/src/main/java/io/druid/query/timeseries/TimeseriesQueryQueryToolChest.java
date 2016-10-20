@@ -106,15 +106,9 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
   @Override
   public ServiceMetricEvent.Builder makeMetricBuilder(TimeseriesQuery query)
   {
-    return DruidMetrics.makePartialQueryTimeMetric(query)
-                       .setDimension(
-                           "numMetrics",
-                           String.valueOf(query.getAggregatorSpecs().size())
-                       )
-                       .setDimension(
-                           "numComplexMetrics",
-                           String.valueOf(DruidMetrics.findNumComplexAggs(query.getAggregatorSpecs()))
-                       );
+    ServiceMetricEvent.Builder metricBuilder = DruidMetrics.makePartialQueryTimeMetric(query);
+    DruidMetrics.setAggregatorDimensions(metricBuilder, query.getAggregatorSpecs());
+    return metricBuilder;
   }
 
   @Override
