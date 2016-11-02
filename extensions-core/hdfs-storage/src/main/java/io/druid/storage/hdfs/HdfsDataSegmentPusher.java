@@ -103,31 +103,40 @@ public class HdfsDataSegmentPusher implements DataSegmentPusher
     final DataSegment dataSegment;
     try (FSDataOutputStream out = fs.create(tmpFile)) {
       size = CompressionUtils.zip(inDir, out);
+      final Path outFile = new Path(String.format("%s/%s/index.zip", config.getStorageDirectory(), storageDir));
+      final Path outDir = outFile.getParent();
       dataSegment = createDescriptorFile(
-          segment.withLoadSpec(makeLoadSpec(tmpFile))
+          segment.withLoadSpec(makeLoadSpec(outFile))
                  .withSize(size)
                  .withBinaryVersion(SegmentUtils.getVersionFromDir(inDir)),
           tmpFile.getParent(),
           fs
       );
-      Path outDir = new Path(String.format("%s/%s", config.getStorageDirectory(), storageDir));
+
+      // Create parent if it does not exist, recreation is not an error
+      fs.mkdirs(outDir.getParent());
       if (!fs.rename(tmpFile.getParent(), outDir)) {
-        if (!fs.delete(tmpFile.getParent(), true)) {
-          log.error("Failed to delete temp directory[%s]", tmpFile);
-        }
         if (fs.exists(outDir)) {
           log.info(
               "Unable to rename temp directory[%s] to segment directory[%s]. It is already pushed by a replica task.",
-              tmpFile,
+              tmpFile.getParent(),
               outDir
           );
         } else {
           throw new IOException(String.format(
               "Failed to rename temp directory[%s] and segment directory[%s] is not present.",
-              tmpFile,
+              tmpFile.getParent(),
               outDir
           ));
         }
+      }
+    } finally {
+      try {
+        if (fs.exists(tmpFile.getParent()) && !fs.delete(tmpFile.getParent(), true)) {
+          log.error("Failed to delete temp directory[%s]", tmpFile.getParent());
+        }
+      } catch(IOException ex) {
+        log.error(ex, "Failed to delete temp directory[%s]", tmpFile.getParent());
       }
     }
 
@@ -146,7 +155,7 @@ public class HdfsDataSegmentPusher implements DataSegmentPusher
 
   private ImmutableMap<String, Object> makeLoadSpec(Path outFile)
   {
-    return ImmutableMap.<String, Object>of("type", "hdfs", "path", outFile.toString());
+    return ImmutableMap.<String, Object>of("type", "hdfs", "path", outFile.toUri().toString());
   }
 
   private static class HdfsOutputStreamSupplier extends ByteSink

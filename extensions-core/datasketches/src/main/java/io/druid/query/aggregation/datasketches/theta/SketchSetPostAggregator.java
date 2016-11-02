@@ -73,7 +73,7 @@ public class SketchSetPostAggregator implements PostAggregator
   }
 
   @Override
-  public Comparator<Sketch> getComparator()
+  public Comparator<Object> getComparator()
   {
     return SketchAggregatorFactory.COMPARATOR;
   }
@@ -83,7 +83,7 @@ public class SketchSetPostAggregator implements PostAggregator
   {
     Sketch[] sketches = new Sketch[fields.size()];
     for (int i = 0; i < sketches.length; i++) {
-      sketches[i] = (Sketch) fields.get(i).compute(combinedAggregators);
+      sketches[i] = SketchAggregatorFactory.toSketch(fields.get(i).compute(combinedAggregators));
     }
 
     return SketchOperations.sketchSetOperation(func, maxSketchSize, sketches);

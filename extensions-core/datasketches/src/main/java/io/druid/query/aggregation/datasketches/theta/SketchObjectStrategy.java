@@ -26,6 +26,7 @@ import com.yahoo.sketches.memory.MemoryRegion;
 import com.yahoo.sketches.memory.NativeMemory;
 import com.yahoo.sketches.theta.Sketch;
 import com.yahoo.sketches.theta.Sketches;
+import com.yahoo.sketches.theta.Union;
 import io.druid.segment.data.ObjectStrategy;
 
 import java.nio.ByteBuffer;
@@ -39,13 +40,14 @@ public class SketchObjectStrategy implements ObjectStrategy
   @Override
   public int compare(Object s1, Object s2)
   {
-    if (s1 instanceof Sketch) {
-      if (s2 instanceof Sketch) {
-        return SketchAggregatorFactory.COMPARATOR.compare((Sketch) s1, (Sketch) s2);
+    if (s1 instanceof Sketch || s1 instanceof Union) {
+      if (s2 instanceof Sketch || s2 instanceof Union) {
+        return SketchAggregatorFactory.COMPARATOR.compare(s1, s2);
       } else {
         return -1;
       }
     }
+
     if (s1 instanceof Memory) {
       if (s2 instanceof Memory) {
         Memory s1Mem = (Memory) s1;
@@ -64,6 +66,7 @@ public class SketchObjectStrategy implements ObjectStrategy
         return 1;
       }
     }
+
     throw new IAE("Unknwon class[%s], toString[%s]", s1.getClass(), s1);
 
   }
@@ -98,6 +101,8 @@ public class SketchObjectStrategy implements ObjectStrategy
       byte[] retVal = new byte[(int) mem.getCapacity()];
       mem.getByteArray(0, retVal, 0, (int) mem.getCapacity());
       return retVal;
+    }  else if (obj instanceof Union) {
+      return toBytes(((Union) obj).getResult(true, null));
     } else if (obj == null) {
       return EMPTY_BYTES;
     } else {
