@@ -54,7 +54,6 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 /**
  */
@@ -130,7 +129,7 @@ public abstract class MergeTaskBase extends AbstractFixedIntervalTask
     final File taskDir = toolbox.getTaskWorkDir();
 
     try {
-      final long startTimeNs = System.nanoTime();
+      final long startTime = System.currentTimeMillis();
 
       log.info(
           "Starting merge of id[%s], segments: %s",
@@ -155,22 +154,21 @@ public abstract class MergeTaskBase extends AbstractFixedIntervalTask
       final File fileToUpload = merge(toolbox, gettedSegments, new File(taskDir, "merged"));
 
       emitter.emit(builder.build("merger/numMerged", segments.size()));
-      long mergeTimeNs = System.nanoTime() - startTimeNs;
-      emitter.emit(builder.build("merger/mergeTimeNs", mergeTimeNs));
+      emitter.emit(builder.build("merger/mergeTime", System.currentTimeMillis() - startTime));
 
       log.info(
           "[%s] : Merged %d segments in %,d millis",
           mergedSegment.getDataSource(),
           segments.size(),
-          TimeUnit.NANOSECONDS.toMillis(mergeTimeNs)
+          System.currentTimeMillis() - startTime
       );
 
-      long uploadStartNs = System.nanoTime();
+      long uploadStart = System.currentTimeMillis();
 
       // Upload file
       final DataSegment uploadedSegment = toolbox.getSegmentPusher().push(fileToUpload, mergedSegment);
 
-      emitter.emit(builder.build("merger/uploadTimeNs", System.nanoTime() - uploadStartNs));
+      emitter.emit(builder.build("merger/uploadTime", System.currentTimeMillis() - uploadStart));
       emitter.emit(builder.build("merger/mergeSize", uploadedSegment.getSize()));
 
       toolbox.publishSegments(ImmutableList.of(uploadedSegment));
@@ -322,7 +320,7 @@ public abstract class MergeTaskBase extends AbstractFixedIntervalTask
                       .interval(mergedInterval)
                       .version(version)
                       .binaryVersion(IndexIO.CURRENT_VERSION_ID)
-                      .shardSpec(NoneShardSpec.instance())
+                      .shardSpec(new NoneShardSpec())
                       .dimensions(Lists.newArrayList(mergedDimensions))
                       .metrics(Lists.newArrayList(mergedMetrics))
                       .build();

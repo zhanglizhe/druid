@@ -281,8 +281,8 @@ public class SinkQuerySegmentWalker implements QuerySegmentWalker
   }
 
   /**
-   * Decorates a Sink's query runner to emit query/segmentAndCache/timeNs, query/segment/timeNs, query/wait/timeNs once
-   * each for the whole Sink. Also adds CPU time to cpuTimeAccumulator.
+   * Decorates a Sink's query runner to emit query/segmentAndCache/time(Ns), query/segment/time(Ns), query/wait/time(Ns)
+   * once each for the whole Sink. Also adds CPU time to cpuTimeAccumulator.
    */
   private <T> QueryRunner<T> withPerSinkMetrics(
       final QueryRunner<T> sinkRunner,
@@ -293,8 +293,8 @@ public class SinkQuerySegmentWalker implements QuerySegmentWalker
   {
     final ImmutableMap<String, String> dims = ImmutableMap.of("segment", sinkSegmentIdentifier);
 
-    // Note: query/segmentAndCache/timeNs and query/segment/timeNs are effectively the same here. They don't split apart
-    // cache vs. non-cache due to the fact that Sinks may be partially cached and partially uncached. Making this
+    // Note: query/segmentAndCache/time(Ns) and query/segment/time(Ns) are effectively the same here. They don't split
+    // apart cache vs. non-cache due to the fact that Sinks may be partially cached and partially uncached. Making this
     // better would need to involve another accumulator like the cpuTimeAccumulator that we could share with the
     // sinkRunner.
 
@@ -306,10 +306,10 @@ public class SinkQuerySegmentWalker implements QuerySegmentWalker
                 emitter,
                 builderFn,
                 sinkRunner,
-                "query/segment/timeNs",
+                "query/segment/time",
                 dims
             ),
-            "query/segmentAndCache/timeNs",
+            "query/segmentAndCache/time",
             dims
         ).withWaitMeasuredFromNow(),
         builderFn,

@@ -298,7 +298,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
           bitmapIntersectionTimeNs = System.nanoTime() - bitmapIntersectionStartTimeNs;
           // It is chosen to compute bitmap size here (that usually requires a separate scan of a bitmap) rather than
           // accumulate it during the rows processing, because it is simpler and incurs zero runtime cost
-          // if metricBuilder is null.
+          // if queryMetricsContext is null.
           bitmapFilteredRows = intersectionBitmap.size();
         }
         offset = new BitmapOffset(

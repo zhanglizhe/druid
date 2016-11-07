@@ -32,6 +32,7 @@ import io.druid.query.topn.TopNQuery;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  */
@@ -197,11 +198,14 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
         for (Map.Entry<String, String> dimension : queryMetricsContext.metricBuilder.entrySet()) {
           builder.setDimension(dimension.getKey(), dimension.getValue());
         }
+        emitter.emit(builder.build(metricName + "Ns", timeTakenNs));
+        emitter.emit(builder.build(metricName, TimeUnit.NANOSECONDS.toMillis(timeTakenNs)));
 
-        emitter.emit(builder.build(metricName, timeTakenNs));
 
         if (creationTimeNs > 0) {
-          emitter.emit(builder.build("query/wait/timeNs", startTimeNs - creationTimeNs));
+          long waitTimeNs = startTimeNs - creationTimeNs;
+          emitter.emit(builder.build("query/wait/timeNs", waitTimeNs));
+          emitter.emit(builder.build("query/wait/time", TimeUnit.NANOSECONDS.toMillis(waitTimeNs)));
         }
 
         for (Map.Entry<String, Number> queryMetric : queryMetricsContext.metrics.entrySet()) {

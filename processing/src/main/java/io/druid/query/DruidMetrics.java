@@ -64,7 +64,10 @@ public class DruidMetrics
 
   public static void setAggregatorDimensions(ServiceMetricEvent.Builder metricBuilder, List<AggregatorFactory> aggs)
   {
-    metricBuilder.setDimension("numAggregators", String.valueOf(aggs.size()));
+    String numAggregators = String.valueOf(aggs.size());
+    metricBuilder.setDimension("numAggregators", numAggregators);
+    // Emit legacy dimension name for backward compatibility, TODO remove in Druid 0.10
+    metricBuilder.setDimension("aggregators", numAggregators);
     metricBuilder.setDimension("numComplexAggregators", String.valueOf(findNumComplexAggs(aggs)));
     metricBuilder.setDimension("aggregatorClassNames", aggregatorClassNames(aggs));
     metricBuilder.setDimension("aggregatorTypeNames", aggregatorTypeNames(aggs));
