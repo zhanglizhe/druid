@@ -25,18 +25,17 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.math.IntMath;
 import com.google.common.math.LongMath;
 import com.metamx.common.IAE;
-import com.metamx.emitter.service.ServiceMetricEvent;
 
-import javax.annotation.Nullable;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * This object facilitates collecting dimensions and metrics during the query run. Those metrics are emitted in
- * {@link MetricsEmittingQueryRunner}. This class is union of relatively independent entities - {@link #metricBuilder}
- * and {@link #metrics}, and it's purpose is merely to be passed as a single argument around methods during the query
- * execution: {@code queryMetricsContext}, rather than two arguments: {@code metricBuilder} and {@code metrics}.
+ * {@link MetricsEmittingQueryRunner}. This class is union of relatively independent entities - {@link
+ * #singleValueDimensions}, {@link #multiValueDimensions} and {@link #metrics}, and it's purpose is merely to be passed
+ * as a single argument around methods during the query execution: {@code queryMetricsContext}, rather than three
+ * separate arguments (and this number might grow in the future).
  */
 public final class QueryMetricsContext
 {
@@ -68,38 +67,35 @@ public final class QueryMetricsContext
     return metricUp - (metricUp % granularity);
   }
 
-  public static void putMetric(@Nullable QueryMetricsContext queryMetricsContext, String metricName, Number metric)
-  {
-    if (queryMetricsContext != null) {
-      queryMetricsContext.metrics.put(metricName, metric);
-    }
-  }
-
-  @JsonProperty("metricBuilder")
-  public final Map<String, String> metricBuilder;
+  @JsonProperty("singleValueDimensions")
+  public final Map<String, String> singleValueDimensions;
+  @JsonProperty("multiValueDimensions")
+  public final Map<String, String[]> multiValueDimensions;
   @JsonProperty("metrics")
   public final Map<String, Number> metrics;
 
   public QueryMetricsContext()
   {
-    this(new HashMap<String, String>(), new HashMap<String, Number>());
+    this(new HashMap<String, String>(), new HashMap<String, String[]>(), new HashMap<String, Number>());
   }
 
   @JsonCreator
   public QueryMetricsContext(
-      @JsonProperty("metricBuilder") Map<String, String> metricBuilder,
+      @JsonProperty("singleValueDimensions") Map<String, String> singleValueDimensions,
+      @JsonProperty("multiValueDimensions") Map<String, String[]> multiValueDimensions,
       @JsonProperty("metrics") Map<String, Number> metrics
   )
   {
-    this.metricBuilder = metricBuilder;
+    this.singleValueDimensions = singleValueDimensions;
+    this.multiValueDimensions = multiValueDimensions;
     this.metrics = metrics;
   }
 
   /**
-   * Equivalent to {@link #metricBuilder}{@code .put(dimension, value.toString())}.
+   * Equivalent to {@link #singleValueDimensions}{@code .put(dimension, value.toString())}.
    */
   public void setDimension(String dimension, Object value)
   {
-    metricBuilder.put(dimension, value.toString());
+    singleValueDimensions.put(dimension, value.toString());
   }
 }

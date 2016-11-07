@@ -324,7 +324,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       queryMetricsContext.metrics.put("query/bitmapIntersectionTimeNs", bitmapIntersectionTimeNs);
       queryMetricsContext.setDimension("numPreFilters", numPreFilters);
       queryMetricsContext.setDimension("numPostFilters", postFilters.size());
-      queryMetricsContext.setDimension("postFilterClassNames", postFilterClassNames(postFilters));
+      queryMetricsContext.multiValueDimensions.put("postFilterClassNames", postFilterClassNames(postFilters));
       log.debug("TopN filters: %s", postFilters);
     }
 

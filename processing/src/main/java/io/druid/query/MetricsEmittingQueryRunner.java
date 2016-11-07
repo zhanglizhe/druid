@@ -195,9 +195,13 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
         }
         long timeTakenNs = System.nanoTime() - startTimeNs;
 
-        for (Map.Entry<String, String> dimension : queryMetricsContext.metricBuilder.entrySet()) {
+        for (Map.Entry<String, String> dimension : queryMetricsContext.singleValueDimensions.entrySet()) {
           builder.setDimension(dimension.getKey(), dimension.getValue());
         }
+        for (Map.Entry<String, String[]> dimension : queryMetricsContext.multiValueDimensions.entrySet()) {
+          builder.setDimension(dimension.getKey(), dimension.getValue());
+        }
+
         emitter.emit(builder.build(metricName + "Ns", timeTakenNs));
         emitter.emit(builder.build(metricName, TimeUnit.NANOSECONDS.toMillis(timeTakenNs)));
 
