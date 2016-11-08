@@ -37,6 +37,7 @@ import com.metamx.common.logger.Logger;
 import com.metamx.emitter.EmittingLogger;
 import com.metamx.emitter.core.Emitter;
 import com.metamx.emitter.service.ServiceEmitter;
+import io.druid.audit.AuditEntry;
 import io.druid.guice.LazySingleton;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.annotations.Self;
@@ -81,8 +82,13 @@ public class EmitterModule implements Module
   public ServiceEmitter getServiceEmitter(@Self Supplier<DruidNode> configSupplier, Emitter emitter)
   {
     final DruidNode config = configSupplier.get();
-    final ImmutableMap<String, String> otherServiceDimensions =
-        ImmutableMap.of("version", DruidNode.class.getPackage().getImplementationVersion());
+    final ImmutableMap<String, String> otherServiceDimensions = ImmutableMap.of(
+        "version",
+        // AuditEntry is an arbitrary class from druid-common, in order to c.getPackage().getImplementationVersion()
+        // return the actual version rather than null during JUnit tests it should be a class not from the current
+        // module, i. e. not from druid-server.
+        AuditEntry.class.getPackage().getImplementationVersion()
+    );
     final ServiceEmitter retVal = new ServiceEmitter(
         config.getServiceName(),
         config.getHostAndPort(),
