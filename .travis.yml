@@ -7,8 +7,6 @@ jdk:
 script:
   - mvn test -B && mvn clean -Pstrict compile test-compile -B
 
-sudo: false
-
 cache:
   directories:
       - $HOME/.m2
@@ -26,9 +24,9 @@ addons:
   coverity_scan:
     project:
       name: "metamx/druid"
-      description: "<Your project description here>"
+      description: "Build submitted via Travis CI"
     notification_email: leventov.ru@gmail.com
     build_command_prepend: "mvn clean"
-    build_command: "mvn -DskipTests=true package"
+    build_command: "mvn -DskipTests=true compile"
     branch_pattern: coverity_scan
 
