@@ -13,3 +13,22 @@ cache:
   directories:
       - $HOME/.m2
 
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "bD3SBMrLSqNpSrCxaJgLlUvNUCEg1XipkZRbfgjmqUcz/iOsuXj0gElOKYWMb+PdsIa9zahXHRNb5JjyKKk/9V4UiMCYPIQVX6AUlAacEzUfKnyKl0VzVcF53bcdgjcIpI+7xfzbwrwo5VCQ31MSQgePlpQkEcRfukAHW69wz+k="
+
+before_install:
+      - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+
+addons:
+  coverity_scan:
+    project:
+      name: "metamx/druid"
+      description: "<Your project description here>"
+    notification_email: leventov.ru@gmail.com
+    build_command_prepend: "mvn clean"
+    build_command: "mvn -DskipTests=true package"
+    branch_pattern: coverity_scan
+
