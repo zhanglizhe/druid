@@ -30,7 +30,6 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import com.metamx.common.IAE;
-import com.metamx.common.guava.ResourceClosingSequence;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import io.druid.collections.StupidPool;
@@ -118,7 +117,7 @@ public class GroupByStrategyV1 implements GroupByStrategy
         )
     );
 
-    return new ResourceClosingSequence<>(query.applyLimit(GroupByQueryHelper.postAggregate(query, index)), index);
+    return Sequences.withBaggage(query.applyLimit(GroupByQueryHelper.postAggregate(query, index)), index);
   }
 
   @Override
@@ -201,7 +200,7 @@ public class GroupByStrategyV1 implements GroupByStrategy
 
     innerQueryResultIndex.close();
 
-    return new ResourceClosingSequence<>(
+    return Sequences.withBaggage(
         outerQuery.applyLimit(GroupByQueryHelper.postAggregate(query, outerQueryResultIndex)),
         outerQueryResultIndex
     );

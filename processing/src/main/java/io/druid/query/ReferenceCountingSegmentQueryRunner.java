@@ -20,8 +20,8 @@
 package io.druid.query;
 
 import com.metamx.common.guava.CloseQuietly;
-import com.metamx.common.guava.ResourceClosingSequence;
 import com.metamx.common.guava.Sequence;
+import com.metamx.common.guava.Sequences;
 import io.druid.segment.ReferenceCountingSegment;
 
 import java.io.Closeable;
@@ -54,7 +54,7 @@ public class ReferenceCountingSegmentQueryRunner<T> implements QueryRunner<T>
       try {
         final Sequence<T> baseSequence = factory.createRunner(adapter).run(query, responseContext);
 
-        return new ResourceClosingSequence<T>(baseSequence, closeable);
+        return Sequences.withBaggage(baseSequence, closeable);
       }
       catch (RuntimeException e) {
         CloseQuietly.close(closeable);

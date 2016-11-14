@@ -27,7 +27,6 @@ import com.metamx.common.IAE;
 import com.metamx.common.ISE;
 import com.metamx.common.guava.BaseSequence;
 import com.metamx.common.guava.CloseQuietly;
-import com.metamx.common.guava.ResourceClosingSequence;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import io.druid.collections.ResourceHolder;
@@ -99,7 +98,7 @@ public class GroupByQueryEngineV2
                                     : new DateTime(Long.parseLong(fudgeTimestampString));
 
     return Sequences.concat(
-        new ResourceClosingSequence<>(
+        Sequences.withBaggage(
             Sequences.map(
                 cursors,
                 new Function<Cursor, Sequence<Row>>()

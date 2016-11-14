@@ -20,16 +20,14 @@
 package io.druid.query;
 
 import com.google.common.base.Function;
-import com.google.common.base.Strings;
-import com.google.common.collect.Maps;
-import com.metamx.common.guava.Accumulator;
+import com.google.common.base.Supplier;
+import com.metamx.common.guava.LazySequence;
 import com.metamx.common.guava.Sequence;
-import com.metamx.common.guava.Yielder;
-import com.metamx.common.guava.YieldingAccumulator;
+import com.metamx.common.guava.SequenceWrapper;
+import com.metamx.common.guava.Sequences;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceMetricEvent;
 
-import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -92,103 +90,32 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
       builder.setDimension(userDimension.getKey(), userDimension.getValue());
     }
 
-    return new Sequence<T>()
-    {
-      @Override
-      public <OutType> OutType accumulate(OutType outType, Accumulator<OutType, T> accumulator)
-      {
-        OutType retVal;
-
-        long startTime = System.currentTimeMillis();
-        try {
-          retVal = queryRunner.run(query, responseContext).accumulate(outType, accumulator);
-        }
-        catch (RuntimeException e) {
-          builder.setDimension(DruidMetrics.STATUS, "failed");
-          throw e;
-        }
-        catch (Error e) {
-          builder.setDimension(DruidMetrics.STATUS, "failed");
-          throw e;
-        }
-        finally {
-          long timeTaken = System.currentTimeMillis() - startTime;
-
-          emitter.emit(builder.build(metricName, timeTaken));
-
-          if (creationTime > 0) {
-            emitter.emit(builder.build("query/wait/time", startTime - creationTime));
-          }
-        }
-
-        return retVal;
-      }
-
-      @Override
-      public <OutType> Yielder<OutType> toYielder(OutType initValue, YieldingAccumulator<OutType, T> accumulator)
-      {
-        Yielder<OutType> retVal;
-
-        long startTime = System.currentTimeMillis();
-        try {
-          retVal = queryRunner.run(query, responseContext).toYielder(initValue, accumulator);
-        }
-        catch (RuntimeException e) {
-          builder.setDimension(DruidMetrics.STATUS, "failed");
-          throw e;
-        }
-        catch (Error e) {
-          builder.setDimension(DruidMetrics.STATUS, "failed");
-          throw e;
-        }
-
-        return makeYielder(startTime, retVal, builder);
-      }
-
-      private <OutType> Yielder<OutType> makeYielder(
-          final long startTime,
-          final Yielder<OutType> yielder,
-          final ServiceMetricEvent.Builder builder
-      )
-      {
-        return new Yielder<OutType>()
+    return Sequences.wrap(
+        // Use LazySequence because want to account execution time of queryRunner.run() (it prepares the underlying
+        // Sequence) as part of the reported query time, i. e. we want to execute queryRunner.run() after
+        // `startTime = System.currentTimeMillis();` (see below).
+        new LazySequence<>(new Supplier<Sequence<T>>()
         {
           @Override
-          public OutType get()
+          public Sequence<T> get()
           {
-            return yielder.get();
+            return queryRunner.run(query, responseContext);
+          }
+        }),
+        new SequenceWrapper()
+        {
+          private long startTime;
+
+          @Override
+          public void before()
+          {
+            startTime = System.currentTimeMillis();
           }
 
           @Override
-          public Yielder<OutType> next(OutType initValue)
+          public void after(boolean isDone, Throwable thrown)
           {
             try {
-              return makeYielder(startTime, yielder.next(initValue), builder);
-            }
-            catch (RuntimeException e) {
-              builder.setDimension(DruidMetrics.STATUS, "failed");
-              throw e;
-            }
-            catch (Error e) {
-              builder.setDimension(DruidMetrics.STATUS, "failed");
-              throw e;
-            }
-          }
-
-          @Override
-          public boolean isDone()
-          {
-            return yielder.isDone();
-          }
-
-          @Override
-          public void close() throws IOException
-          {
-            try {
-              if (!isDone() && builder.getDimension(DruidMetrics.STATUS) == null) {
-                builder.setDimension(DruidMetrics.STATUS, "short");
-              }
-
               long timeTaken = System.currentTimeMillis() - startTime;
               emitter.emit(builder.build(metricName, timeTaken));
 
@@ -196,12 +123,17 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
                 emitter.emit(builder.build("query/wait/time", startTime - creationTime));
               }
             }
+            // Use finally block because emitting query time (in `try {}`, above) and the status (in `finally {}`,
+            // below) are unrelated and we don't want the latter to be skipped if the former thrown any exception.
             finally {
-              yielder.close();
+              if (thrown != null) {
+                builder.setDimension(DruidMetrics.STATUS, "failed");
+              } else if (!isDone) {
+                builder.setDimension(DruidMetrics.STATUS, "short");
+              }
             }
           }
-        };
-      }
-    };
+        }
+    );
   }
 }

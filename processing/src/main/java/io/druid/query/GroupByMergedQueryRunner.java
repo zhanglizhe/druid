@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.metamx.common.ISE;
 import com.metamx.common.Pair;
 import com.metamx.common.guava.Accumulator;
-import com.metamx.common.guava.ResourceClosingSequence;
 import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.logger.Logger;
@@ -153,7 +152,7 @@ public class GroupByMergedQueryRunner<T> implements QueryRunner<T>
       return Sequences.simple(bySegmentAccumulatorPair.lhs);
     }
 
-    return new ResourceClosingSequence<T>(
+    return Sequences.withBaggage(
         Sequences.simple(
             Iterables.transform(
                 indexAccumulatorPair.lhs.iterableWithPostAggregations(null, query.isDescending()),
