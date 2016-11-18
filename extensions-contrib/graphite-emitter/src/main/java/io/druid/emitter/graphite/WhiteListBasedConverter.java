@@ -31,15 +31,15 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.io.CharStreams;
 import com.google.common.io.Files;
+import com.google.common.io.Resources;
 import com.metamx.common.ISE;
 import com.metamx.common.logger.Logger;
 import com.metamx.emitter.service.ServiceMetricEvent;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.List;
@@ -251,11 +251,10 @@ public class WhiteListBasedConverter implements DruidToGraphiteEventConverter
     String actualPath = mapPath;
     try {
       if (Strings.isNullOrEmpty(mapPath)) {
-        actualPath = this.getClass().getClassLoader().getResource("defaultWhiteListMap.json").getFile();
+        URL resource = this.getClass().getClassLoader().getResource("defaultWhiteListMap.json");
+        actualPath = resource.getFile();
         LOGGER.info("using default whiteList map located at [%s]", actualPath);
-        fileContent = CharStreams.toString(new InputStreamReader(this.getClass()
-                                                                     .getClassLoader()
-                                                                     .getResourceAsStream("defaultWhiteListMap.json")));
+        fileContent = Resources.toString(resource, Charset.defaultCharset());
       } else {
         fileContent = Files.asCharSource(new File(mapPath), Charset.forName("UTF-8")).read();
       }
