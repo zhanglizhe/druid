@@ -30,7 +30,7 @@ import java.nio.ByteBuffer;
 
 /**
  */
-public abstract class VarianceBufferAggregator implements BufferAggregator
+public abstract class VarianceBufferAggregator extends BufferAggregator
 {
   private static final int COUNT_OFFSET = 0;
   private static final int SUM_OFFSET = Longs.BYTES;
@@ -102,6 +102,12 @@ public abstract class VarianceBufferAggregator implements BufferAggregator
         buf.putDouble(position + NVARIANCE_OFFSET, variance);
       }
     }
+
+    @Override
+    public String getBufferAggregatorType()
+    {
+      return getClass().getName() + "[selector=" + selector.getFloatColumnSelectorType() + "]";
+    }
   }
 
   public static final class LongVarianceAggregator extends VarianceBufferAggregator
@@ -127,6 +133,12 @@ public abstract class VarianceBufferAggregator implements BufferAggregator
         double variance = buf.getDouble(position + NVARIANCE_OFFSET) + (t * t) / ((double) count * (count - 1));
         buf.putDouble(position + NVARIANCE_OFFSET, variance);
       }
+    }
+
+    @Override
+    public String getBufferAggregatorType()
+    {
+      return getClass().getName() + "[selector=" + selector.getLongColumnSelectorType() + "]";
     }
   }
 
@@ -166,6 +178,12 @@ public abstract class VarianceBufferAggregator implements BufferAggregator
       buf.putLong(position, count);
       buf.putDouble(position + SUM_OFFSET, sum);
       buf.putDouble(position + NVARIANCE_OFFSET, nvariance);
+    }
+
+    @Override
+    public String getBufferAggregatorType()
+    {
+      return getClass().getName() + "[selector=" + selector.getObjectColumnSelectorType() + "]";
     }
   }
 }

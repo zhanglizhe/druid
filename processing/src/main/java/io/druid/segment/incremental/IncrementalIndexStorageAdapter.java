@@ -51,6 +51,7 @@ import io.druid.segment.NullDimensionSelector;
 import io.druid.segment.ObjectColumnSelector;
 import io.druid.segment.SingleScanTimeDimSelector;
 import io.druid.segment.StorageAdapter;
+import io.druid.segment.FloatZeroSelector;
 import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.ValueType;
@@ -388,14 +389,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
 
                 final Integer metricIndexInt = index.getMetricIndex(columnName);
                 if (metricIndexInt == null) {
-                  return new FloatColumnSelector()
-                  {
-                    @Override
-                    public float get()
-                    {
-                      return 0.0f;
-                    }
-                  };
+                  return FloatZeroSelector.singleton();
                 }
 
                 final int metricIndex = metricIndexInt;
@@ -414,7 +408,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
               {
                 if (columnName.equals(Column.TIME_COLUMN_NAME)) {
                   // Local class has a name => more readable toString()
-                  class TimeColumnSelector implements LongColumnSelector
+                  class TimeColumnSelector extends LongColumnSelector
                   {
                     @Override
                     public long get()

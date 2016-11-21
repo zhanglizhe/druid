@@ -24,7 +24,7 @@ import java.util.List;
 
 /**
  */
-public class ListIndexed<T> implements Indexed<T>
+public class ListIndexed<T> extends Indexed<T>
 {
   private final List<T> baseList;
   private final Class<? extends T> clazz;

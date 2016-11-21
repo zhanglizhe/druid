@@ -21,9 +21,10 @@ package io.druid.segment;import io.druid.segment.data.IndexedInts;
 
 /**
  */
-public interface DimensionSelector
+public abstract class DimensionSelector
 {
-  public static int CARDINALITY_UNKNOWN = -1;
+  public static final int CARDINALITY_UNKNOWN = -1;
+  public static final int VARIABLE_ROW_SIZE = -1;
 
   /**
    * Gets all values for the row inside of an IntBuffer.  I.e. one possible implementation could be
@@ -32,7 +33,16 @@ public interface DimensionSelector
    *
    * @return all values for the row as an IntBuffer
    */
-  public IndexedInts getRow();
+  public abstract IndexedInts getRow();
+
+  /**
+   * If this DimensionSelector always returns rows of the same {@linkplain IndexedInts#size() size}, returns this size,
+   * otherwise returns {@link #VARIABLE_ROW_SIZE}.
+   *
+   * <p>This method is allowed to return {@link #VARIABLE_ROW_SIZE} even if it actually always returns rows of the same
+   * size.
+   */
+  public abstract int constantRowSize();
 
   /**
    * Value cardinality is the cardinality of the different occurring values.  If there were 4 rows:
@@ -51,7 +61,7 @@ public interface DimensionSelector
    *
    * @return the value cardinality, or -1 if unknown.
    */
-  public int getValueCardinality();
+  public abstract int getValueCardinality();
 
   /**
    * The Name is the String name of the actual field.  It is assumed that storage layers convert names
@@ -77,7 +87,7 @@ public interface DimensionSelector
    * @param id id to lookup the field name for
    * @return the field name for the given id
    */
-  public String lookupName(int id);
+  public abstract String lookupName(int id);
 
   /**
    * The ID is the int id value of the field.
@@ -85,5 +95,10 @@ public interface DimensionSelector
    * @param name field name to look up the id for
    * @return the id for the given field name
    */
-  public int lookupId(String name);
+  public abstract int lookupId(String name);
+
+  public String getDimensionSelectorType()
+  {
+    return getClass().getName();
+  }
 }

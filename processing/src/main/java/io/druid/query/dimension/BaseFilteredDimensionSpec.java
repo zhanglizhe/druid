@@ -86,7 +86,7 @@ public abstract class BaseFilteredDimensionSpec implements DimensionSpec
     return new ForwardingDimensionSelector(selector, forwardMapping, reverseMapping);
   }
 
-  private static class ForwardingDimensionSelector implements DimensionSelector
+  private static class ForwardingDimensionSelector extends DimensionSelector
   {
     private final DimensionSelector selector;
     private final Map<Integer, Integer> forwardMapping;
@@ -119,6 +119,12 @@ public abstract class BaseFilteredDimensionSpec implements DimensionSpec
     }
 
     @Override
+    public int constantRowSize()
+    {
+      return selector.constantRowSize();
+    }
+
+    @Override
     public int getValueCardinality()
     {
       return forwardMapping.size();
@@ -134,6 +140,12 @@ public abstract class BaseFilteredDimensionSpec implements DimensionSpec
     public int lookupId(String name)
     {
       return forwardMapping.get(selector.lookupId(name));
+    }
+
+    @Override
+    public String getDimensionSelectorType()
+    {
+      return getClass().getName() + "[selector=" + selector.getDimensionSelectorType() + "]";
     }
 
     @Override

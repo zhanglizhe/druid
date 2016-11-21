@@ -21,7 +21,12 @@ package io.druid.query.filter;
 
 /**
  */
-public interface ValueMatcher
+public abstract class ValueMatcher
 {
-  public boolean matches();
+  public abstract boolean matches();
+
+  public String getValueMatcherType()
+  {
+    return getClass().getName();
+  }
 }

@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 
 /**
  */
-public class DoubleMinBufferAggregator implements BufferAggregator
+public class DoubleMinBufferAggregator extends BufferAggregator
 {
   private final FloatColumnSelector selector;
 
@@ -69,5 +69,11 @@ public class DoubleMinBufferAggregator implements BufferAggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getFloatColumnSelectorType() + "]";
   }
 }

@@ -21,7 +21,7 @@ package io.druid.segment.data;
 
 /**
  */
-public class ArrayBasedOffset implements Offset
+public class ArrayBasedOffset extends Offset
 {
   private final int[] ints;
   private int currIndex;

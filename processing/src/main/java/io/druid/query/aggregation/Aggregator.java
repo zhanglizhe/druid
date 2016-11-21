@@ -32,13 +32,18 @@ package io.druid.query.aggregation;
  *
  * This interface is old and going away.  It is being replaced by BufferAggregator
  */
-public interface Aggregator {
-  void aggregate();
-  void reset();
-  Object get();
-  float getFloat();
-  String getName();
-  void close();
+public abstract class Aggregator {
+  public abstract void aggregate();
+  public abstract void reset();
+  public abstract Object get();
+  public abstract float getFloat();
+  public abstract String getName();
+  public abstract void close();
 
-  long getLong();
+  public abstract long getLong();
+
+  public String getAggregatorType()
+  {
+    return getClass().getName();
+  }
 }

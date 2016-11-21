@@ -24,7 +24,7 @@ import io.druid.segment.data.Offset;
 
 /**
 */
-class IndexedIntsOffset implements Offset
+class IndexedIntsOffset extends Offset
 {
   int currRow;
   private final IndexedInts invertedIndex;
@@ -59,5 +59,11 @@ class IndexedIntsOffset implements Offset
   public int getOffset()
   {
     return invertedIndex.get(currRow);
+  }
+
+  @Override
+  public String getOffsetType()
+  {
+    return getClass().getName() + "[invertedIndex=" + invertedIndex.getIndexedIntsType() + "]";
   }
 }

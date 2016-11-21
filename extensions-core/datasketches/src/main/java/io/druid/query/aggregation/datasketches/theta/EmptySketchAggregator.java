@@ -21,7 +21,7 @@ package io.druid.query.aggregation.datasketches.theta;
 
 import io.druid.query.aggregation.Aggregator;
 
-public class EmptySketchAggregator implements Aggregator
+public class EmptySketchAggregator extends Aggregator
 {
   private final String name;
 

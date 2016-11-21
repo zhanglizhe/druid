@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 
 /**
  */
-public class DoubleSumBufferAggregator implements BufferAggregator
+public class DoubleSumBufferAggregator extends BufferAggregator
 {
   private final FloatColumnSelector selector;
 
@@ -71,5 +71,11 @@ public class DoubleSumBufferAggregator implements BufferAggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getFloatColumnSelectorType() + "]";
   }
 }

@@ -22,10 +22,10 @@ package io.druid.segment;
 /**
  * {@link LongColumnSelector} which always returns 0, e. g. if a column not found.
  */
-public final class LongZeroSelector implements LongColumnSelector
+public final class LongZeroSelector extends LongColumnSelector
 {
 
-  static final LongZeroSelector SINGLETON = new LongZeroSelector();
+  private static final LongZeroSelector SINGLETON = new LongZeroSelector();
 
   public static LongColumnSelector singleton()
   {

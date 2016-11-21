@@ -30,7 +30,7 @@ import io.druid.segment.data.IndexedInts;
 import java.util.Arrays;
 import java.util.List;
 
-public class CardinalityAggregator implements Aggregator
+public class CardinalityAggregator extends Aggregator
 {
   private static final String NULL_STRING = "\u0000";
 
@@ -148,5 +148,17 @@ public class CardinalityAggregator implements Aggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    StringBuilder sb = new StringBuilder(getClass().getName()).append("[selectors=[");
+    for (DimensionSelector selector : selectorList) {
+      sb.append(selector.getDimensionSelectorType()).append(',');
+    }
+    sb.setCharAt(sb.length() - 1, ']');
+    sb.append(']');
+    return sb.toString();
   }
 }

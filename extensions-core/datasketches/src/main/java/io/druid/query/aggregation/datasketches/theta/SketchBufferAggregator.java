@@ -33,7 +33,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SketchBufferAggregator implements BufferAggregator
+public class SketchBufferAggregator extends BufferAggregator
 {
   private static final Logger logger = new Logger(SketchAggregator.class);
 
@@ -116,4 +116,9 @@ public class SketchBufferAggregator implements BufferAggregator
     unions.clear();
   }
 
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getObjectColumnSelectorType() + "]";
+  }
 }

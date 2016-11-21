@@ -45,7 +45,7 @@ import java.util.Iterator;
  * bytes 10-((numElements * 4) + 10): integers representing *end* offsets of byte serialized values
  * bytes ((numElements * 4) + 10)-(numBytesUsed + 2): 4-byte integer representing length of value, followed by bytes for value
  */
-public class GenericIndexed<T> implements Indexed<T>
+public class GenericIndexed<T> extends Indexed<T>
 {
   private static final byte version = 0x1;
 
@@ -171,7 +171,7 @@ public class GenericIndexed<T> implements Indexed<T>
     bufferIndexed = new BufferIndexed();
   }
 
-  class BufferIndexed implements Indexed<T>
+  class BufferIndexed extends Indexed<T>
   {
     int lastReadSize;
 

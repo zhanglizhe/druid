@@ -261,7 +261,7 @@ public class IncrementalIndexAdapter implements IndexableAdapter
     return index.getCapabilities(column);
   }
 
-  static class BitmapIndexedInts implements IndexedInts
+  private static class BitmapIndexedInts extends IndexedInts
   {
 
     private final MutableBitmap bitmapIndex;
@@ -320,6 +320,12 @@ public class IncrementalIndexAdapter implements IndexableAdapter
     @Override
     public void close() throws IOException
     {
+    }
+
+    @Override
+    public String getIndexedIntsType()
+    {
+      return getClass().getName() + "[bitmapIndex=" + bitmapIndex.getClass().getName() + "]";
     }
   }
 

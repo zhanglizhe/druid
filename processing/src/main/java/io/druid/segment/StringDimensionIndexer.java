@@ -404,6 +404,12 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
       }
 
       @Override
+      public int constantRowSize()
+      {
+        return VARIABLE_ROW_SIZE;
+      }
+
+      @Override
       public int getValueCardinality()
       {
         return maxId;

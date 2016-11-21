@@ -23,7 +23,7 @@ import io.druid.segment.ObjectColumnSelector;
 
 /**
  */
-public class TestObjectColumnSelector implements ObjectColumnSelector
+public class TestObjectColumnSelector extends ObjectColumnSelector
 {
   private final Object[] objects;
 

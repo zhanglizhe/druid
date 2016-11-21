@@ -31,7 +31,7 @@ import java.util.List;
 
 /**
  */
-public class VSizeIndexedInts implements IndexedInts, Comparable<VSizeIndexedInts>
+public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeIndexedInts>
 {
   public static final byte VERSION = 0x0;
 

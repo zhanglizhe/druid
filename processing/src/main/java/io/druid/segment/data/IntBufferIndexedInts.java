@@ -30,7 +30,7 @@ import java.util.Iterator;
 
 /**
  */
-public class IntBufferIndexedInts implements IndexedInts, Comparable<IntBufferIndexedInts>
+public class IntBufferIndexedInts extends IndexedInts implements Comparable<IntBufferIndexedInts>
 {
   public static ObjectStrategy<IntBufferIndexedInts> objectStrategy =
       new IntBufferIndexedIntsObjectStrategy();

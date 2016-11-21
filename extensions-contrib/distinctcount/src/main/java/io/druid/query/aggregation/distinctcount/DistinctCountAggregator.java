@@ -23,7 +23,7 @@ import com.metamx.collections.bitmap.MutableBitmap;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.segment.DimensionSelector;
 
-public class DistinctCountAggregator implements Aggregator
+public class DistinctCountAggregator extends Aggregator
 {
 
   private final String name;
@@ -83,5 +83,14 @@ public class DistinctCountAggregator implements Aggregator
   public long getLong()
   {
     return (long) mutableBitmap.size();
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    return getClass().getName() + "["
+           + "selector=" + selector.getDimensionSelectorType()
+           + ", mutableBitmap=" + mutableBitmap.getClass().getName()
+           + "]";
   }
 }

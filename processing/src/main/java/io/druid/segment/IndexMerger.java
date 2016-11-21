@@ -1185,7 +1185,7 @@ public class IndexMerger
     }
   }
 
-  public static class AggFactoryStringIndexed implements Indexed<String>
+  public static class AggFactoryStringIndexed extends Indexed<String>
   {
     private final AggregatorFactory[] metricAggs;
 

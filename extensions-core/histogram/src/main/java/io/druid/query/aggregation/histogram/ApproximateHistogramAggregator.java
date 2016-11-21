@@ -25,7 +25,7 @@ import io.druid.segment.FloatColumnSelector;
 
 import java.util.Comparator;
 
-public class ApproximateHistogramAggregator implements Aggregator
+public class ApproximateHistogramAggregator extends Aggregator
 {
   public static final Comparator COMPARATOR = new Comparator()
   {
@@ -105,5 +105,11 @@ public class ApproximateHistogramAggregator implements Aggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getFloatColumnSelectorType() + "]";
   }
 }

@@ -23,7 +23,7 @@ import io.druid.query.aggregation.BufferAggregator;
 
 import java.nio.ByteBuffer;
 
-public class EmptySketchBufferAggregator implements BufferAggregator
+public class EmptySketchBufferAggregator extends BufferAggregator
 {
   public EmptySketchBufferAggregator()
   {

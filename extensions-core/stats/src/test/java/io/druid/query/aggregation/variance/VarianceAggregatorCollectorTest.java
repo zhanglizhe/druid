@@ -141,7 +141,7 @@ public class VarianceAggregatorCollectorTest
     }
   }
 
-  private static class FloatHandOver implements FloatColumnSelector
+  private static class FloatHandOver extends FloatColumnSelector
   {
     float v;
 
@@ -152,7 +152,7 @@ public class VarianceAggregatorCollectorTest
     }
   }
 
-  private static class ObjectHandOver implements ObjectColumnSelector
+  private static class ObjectHandOver extends ObjectColumnSelector
   {
     Object v;
 

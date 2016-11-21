@@ -34,12 +34,10 @@ import io.druid.query.aggregation.BufferAggregator;
 import io.druid.query.dimension.DefaultDimensionSpec;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.dimension.ExtractionDimensionSpec;
-import io.druid.query.dimension.LookupDimensionSpec;
 import io.druid.query.dimension.RegexFilteredDimensionSpec;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.extraction.JavaScriptExtractionFn;
 import io.druid.query.extraction.RegexDimExtractionFn;
-import io.druid.query.extraction.UpperExtractionFn;
 import io.druid.segment.DimensionSelector;
 import io.druid.segment.data.IndexedInts;
 import org.junit.Assert;
@@ -54,7 +52,7 @@ import java.util.Map;
 
 public class CardinalityAggregatorTest
 {
-  public static class TestDimensionSelector implements DimensionSelector
+  public static class TestDimensionSelector extends DimensionSelector
   {
     private final List<Integer[]> column;
     private final Map<String, Integer> ids;
@@ -153,6 +151,12 @@ public class CardinalityAggregatorTest
 
         }
       };
+    }
+
+    @Override
+    public int constantRowSize()
+    {
+      return VARIABLE_ROW_SIZE;
     }
 
     @Override

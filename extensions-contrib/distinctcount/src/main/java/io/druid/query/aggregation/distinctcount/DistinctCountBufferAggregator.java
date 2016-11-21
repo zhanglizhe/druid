@@ -28,7 +28,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
-public class DistinctCountBufferAggregator implements BufferAggregator
+public class DistinctCountBufferAggregator extends BufferAggregator
 {
   private final DimensionSelector selector;
   private final Map<Integer, MutableBitmap> mutableBitmapCollection = new HashMap<>();
@@ -88,5 +88,11 @@ public class DistinctCountBufferAggregator implements BufferAggregator
   public void close()
   {
     mutableBitmapCollection.clear();
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getDimensionSelectorType() + "]";
   }
 }

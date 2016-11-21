@@ -26,7 +26,7 @@ import io.druid.segment.FloatColumnSelector;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
-public class HistogramBufferAggregator implements BufferAggregator
+public class HistogramBufferAggregator extends BufferAggregator
 {
   private final FloatColumnSelector selector;
   private final float[] breaks;
@@ -100,5 +100,11 @@ public class HistogramBufferAggregator implements BufferAggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getFloatColumnSelectorType() + "]";
   }
 }

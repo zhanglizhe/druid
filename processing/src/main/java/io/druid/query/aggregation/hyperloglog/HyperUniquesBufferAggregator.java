@@ -26,7 +26,7 @@ import java.nio.ByteBuffer;
 
 /**
  */
-public class HyperUniquesBufferAggregator implements BufferAggregator
+public class HyperUniquesBufferAggregator extends BufferAggregator
 {
   private static final byte[] EMPTY_BYTES = HyperLogLogCollector.makeEmptyVersionedByteArray();
   private final ObjectColumnSelector selector;
@@ -100,5 +100,11 @@ public class HyperUniquesBufferAggregator implements BufferAggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getObjectColumnSelectorType() + "]";
   }
 }

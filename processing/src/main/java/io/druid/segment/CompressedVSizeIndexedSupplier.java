@@ -139,7 +139,7 @@ public class CompressedVSizeIndexedSupplier implements WritableSupplier<IndexedM
     return new CompressedVSizeIndexed(offsetSupplier.get(), valueSupplier.get());
   }
 
-  public static class CompressedVSizeIndexed implements IndexedMultivalue<IndexedInts>
+  public static class CompressedVSizeIndexed extends IndexedMultivalue<IndexedInts>
   {
     private final IndexedInts offsets;
     private final IndexedInts values;
@@ -210,6 +210,12 @@ public class CompressedVSizeIndexedSupplier implements WritableSupplier<IndexedM
         {
           return new IndexedIntsIterator(this);
         }
+
+        @Override
+        public String getIndexedIntsType()
+        {
+          return getClass().getName() + "[values=" + values.getIndexedIntsType() + "]";
+        }
       };
     }
 
@@ -225,6 +231,14 @@ public class CompressedVSizeIndexedSupplier implements WritableSupplier<IndexedM
       return IndexedIterable.create(this).iterator();
     }
 
+    @Override
+    public String getIndexedMultivalueType()
+    {
+      return getClass().getName() + "["
+             + "offsets=" + offsets.getIndexedIntsType() +
+             ", values=" + values.getIndexedIntsType() +
+             "]";
+    }
   }
 
 }

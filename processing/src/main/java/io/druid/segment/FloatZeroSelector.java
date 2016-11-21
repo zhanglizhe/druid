@@ -17,49 +17,25 @@
  * under the License.
  */
 
-package io.druid.query.aggregation;
-
-import java.nio.ByteBuffer;
+package io.druid.segment;
 
 /**
+ * {@link FloatColumnSelector} which always returns 0.0f, e. g. if a column not found.
  */
-public class CountBufferAggregator extends BufferAggregator
+public final class FloatZeroSelector extends FloatColumnSelector
 {
+  private static final FloatColumnSelector SINGLETON = new FloatZeroSelector();
 
-  @Override
-  public void init(ByteBuffer buf, int position)
+  public static FloatColumnSelector singleton()
   {
-    buf.putLong(position, 0L);
+    return SINGLETON;
   }
 
-  @Override
-  public void aggregate(ByteBuffer buf, int position)
-  {
-    buf.putLong(position, buf.getLong(position) + 1);
-  }
+  private FloatZeroSelector() {}
 
   @Override
-  public Object get(ByteBuffer buf, int position)
+  public float get()
   {
-    return buf.getLong(position);
-  }
-
-  @Override
-  public float getFloat(ByteBuffer buf, int position)
-  {
-    return buf.getLong(position);
-  }
-
-
-  @Override
-  public long getLong(ByteBuffer buf, int position)
-  {
-    return buf.getLong(position);
-  }
-
-  @Override
-  public void close()
-  {
-    // no resources to cleanup
+    return 0.0f;
   }
 }

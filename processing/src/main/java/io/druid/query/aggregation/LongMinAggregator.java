@@ -25,7 +25,7 @@ import java.util.Comparator;
 
 /**
  */
-public class LongMinAggregator implements Aggregator
+public class LongMinAggregator extends Aggregator
 {
   static final Comparator COMPARATOR = LongSumAggregator.COMPARATOR;
 
@@ -93,5 +93,11 @@ public class LongMinAggregator implements Aggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getLongColumnSelectorType() + "]";
   }
 }

@@ -25,7 +25,7 @@ import java.util.List;
 
 /**
  */
-public class ListBasedIndexedInts implements IndexedInts
+public class ListBasedIndexedInts extends IndexedInts
 {
   private final List<Integer> expansion;
 

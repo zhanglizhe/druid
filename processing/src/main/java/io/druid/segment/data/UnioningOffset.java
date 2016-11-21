@@ -21,7 +21,7 @@ package io.druid.segment.data;
 
 /**
  */
-public class UnioningOffset implements Offset
+public class UnioningOffset extends Offset
 {
   private final Offset[] offsets = new Offset[2];
   private final int[] offsetVals = new int[2];
@@ -134,5 +134,17 @@ public class UnioningOffset implements Offset
     }
 
     return new UnioningOffset(newOffsets, newOffsetValues, nextOffsetIndex);
+  }
+
+  @Override
+  public String getOffsetType()
+  {
+    StringBuilder sb = new StringBuilder(getClass().getName()).append("[offsets=[");
+    for (Offset offset : offsets) {
+      sb.append(offset.getOffsetType()).append(',');
+    }
+    sb.setCharAt(sb.length() - 1, ']');
+    sb.append(']');
+    return sb.toString();
   }
 }

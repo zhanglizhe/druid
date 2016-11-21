@@ -92,6 +92,12 @@ public class ColumnSelectorBitmapIndexSelector implements BitmapIndexSelector
       {
         return IndexedIterable.create(this).iterator();
       }
+
+      @Override
+      public String getIndexedType()
+      {
+        return getClass().getName() + "[column=" + column.getDictionaryEncodedColumnType() + "]";
+      }
     };
   }
 

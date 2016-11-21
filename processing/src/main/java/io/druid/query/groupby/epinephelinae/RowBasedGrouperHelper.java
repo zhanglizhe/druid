@@ -572,6 +572,12 @@ public class RowBasedGrouperHelper
         }
 
         @Override
+        public int constantRowSize()
+        {
+          return VARIABLE_ROW_SIZE;
+        }
+
+        @Override
         public int getValueCardinality()
         {
           return DimensionSelector.CARDINALITY_UNKNOWN;
@@ -613,7 +619,7 @@ public class RowBasedGrouperHelper
     {
       if (columnName.equals(Column.TIME_COLUMN_NAME)) {
         // Local class has a name => more readable toString()
-        class TimeColumnSelector implements LongColumnSelector
+        class TimeColumnSelector extends LongColumnSelector
         {
           @Override
           public long get()

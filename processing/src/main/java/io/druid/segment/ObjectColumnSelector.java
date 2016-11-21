@@ -19,8 +19,13 @@
 
 package io.druid.segment;
 
-public interface ObjectColumnSelector<T>
+public abstract class ObjectColumnSelector<T>
 {
-  public Class<T> classOfObject();
-  public T get();
+  public abstract Class<T> classOfObject();
+  public abstract T get();
+
+  public String getObjectColumnSelectorType()
+  {
+    return getClass().getName();
+  }
 }

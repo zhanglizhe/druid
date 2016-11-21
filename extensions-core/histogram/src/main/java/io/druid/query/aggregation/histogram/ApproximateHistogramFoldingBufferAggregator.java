@@ -24,7 +24,7 @@ import io.druid.segment.ObjectColumnSelector;
 
 import java.nio.ByteBuffer;
 
-public class ApproximateHistogramFoldingBufferAggregator implements BufferAggregator
+public class ApproximateHistogramFoldingBufferAggregator extends BufferAggregator
 {
   private final ObjectColumnSelector<ApproximateHistogram> selector;
   private final int resolution;
@@ -101,5 +101,11 @@ public class ApproximateHistogramFoldingBufferAggregator implements BufferAggreg
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getObjectColumnSelectorType() + "]";
   }
 }

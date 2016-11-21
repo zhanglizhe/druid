@@ -24,7 +24,7 @@ import io.druid.segment.ObjectColumnSelector;
 
 /**
  */
-public class HyperUniquesAggregator implements Aggregator
+public class HyperUniquesAggregator extends Aggregator
 {
   private final String name;
   private final ObjectColumnSelector selector;
@@ -89,5 +89,11 @@ public class HyperUniquesAggregator implements Aggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getObjectColumnSelectorType() + "]";
   }
 }

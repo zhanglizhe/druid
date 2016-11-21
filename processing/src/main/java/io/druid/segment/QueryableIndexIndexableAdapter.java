@@ -165,6 +165,12 @@ public class QueryableIndexIndexableAdapter implements IndexableAdapter
       {
         return IndexedIterable.create(this).iterator();
       }
+
+      @Override
+      public String getIndexedType()
+      {
+        return getClass().getName() + "[dict=" + dict.getDictionaryEncodedColumnType() + "]";
+      }
     };
   }
 

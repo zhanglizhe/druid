@@ -42,4 +42,6 @@ public interface GenericColumn extends Closeable
 
   @Override
   void close();
+
+  String getGenericColumnType();
 }

@@ -29,7 +29,7 @@ import java.util.Iterator;
 
 /**
  */
-public class BitmapCompressedIndexedInts implements IndexedInts, Comparable<ImmutableBitmap>
+public class BitmapCompressedIndexedInts extends IndexedInts implements Comparable<ImmutableBitmap>
 {
   private static Ordering<ImmutableBitmap> comparator = new Ordering<ImmutableBitmap>()
   {
@@ -118,5 +118,11 @@ public class BitmapCompressedIndexedInts implements IndexedInts, Comparable<Immu
   public void close() throws IOException
   {
 
+  }
+
+  @Override
+  public String getIndexedIntsType()
+  {
+    return getClass().getName() + "[immutableBitmap=" + immutableBitmap.getClass().getName() + "]";
   }
 }

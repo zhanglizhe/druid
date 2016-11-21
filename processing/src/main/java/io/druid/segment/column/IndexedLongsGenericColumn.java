@@ -94,4 +94,10 @@ public class IndexedLongsGenericColumn implements GenericColumn
   {
     column.close();
   }
+
+  @Override
+  public String getGenericColumnType()
+  {
+    return getClass().getName() + "[column=" + column.getClass().getName() + "]";
+  }
 }

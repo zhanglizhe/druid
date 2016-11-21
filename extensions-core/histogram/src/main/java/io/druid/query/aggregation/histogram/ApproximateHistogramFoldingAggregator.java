@@ -23,7 +23,7 @@ package io.druid.query.aggregation.histogram;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.segment.ObjectColumnSelector;
 
-public class ApproximateHistogramFoldingAggregator implements Aggregator
+public class ApproximateHistogramFoldingAggregator extends Aggregator
 {
   private final String name;
   private final ObjectColumnSelector<ApproximateHistogram> selector;
@@ -103,5 +103,11 @@ public class ApproximateHistogramFoldingAggregator implements Aggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getObjectColumnSelectorType() + "]";
   }
 }

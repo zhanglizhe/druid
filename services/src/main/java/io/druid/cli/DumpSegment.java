@@ -502,8 +502,16 @@ public class DumpSegment extends GuiceRunnable
       final DimensionSelector dimensionSelector = columnSelectorFactory.makeDimensionSelector(
           new DefaultDimensionSpec(columnName, columnName)
       );
+      abstract class DictionaryEncodedObjectColumnSelector<T> extends ObjectColumnSelector<T>
+      {
+        @Override
+        public String getObjectColumnSelectorType()
+        {
+          return getClass().getName() + "[dimensionSelector=" + dimensionSelector.getDimensionSelectorType() + "]";
+        }
+      }
       if (column.getDictionaryEncoding().hasMultipleValues()) {
-        return new ObjectColumnSelector<List>()
+        return new DictionaryEncodedObjectColumnSelector<List>()
         {
           @Override
           public Class<List> classOfObject()
@@ -527,7 +535,7 @@ public class DumpSegment extends GuiceRunnable
           }
         };
       } else {
-        return new ObjectColumnSelector<String>()
+        return new DictionaryEncodedObjectColumnSelector<String>()
         {
           @Override
           public Class<String> classOfObject()

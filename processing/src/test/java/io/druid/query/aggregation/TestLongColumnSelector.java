@@ -23,7 +23,7 @@ import io.druid.segment.LongColumnSelector;
 
 /**
  */
-public class TestLongColumnSelector implements LongColumnSelector
+public class TestLongColumnSelector extends LongColumnSelector
 {
   private final long[] longs;
 

@@ -26,7 +26,7 @@ import io.druid.segment.ObjectColumnSelector;
 
 /**
  */
-public abstract class VarianceAggregator implements Aggregator
+public abstract class VarianceAggregator extends Aggregator
 {
   protected final String name;
 
@@ -87,6 +87,12 @@ public abstract class VarianceAggregator implements Aggregator
     {
       holder.add(selector.get());
     }
+
+    @Override
+    public String getAggregatorType()
+    {
+      return getClass().getName() + "[selector=" + selector.getFloatColumnSelectorType() + "]";
+    }
   }
 
   public static final class LongVarianceAggregator extends VarianceAggregator
@@ -104,6 +110,12 @@ public abstract class VarianceAggregator implements Aggregator
     {
       holder.add(selector.get());
     }
+
+    @Override
+    public String getAggregatorType()
+    {
+      return getClass().getName() + "[selector=" + selector.getLongColumnSelectorType() + "]";
+    }
   }
 
   public static final class ObjectVarianceAggregator extends VarianceAggregator
@@ -120,6 +132,12 @@ public abstract class VarianceAggregator implements Aggregator
     public void aggregate()
     {
       VarianceAggregatorCollector.combineValues(holder, selector.get());
+    }
+
+    @Override
+    public String getAggregatorType()
+    {
+      return getClass().getName() + "[selector=" + selector.getObjectColumnSelectorType() + "]";
     }
   }
 }

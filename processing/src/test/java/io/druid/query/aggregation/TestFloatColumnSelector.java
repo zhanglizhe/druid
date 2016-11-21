@@ -23,7 +23,7 @@ import io.druid.segment.FloatColumnSelector;
 
 /**
  */
-public class TestFloatColumnSelector implements FloatColumnSelector
+public class TestFloatColumnSelector extends FloatColumnSelector
 {
   private final float[] floats;
 

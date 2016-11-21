@@ -31,7 +31,7 @@ import java.util.Iterator;
 
 /**
  */
-public class VSizeIndexed implements IndexedMultivalue<IndexedInts>
+public class VSizeIndexed extends IndexedMultivalue<IndexedInts>
 {
   private static final byte version = 0x1;
 

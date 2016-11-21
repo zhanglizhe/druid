@@ -115,7 +115,7 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
       {
         if (columnName.equals(Column.TIME_COLUMN_NAME)) {
           // Local class has a name => more readable toString()
-          class TimeColumnSelector implements LongColumnSelector
+          class TimeColumnSelector extends LongColumnSelector
           {
             @Override
             public long get()
@@ -269,6 +269,12 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
                 throw new UnsupportedOperationException("fill not supported");
               }
             };
+          }
+
+          @Override
+          public int constantRowSize()
+          {
+            return VARIABLE_ROW_SIZE;
           }
 
           @Override

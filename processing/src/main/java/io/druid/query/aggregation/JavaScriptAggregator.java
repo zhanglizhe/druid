@@ -24,7 +24,7 @@ import io.druid.segment.ObjectColumnSelector;
 
 import java.util.List;
 
-public class JavaScriptAggregator implements Aggregator
+public class JavaScriptAggregator extends Aggregator
 {
   static interface ScriptAggregator
   {
@@ -92,5 +92,17 @@ public class JavaScriptAggregator implements Aggregator
   public void close()
   {
     script.close();
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    StringBuilder sb = new StringBuilder(getClass().getName()).append("[selectors=[");
+    for (ObjectColumnSelector selector : selectorList) {
+      sb.append(selector.getObjectColumnSelectorType()).append(',');
+    }
+    sb.setCharAt(sb.length() - 1, ']');
+    sb.append(']');
+    return sb.toString();
   }
 }

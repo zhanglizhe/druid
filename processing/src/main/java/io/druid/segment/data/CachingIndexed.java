@@ -28,7 +28,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class CachingIndexed<T> implements Indexed<T>, Closeable
+public class CachingIndexed<T> extends Indexed<T> implements Closeable
 {
   public static final int INITIAL_CACHE_CAPACITY = 16384;
 
@@ -108,7 +108,13 @@ public class CachingIndexed<T> implements Indexed<T>, Closeable
     }
   }
 
-private static class SizedLRUMap<K, V> extends LinkedHashMap<K, Pair<Integer, V>>
+  @Override
+  public String getIndexedType()
+  {
+    return getClass().getName() + "[delegate=" + delegate.getIndexedType() + "]";
+  }
+
+  private static class SizedLRUMap<K, V> extends LinkedHashMap<K, Pair<Integer, V>>
   {
     private final int maxBytes;
     private int numBytes = 0;

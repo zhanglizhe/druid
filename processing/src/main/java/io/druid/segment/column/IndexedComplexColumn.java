@@ -59,4 +59,10 @@ public class IndexedComplexColumn implements ComplexColumn
   public void close()
   {
   }
+
+  @Override
+  public String getComplexColumnType()
+  {
+    return getClass().getName() + "[column=" + column.getIndexedType() + "]";
+  }
 }

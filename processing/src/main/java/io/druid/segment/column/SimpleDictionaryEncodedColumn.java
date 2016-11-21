@@ -102,4 +102,13 @@ public class SimpleDictionaryEncodedColumn
       multiValueColumn.close();
     }
   }
+
+  @Override
+  public String getDictionaryEncodedColumnType()
+  {
+    return getClass().getName() + "["
+           + "column=" + (column != null ? column.getIndexedIntsType() : null)
+           + ", multiValueColumn=" + (multiValueColumn != null ? multiValueColumn.getIndexedMultivalueType() : null)
+           + "]";
+  }
 }

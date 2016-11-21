@@ -28,7 +28,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
 
-public class SingleScanTimeDimSelector implements DimensionSelector
+public class SingleScanTimeDimSelector extends DimensionSelector
 {
   private final ExtractionFn extractionFn;
   private final LongColumnSelector selector;
@@ -128,6 +128,12 @@ public class SingleScanTimeDimSelector implements DimensionSelector
   }
 
   @Override
+  public int constantRowSize()
+  {
+    return 1;
+  }
+
+  @Override
   public int getValueCardinality()
   {
     return Integer.MAX_VALUE;
@@ -147,6 +153,12 @@ public class SingleScanTimeDimSelector implements DimensionSelector
   public int lookupId(String name)
   {
     throw new UnsupportedOperationException("time column does not support lookups");
+  }
+
+  @Override
+  public String getDimensionSelectorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getLongColumnSelectorType() + "]";
   }
 
   @Override

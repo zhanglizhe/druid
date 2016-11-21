@@ -26,7 +26,7 @@ import java.util.Iterator;
 
 /**
  */
-public class EmptyIndexedInts implements IndexedInts
+public class EmptyIndexedInts extends IndexedInts
 {
   public static final EmptyIndexedInts EMPTY_INDEXED_INTS = new EmptyIndexedInts();
 

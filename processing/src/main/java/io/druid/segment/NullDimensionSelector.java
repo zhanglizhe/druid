@@ -26,7 +26,7 @@ import io.druid.segment.data.IndexedInts;
 import java.io.IOException;
 import java.util.Iterator;
 
-public class NullDimensionSelector implements DimensionSelector
+public class NullDimensionSelector extends DimensionSelector
 {
 
   private static final IndexedInts SINGLETON = new IndexedInts() {
@@ -62,6 +62,12 @@ public class NullDimensionSelector implements DimensionSelector
   public IndexedInts getRow()
   {
     return SINGLETON;
+  }
+
+  @Override
+  public int constantRowSize()
+  {
+    return 1;
   }
 
   @Override

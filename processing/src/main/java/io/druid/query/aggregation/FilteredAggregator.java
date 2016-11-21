@@ -21,7 +21,7 @@ package io.druid.query.aggregation;
 
 import io.druid.query.filter.ValueMatcher;
 
-public class FilteredAggregator implements Aggregator
+public class FilteredAggregator extends Aggregator
 {
   private final ValueMatcher matcher;
   private final Aggregator delegate;
@@ -74,5 +74,14 @@ public class FilteredAggregator implements Aggregator
   public void close()
   {
     delegate.close();
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    return getClass().getName() + "["
+           + "delegate=" + delegate.getAggregatorType()
+           + ", matcher=" + matcher.getValueMatcherType()
+           + "]";
   }
 }

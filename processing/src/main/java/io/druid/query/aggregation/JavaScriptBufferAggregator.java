@@ -25,7 +25,7 @@ import io.druid.segment.ObjectColumnSelector;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class JavaScriptBufferAggregator implements BufferAggregator
+public class JavaScriptBufferAggregator extends BufferAggregator
 {
   private final ObjectColumnSelector[] selectorList;
   private final JavaScriptAggregator.ScriptAggregator script;
@@ -73,5 +73,17 @@ public class JavaScriptBufferAggregator implements BufferAggregator
   @Override
   public void close() {
     script.close();
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    StringBuilder sb = new StringBuilder(getClass().getName()).append("[selectors=[");
+    for (ObjectColumnSelector selector : selectorList) {
+      sb.append(selector.getObjectColumnSelectorType()).append(',');
+    }
+    sb.setCharAt(sb.length() - 1, ']');
+    sb.append(']');
+    return sb.toString();
   }
 }

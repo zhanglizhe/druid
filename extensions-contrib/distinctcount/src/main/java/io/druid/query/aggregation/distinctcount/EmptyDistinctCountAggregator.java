@@ -21,7 +21,7 @@ package io.druid.query.aggregation.distinctcount;
 
 import io.druid.query.aggregation.Aggregator;
 
-public class EmptyDistinctCountAggregator implements Aggregator
+public class EmptyDistinctCountAggregator extends Aggregator
 {
 
   private final String name;

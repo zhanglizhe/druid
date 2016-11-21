@@ -28,7 +28,7 @@ import io.druid.segment.data.IndexedInts;
  * encoding 0 -> a, 1 -> b, ...
  * row -> [c,e,g]
  */
-class TestDimensionSelector implements DimensionSelector
+class TestDimensionSelector extends DimensionSelector
 {
   public final static TestDimensionSelector instance = new TestDimensionSelector();
 
@@ -41,6 +41,12 @@ class TestDimensionSelector implements DimensionSelector
   public IndexedInts getRow()
   {
     return new ArrayBasedIndexedInts(new int[]{2, 4, 6});
+  }
+
+  @Override
+  public int constantRowSize()
+  {
+    return 3;
   }
 
   @Override

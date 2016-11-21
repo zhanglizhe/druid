@@ -74,7 +74,7 @@ public class BlockLayoutIndexedFloatSupplier implements Supplier<IndexedFloats>
     }
   }
 
-  private class BlockLayoutIndexedFloats implements IndexedFloats
+  private class BlockLayoutIndexedFloats extends IndexedFloats
   {
     final Indexed<ResourceHolder<ByteBuffer>> singleThreadedFloatBuffers = baseFloatBuffers.singleThreaded();
     int currIndex = -1;

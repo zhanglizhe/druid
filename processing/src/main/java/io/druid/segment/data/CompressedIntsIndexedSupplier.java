@@ -265,7 +265,7 @@ public class CompressedIntsIndexedSupplier implements WritableSupplier<IndexedIn
     );
   }
 
-  private class CompressedIndexedInts implements IndexedInts
+  private class CompressedIndexedInts extends IndexedInts
   {
     final Indexed<ResourceHolder<IntBuffer>> singleThreadedIntBuffers = baseIntBuffers.singleThreaded();
 

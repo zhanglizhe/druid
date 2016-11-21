@@ -503,11 +503,17 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                       if (column == null) {
                         return NULL_DIMENSION_SELECTOR;
                       } else if (columnDesc.getCapabilities().hasMultipleValues()) {
-                        class MultiValueDimensionSelector implements DimensionSelector {
+                        class MultiValueDimensionSelector extends DimensionSelector {
                           @Override
                           public IndexedInts getRow()
                           {
                             return column.getMultiValueRow(cursorOffset.getOffset());
+                          }
+
+                          @Override
+                          public int constantRowSize()
+                          {
+                            return VARIABLE_ROW_SIZE;
                           }
 
                           @Override
@@ -538,7 +544,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                         }
                         return new MultiValueDimensionSelector();
                       } else {
-                        class SingleValueDimensionSelector implements DimensionSelector
+                        class SingleValueDimensionSelector extends DimensionSelector
                         {
                           @Override
                           public IndexedInts getRow()
@@ -575,7 +581,22 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                               {
 
                               }
+
+                              @Override
+                              public String getIndexedIntsType()
+                              {
+                                return getClass().getName() + "["
+                                       + "column=" + column.getDictionaryEncodedColumnType()
+                                       + ", cursorOffset=" + cursorOffset.getOffsetType()
+                                       + "]";
+                              }
                             };
+                          }
+
+                          @Override
+                          public int constantRowSize()
+                          {
+                            return 1;
                           }
 
                           @Override
@@ -623,14 +644,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                       }
 
                       if (cachedMetricVals == null) {
-                        return new FloatColumnSelector()
-                        {
-                          @Override
-                          public float get()
-                          {
-                            return 0.0f;
-                          }
-                        };
+                        return FloatZeroSelector.singleton();
                       }
 
                       final GenericColumn metricVals = cachedMetricVals;
@@ -640,6 +654,15 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                         public float get()
                         {
                           return metricVals.getFloatSingleValueRow(cursorOffset.getOffset());
+                        }
+
+                        @Override
+                        public String getFloatColumnSelectorType()
+                        {
+                          return getClass().getName() + "["
+                                 + "metricVals=" + metricVals.getGenericColumnType()
+                                 + ", cursorOffset=" + cursorOffset.getOffsetType()
+                                 + "]";
                         }
                       };
                     }
@@ -670,6 +693,15 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                         public long get()
                         {
                           return metricVals.getLongSingleValueRow(cursorOffset.getOffset());
+                        }
+
+                        @Override
+                        public String getLongColumnSelectorType()
+                        {
+                          return getClass().getName() + "["
+                                 + "metricVals=" + metricVals.getGenericColumnType()
+                                 + ", cursorOffset=" + cursorOffset.getOffsetType()
+                                 + "]";
                         }
                       };
                     }
@@ -714,9 +746,19 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                               "makeObjectColumnSelector does not support multi-value GenericColumns"
                           );
                         }
-
+                        abstract class SingleValueObjectColumnSelector<T> extends ObjectColumnSelector<T>
+                        {
+                          @Override
+                          public String getObjectColumnSelectorType()
+                          {
+                            return getClass().getName() + "["
+                                   + "columnVals=" + columnVals.getGenericColumnType()
+                                   + ", cursorOffset=" + cursorOffset.getOffsetType()
+                                   + "]";
+                          }
+                        }
                         if (type == ValueType.FLOAT) {
-                          return new ObjectColumnSelector<Float>()
+                          return new SingleValueObjectColumnSelector<Float>()
                           {
                             @Override
                             public Class classOfObject()
@@ -732,7 +774,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                           };
                         }
                         if (type == ValueType.LONG) {
-                          return new ObjectColumnSelector<Long>()
+                          return new SingleValueObjectColumnSelector<Long>()
                           {
                             @Override
                             public Class classOfObject()
@@ -748,7 +790,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                           };
                         }
                         if (type == ValueType.STRING) {
-                          return new ObjectColumnSelector<String>()
+                          return new SingleValueObjectColumnSelector<String>()
                           {
                             @Override
                             public Class classOfObject()
@@ -767,8 +809,19 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
 
                       if (cachedColumnVals instanceof DictionaryEncodedColumn) {
                         final DictionaryEncodedColumn<String> columnVals = (DictionaryEncodedColumn) cachedColumnVals;
+                        abstract class DictionaryEncodedObjectColumnSelector<T> extends ObjectColumnSelector<T>
+                        {
+                          @Override
+                          public String getObjectColumnSelectorType()
+                          {
+                            return getClass().getName() + "["
+                                   + "columnVals=" + columnVals.getDictionaryEncodedColumnType()
+                                   + ", cursorOffset=" + cursorOffset.getOffsetType()
+                                   + "]";
+                          }
+                        }
                         if (columnVals.hasMultipleValues()) {
-                          return new ObjectColumnSelector<Object>()
+                          return new DictionaryEncodedObjectColumnSelector<Object>()
                           {
                             @Override
                             public Class classOfObject()
@@ -794,7 +847,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                             }
                           };
                         } else {
-                          return new ObjectColumnSelector<String>()
+                          return new DictionaryEncodedObjectColumnSelector<String>()
                           {
                             @Override
                             public Class classOfObject()
@@ -824,6 +877,15 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                         public Object get()
                         {
                           return columnVals.getRowValue(cursorOffset.getOffset());
+                        }
+
+                        @Override
+                        public String getObjectColumnSelectorType()
+                        {
+                          return getClass().getName() + "["
+                                 + "columnVals=" + columnVals.getComplexColumnType()
+                                 + ", cursorOffset=" + cursorOffset.getOffsetType()
+                                 + "]";
                         }
                       };
                     }
@@ -1173,7 +1235,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   }
 
 
-  private abstract static class TimestampCheckingOffset implements Offset
+  private abstract static class TimestampCheckingOffset extends Offset
   {
     protected final Offset baseOffset;
     protected final GenericColumn timestamps;
@@ -1223,6 +1285,15 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     @Override
     public Offset clone() {
       throw new IllegalStateException("clone");
+    }
+
+    @Override
+    public String getOffsetType()
+    {
+      return getClass().getName() + "["
+             + "baseOffset=" + baseOffset.getOffsetType()
+             + ", timestamps=" + timestamps.getGenericColumnType()
+             + "]";
     }
   }
 
@@ -1291,7 +1362,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     }
   }
 
-  private static class NoFilterOffset implements Offset
+  private static class NoFilterOffset extends Offset
   {
     private final int rowCount;
     private final boolean descending;

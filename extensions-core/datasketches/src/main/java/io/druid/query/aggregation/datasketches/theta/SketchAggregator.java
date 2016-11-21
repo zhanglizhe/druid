@@ -31,7 +31,7 @@ import io.druid.segment.ObjectColumnSelector;
 
 import java.util.List;
 
-public class SketchAggregator implements Aggregator
+public class SketchAggregator extends Aggregator
 {
   private static final Logger logger = new Logger(SketchAggregator.class);
 
@@ -99,6 +99,12 @@ public class SketchAggregator implements Aggregator
   public void close()
   {
     union = null;
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getObjectColumnSelectorType() + "]";
   }
 
   static void updateUnion(Union union, Object update)

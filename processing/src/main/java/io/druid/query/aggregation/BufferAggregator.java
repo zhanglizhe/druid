@@ -29,7 +29,7 @@ import java.nio.ByteBuffer;
  * Thus, an Aggregator can be thought of as a closure over some other thing that is stateful and changes between calls
  * to aggregate(...).
  */
-public interface BufferAggregator
+public abstract class BufferAggregator
 {
   /**
    * Initializes the buffer location
@@ -44,7 +44,7 @@ public interface BufferAggregator
    * @param buf byte buffer to initialize
    * @param position offset within the byte buffer for initialization
    */
-  void init(ByteBuffer buf, int position);
+  public abstract void init(ByteBuffer buf, int position);
 
   /**
    * Aggregates metric values into the given aggregate byte representation
@@ -57,7 +57,7 @@ public interface BufferAggregator
    * @param buf byte buffer storing the byte array representation of the aggregate
    * @param position offset within the byte buffer at which the current aggregate value is stored
    */
-  void aggregate(ByteBuffer buf, int position);
+  public abstract void aggregate(ByteBuffer buf, int position);
 
   /**
    * Returns the intermediate object representation of the given aggregate.
@@ -70,7 +70,7 @@ public interface BufferAggregator
    * @param position offset within the byte buffer at which the aggregate value is stored
    * @return the Object representation of the aggregate
    */
-  Object get(ByteBuffer buf, int position);
+  public abstract Object get(ByteBuffer buf, int position);
 
   /**
    * Returns the float representation of the given aggregate byte array
@@ -87,7 +87,7 @@ public interface BufferAggregator
    * @param position offset within the byte buffer at which the aggregate value is stored
    * @return the float representation of the aggregate
    */
-  float getFloat(ByteBuffer buf, int position);
+  public abstract float getFloat(ByteBuffer buf, int position);
 
   /**
    * Returns the long representation of the given aggregate byte array
@@ -104,10 +104,15 @@ public interface BufferAggregator
    * @param position offset within the byte buffer at which the aggregate value is stored
    * @return the long representation of the aggregate
    */
-  long getLong(ByteBuffer buf, int position);
+  public abstract long getLong(ByteBuffer buf, int position);
 
   /**
    * Release any resources used by the aggregator
    */
-  void close();
+  public abstract void close();
+
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName();
+  }
 }

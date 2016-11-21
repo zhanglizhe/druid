@@ -34,4 +34,5 @@ public interface DictionaryEncodedColumn<ActualType extends Comparable> extends 
   public ActualType lookupName(int id);
   public int lookupId(ActualType name);
   public int getCardinality();
+  String getDictionaryEncodedColumnType();
 }

@@ -108,6 +108,12 @@ public class FilteredAggregatorTest
                 }
 
                 @Override
+                public int constantRowSize()
+                {
+                  return 1;
+                }
+
+                @Override
                 public int getValueCardinality()
                 {
                   return 2;

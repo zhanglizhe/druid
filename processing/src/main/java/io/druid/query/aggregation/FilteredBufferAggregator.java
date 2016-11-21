@@ -23,7 +23,7 @@ import io.druid.query.filter.ValueMatcher;
 
 import java.nio.ByteBuffer;
 
-public class FilteredBufferAggregator implements BufferAggregator
+public class FilteredBufferAggregator extends BufferAggregator
 {
   private final ValueMatcher matcher;
   private final BufferAggregator delegate;
@@ -70,5 +70,14 @@ public class FilteredBufferAggregator implements BufferAggregator
   public void close()
   {
     delegate.close();
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "["
+           + "delegate=" + delegate.getBufferAggregatorType()
+           + ", matcher=" + matcher.getValueMatcherType()
+           + "]";
   }
 }

@@ -307,7 +307,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
     }
   }
 
-  private class CompressedVSizeIndexedInts implements IndexedInts
+  private class CompressedVSizeIndexedInts extends IndexedInts
   {
     final Indexed<ResourceHolder<ByteBuffer>> singleThreadedBuffers = baseBuffers.singleThreaded();
 

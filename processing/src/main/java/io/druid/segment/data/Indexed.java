@@ -19,13 +19,13 @@
 
 package io.druid.segment.data;
 
-public interface Indexed<T> extends Iterable<T>
+public abstract class Indexed<T> extends Iterable<T>
 {
-  Class<? extends T> getClazz();
+  public abstract Class<? extends T> getClazz();
 
-  int size();
+  public abstract int size();
 
-  T get(int index);
+  public abstract T get(int index);
 
   /**
    * Returns the index of "value" in this Indexed object, or a negative number if the value is not present.
@@ -36,5 +36,10 @@ public interface Indexed<T> extends Iterable<T>
    *
    * @return index of value, or a negative number
    */
-  int indexOf(T value);
+  public abstract int indexOf(T value);
+
+  public String getIndexedType()
+  {
+    return getClass().getName();
+  }
 }

@@ -23,7 +23,7 @@ import java.util.Comparator;
 
 /**
  */
-public class CountAggregator implements Aggregator
+public class CountAggregator extends Aggregator
 {
   static final Comparator COMPARATOR = LongSumAggregator.COMPARATOR;
 

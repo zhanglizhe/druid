@@ -31,4 +31,6 @@ public interface ComplexColumn extends Closeable
 
   @Override
   void close();
+
+  String getComplexColumnType();
 }

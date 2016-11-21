@@ -42,7 +42,7 @@ public class EntireLayoutIndexedFloatSupplier implements Supplier<IndexedFloats>
     return new EntireLayoutIndexedFloats();
   }
 
-  private class EntireLayoutIndexedFloats implements IndexedFloats
+  private class EntireLayoutIndexedFloats extends IndexedFloats
   {
 
     @Override

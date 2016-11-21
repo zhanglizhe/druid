@@ -23,7 +23,7 @@ import io.druid.query.filter.ValueMatcher;
 
 /**
 */
-public class BooleanValueMatcher implements ValueMatcher
+public class BooleanValueMatcher extends ValueMatcher
 {
   private final boolean matches;
 
@@ -35,5 +35,11 @@ public class BooleanValueMatcher implements ValueMatcher
   public boolean matches()
   {
     return matches;
+  }
+
+  @Override
+  public String getValueMatcherType()
+  {
+    return getClass().getName() + "[matches=" + matches + "]";
   }
 }

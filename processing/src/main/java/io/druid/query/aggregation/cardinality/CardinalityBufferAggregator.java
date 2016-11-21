@@ -26,7 +26,7 @@ import io.druid.segment.DimensionSelector;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-public class CardinalityBufferAggregator implements BufferAggregator
+public class CardinalityBufferAggregator extends BufferAggregator
 {
   private final List<DimensionSelector> selectorList;
   private final boolean byRow;
@@ -100,5 +100,17 @@ public class CardinalityBufferAggregator implements BufferAggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    StringBuilder sb = new StringBuilder(getClass().getName()).append("[selectors=[");
+    for (DimensionSelector selector : selectorList) {
+      sb.append(selector.getDimensionSelectorType()).append(',');
+    }
+    sb.setCharAt(sb.length() - 1, ']');
+    sb.append(']');
+    return sb.toString();
   }
 }

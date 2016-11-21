@@ -24,7 +24,7 @@ import java.util.Iterator;
 
 /**
 */
-public class ArrayBasedIndexedInts implements IndexedInts
+public class ArrayBasedIndexedInts extends IndexedInts
 {
   private final int[] expansion;
 

@@ -27,7 +27,7 @@ import java.util.Comparator;
 
 /**
  */
-public class DoubleSumAggregator implements Aggregator
+public class DoubleSumAggregator extends Aggregator
 {
   static final Comparator COMPARATOR = new Ordering()
   {
@@ -102,5 +102,11 @@ public class DoubleSumAggregator implements Aggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getFloatColumnSelectorType() + "]";
   }
 }

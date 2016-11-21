@@ -21,6 +21,17 @@ package io.druid.segment.data;
 
 import java.io.Closeable;
 
-public interface IndexedMultivalue<T extends IndexedInts> extends Indexed<T>, Closeable
+public abstract class IndexedMultivalue<T extends IndexedInts> extends Indexed<T> implements Closeable
 {
+
+  @Override
+  public String getIndexedType()
+  {
+    return getIndexedMultivalueType();
+  }
+
+  public String getIndexedMultivalueType()
+  {
+    return getClass().getName();
+  }
 }

@@ -24,7 +24,7 @@ import java.util.Iterator;
 
 /**
  */
-public class ArrayIndexed<T> implements Indexed<T>
+public class ArrayIndexed<T> extends Indexed<T>
 {
   private final T[] baseArray;
   private final Class<? extends T> clazz;

@@ -21,7 +21,7 @@ package io.druid.segment.data;
 
 /**
  */
-public class IntersectingOffset implements Offset {
+public class IntersectingOffset extends Offset {
   private final Offset lhs;
   private final Offset rhs;
 
@@ -90,5 +90,14 @@ public class IntersectingOffset implements Offset {
     final Offset lhsClone = lhs.clone();
     final Offset rhsClone = rhs.clone();
     return new IntersectingOffset(lhsClone, rhsClone);
+  }
+
+  @Override
+  public String getOffsetType()
+  {
+    return getClass().getName() + "["
+           + "lhs=" + lhs.getOffsetType()
+           + ", rhs=" + rhs.getOffsetType()
+           + "]";
   }
 }

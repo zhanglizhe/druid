@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 
 /**
  */
-public class DoubleMaxBufferAggregator implements BufferAggregator
+public class DoubleMaxBufferAggregator extends BufferAggregator
 {
   private final FloatColumnSelector selector;
 
@@ -68,5 +68,11 @@ public class DoubleMaxBufferAggregator implements BufferAggregator
   public void close()
   {
     // no resources to cleanup
+  }
+
+  @Override
+  public String getBufferAggregatorType()
+  {
+    return getClass().getName() + "[selector=" + selector.getFloatColumnSelectorType() + "]";
   }
 }

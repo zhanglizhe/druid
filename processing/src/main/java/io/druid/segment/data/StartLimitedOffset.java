@@ -21,7 +21,7 @@ package io.druid.segment.data;
 
 /**
  */
-public class StartLimitedOffset implements Offset
+public class StartLimitedOffset extends Offset
 {
   private final Offset baseOffset;
   private final int limit;
