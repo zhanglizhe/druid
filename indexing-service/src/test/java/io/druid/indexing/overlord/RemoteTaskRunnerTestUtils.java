@@ -25,7 +25,6 @@ package io.druid.indexing.overlord;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
-import com.metamx.common.concurrent.ScheduledExecutors;
 import io.druid.common.guava.DSuppliers;
 import io.druid.curator.PotentiallyGzippedCompressionProvider;
 import io.druid.curator.cache.SimplePathChildrenCacheFactory;
@@ -122,7 +121,6 @@ public class RemoteTaskRunnerTestUtils
         new SimplePathChildrenCacheFactory.Builder().build(),
         null,
         DSuppliers.of(new AtomicReference<>(WorkerBehaviorConfig.defaultConfig())),
-        ScheduledExecutors.fixed(1, "Remote-Task-Runner-Cleanup--%d"),
         new NoopResourceManagementStrategy<WorkerTaskRunner>()
     );
 
