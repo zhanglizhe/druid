@@ -222,7 +222,7 @@ public class ExtractionDimFilterTest
                     null
                 )
             )
-        ).getBitmapIndex(BITMAP_INDEX_SELECTOR).size()
+        ).getBitmapIndex(BITMAP_INDEX_SELECTOR).getBitmap().size()
     );
   }
 
