@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.BitmapIndexSelector;
+import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.DruidLongPredicate;
 import io.druid.query.filter.DruidPredicateFactory;
 import io.druid.query.filter.Filter;
@@ -58,10 +59,10 @@ public class InFilter implements Filter
   }
 
   @Override
-  public ImmutableBitmap getBitmapIndex(final BitmapIndexSelector selector)
+  public BitmapResult getBitmapIndex(final BitmapIndexSelector selector)
   {
     if (extractionFn == null) {
-      return selector.getBitmapFactory().union(
+      ImmutableBitmap bitmap = selector.getBitmapFactory().union(
           Iterables.transform(
               values, new Function<String, ImmutableBitmap>()
               {
@@ -73,6 +74,7 @@ public class InFilter implements Filter
               }
           )
       );
+      return new BitmapResult(bitmap, "union {dimValue=" + values.size() + "}");
     } else {
       return Filters.matchPredicate(
           dimension,

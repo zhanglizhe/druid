@@ -26,26 +26,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Longs;
 import com.metamx.collections.bitmap.ImmutableBitmap;
-import com.metamx.common.IAE;
 import com.metamx.common.guava.FunctionalIterable;
-import com.metamx.common.parsers.ParseException;
 import io.druid.query.Query;
 import io.druid.query.filter.BitmapIndexSelector;
+import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.BooleanFilter;
 import io.druid.query.filter.DimFilter;
 import io.druid.query.filter.DruidLongPredicate;
 import io.druid.query.filter.Filter;
 import io.druid.query.filter.ValueMatcher;
-import io.druid.segment.ColumnSelectorFactory;
 import io.druid.segment.LongColumnSelector;
 import io.druid.segment.column.BitmapIndex;
-import io.druid.segment.column.Column;
 import io.druid.segment.column.ValueType;
 import io.druid.segment.data.Indexed;
-import io.druid.segment.incremental.IncrementalIndexStorageAdapter;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
@@ -102,7 +97,7 @@ public class Filters
    *
    * @return bitmap of matching rows
    */
-  public static ImmutableBitmap matchPredicate(
+  public static BitmapResult matchPredicate(
       final String dimension,
       final BitmapIndexSelector selector,
       final Predicate<String> predicate
@@ -116,56 +111,77 @@ public class Filters
     final Indexed<String> dimValues = selector.getDimensionValues(dimension);
     if (dimValues == null || dimValues.size() == 0) {
       if (predicate.apply(null)) {
-        return selector.getBitmapFactory().complement(
+        ImmutableBitmap bitmap = selector.getBitmapFactory().complement(
             selector.getBitmapFactory().makeEmptyImmutableBitmap(),
             selector.getNumRows()
         );
+        return new BitmapResult(bitmap, "all");
       } else {
-        return selector.getBitmapFactory().makeEmptyImmutableBitmap();
+        return new BitmapResult(
+            selector.getBitmapFactory().makeEmptyImmutableBitmap(),
+            "empty"
+        );
       }
     }
 
     // Apply predicate to all dimension values and union the matching bitmaps
     final BitmapIndex bitmapIndex = selector.getBitmapIndex(dimension);
-    return selector.getBitmapFactory().union(
+    class CountingIterator implements Iterator<ImmutableBitmap> {
+      int currIndex = 0;
+      int dimCount = 0;
+      boolean empty = false;
+
+      @Override
+      public boolean hasNext()
+      {
+        return currIndex < bitmapIndex.getCardinality();
+      }
+
+      @Override
+      public ImmutableBitmap next()
+      {
+        while (currIndex < bitmapIndex.getCardinality() && !predicate.apply(dimValues.get(currIndex))) {
+          currIndex++;
+        }
+
+        if (currIndex == bitmapIndex.getCardinality()) {
+          empty = true;
+          return bitmapIndex.getBitmapFactory().makeEmptyImmutableBitmap();
+        }
+
+        dimCount++;
+        return bitmapIndex.getBitmap(currIndex++);
+      }
+
+      @Override
+      public void remove()
+      {
+        throw new UnsupportedOperationException();
+      }
+    }
+    final CountingIterator countingIterator = new CountingIterator();
+    ImmutableBitmap bitmap = selector.getBitmapFactory().union(
         new Iterable<ImmutableBitmap>()
         {
+          CountingIterator iterator = countingIterator;
           @Override
           public Iterator<ImmutableBitmap> iterator()
           {
-            return new Iterator<ImmutableBitmap>()
-            {
-              int currIndex = 0;
-
-              @Override
-              public boolean hasNext()
-              {
-                return currIndex < bitmapIndex.getCardinality();
-              }
-
-              @Override
-              public ImmutableBitmap next()
-              {
-                while (currIndex < bitmapIndex.getCardinality() && !predicate.apply(dimValues.get(currIndex))) {
-                  currIndex++;
-                }
-
-                if (currIndex == bitmapIndex.getCardinality()) {
-                  return bitmapIndex.getBitmapFactory().makeEmptyImmutableBitmap();
-                }
-
-                return bitmapIndex.getBitmap(currIndex++);
-              }
-
-              @Override
-              public void remove()
-              {
-                throw new UnsupportedOperationException();
-              }
-            };
+            CountingIterator iterator = this.iterator;
+            if (iterator != null) {
+              this.iterator = null;
+              return iterator;
+            }
+            return new CountingIterator();
           }
         }
     );
+    String constructionSpec = "union {dimValue=" + countingIterator.dimCount;
+    if (countingIterator.empty) {
+      constructionSpec += ", empty=1";
+    }
+    constructionSpec += "}";
+    return new BitmapResult(bitmap, constructionSpec);
   }
 
   public static ValueMatcher getLongValueMatcher(

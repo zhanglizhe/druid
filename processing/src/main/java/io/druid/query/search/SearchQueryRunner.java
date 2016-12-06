@@ -114,8 +114,12 @@ public class SearchQueryRunner implements QueryRunner<Result<SearchResultValue>>
 
       final BitmapFactory bitmapFactory = index.getBitmapFactoryForDimensions();
 
-      final ImmutableBitmap baseFilter =
-          filter == null ? null : filter.getBitmapIndex(new ColumnSelectorBitmapIndexSelector(bitmapFactory, index));
+      final ImmutableBitmap baseFilter;
+      if (filter == null) {
+        baseFilter = null;
+      } else {
+        baseFilter = filter.getBitmapIndex(new ColumnSelectorBitmapIndexSelector(bitmapFactory, index)).getBitmap();
+      }
 
       ImmutableBitmap timeFilteredBitmap;
       if (!interval.contains(segment.getDataInterval())) {

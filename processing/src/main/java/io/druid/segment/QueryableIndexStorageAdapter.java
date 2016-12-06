@@ -39,6 +39,7 @@ import io.druid.query.QueryMetricsContext;
 import io.druid.query.dimension.DefaultDimensionSpec;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.extraction.ExtractionFn;
+import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.BooleanFilter;
 import io.druid.query.filter.DruidLongPredicate;
 import io.druid.query.filter.DruidPredicateFactory;
@@ -258,6 +259,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
      */
     final Offset offset;
     final List<Filter> postFilters = new ArrayList<>();
+    List<String> bitmapConstructionSpecs = null;
     int numPreFilters = 0;
     long bitmapFilteredRows = totalRows;
     long bitmapIntersectionTimeNs = 0L;
@@ -288,9 +290,12 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       if (preFilters.size() == 0) {
         offset = new NoFilterOffset(0, totalRows, descending);
       } else {
+        bitmapConstructionSpecs = new ArrayList<>();
         List<ImmutableBitmap> bitmaps = Lists.newArrayList();
         for (Filter prefilter : preFilters) {
-          bitmaps.add(prefilter.getBitmapIndex(selector));
+          BitmapResult bitmapResult = prefilter.getBitmapIndex(selector);
+          bitmaps.add(bitmapResult.getBitmap());
+          bitmapConstructionSpecs.add(bitmapResult.getConstructionSpecification());
         }
         final long bitmapIntersectionStartTimeNs = queryMetricsContext != null ? System.nanoTime() : 0;
         ImmutableBitmap intersectionBitmap = selector.getBitmapFactory().intersection(bitmaps);
@@ -325,6 +330,10 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       queryMetricsContext.setDimension("numPreFilters", numPreFilters);
       queryMetricsContext.setDimension("numPostFilters", postFilters.size());
       queryMetricsContext.multiValueDimensions.put("postFilterClassNames", postFilterClassNames(postFilters));
+      if (bitmapConstructionSpecs != null) {
+        String[] specs = bitmapConstructionSpecs.toArray(new String[0]);
+        queryMetricsContext.multiValueDimensions.put("bitmapConstructionSpecs", specs);
+      }
       log.debug("TopN filters: %s", postFilters);
     }
 
@@ -902,8 +911,8 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                           );
                         } else {
                           if (postFilter.supportsBitmapIndex(bitmapIndexSelector)) {
-                            filterMatcher = rowOffsetMatcherFactory.makeRowOffsetMatcher(postFilter.getBitmapIndex(
-                                bitmapIndexSelector));
+                            filterMatcher = rowOffsetMatcherFactory.makeRowOffsetMatcher(
+                                postFilter.getBitmapIndex(bitmapIndexSelector).getBitmap());
                           } else {
                             filterMatcher = postFilter.makeMatcher(valueMatcherFactory);
                           }

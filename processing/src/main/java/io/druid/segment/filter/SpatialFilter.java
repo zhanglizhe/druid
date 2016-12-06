@@ -20,15 +20,19 @@ package io.druid.segment.filter;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.collect.Lists;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import com.metamx.collections.spatial.search.Bound;
 import io.druid.query.filter.BitmapIndexSelector;
+import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.DruidLongPredicate;
 import io.druid.query.filter.DruidPredicateFactory;
 import io.druid.query.filter.Filter;
 import io.druid.query.filter.ValueMatcher;
 import io.druid.query.filter.ValueMatcherFactory;
 import io.druid.segment.incremental.SpatialDimensionRowTransformer;
+
+import java.util.List;
 
 /**
  */
@@ -47,10 +51,14 @@ public class SpatialFilter implements Filter
   }
 
   @Override
-  public ImmutableBitmap getBitmapIndex(final BitmapIndexSelector selector)
+  public BitmapResult getBitmapIndex(final BitmapIndexSelector selector)
   {
     Iterable<ImmutableBitmap> search = selector.getSpatialIndex(dimension).search(bound);
-    return selector.getBitmapFactory().union(search);
+    List<ImmutableBitmap> bitmaps = Lists.newArrayList(search);
+    return new BitmapResult(
+        selector.getBitmapFactory().union(search),
+        "union {dimValue=" + bitmaps.size() + "}"
+    );
   }
 
   @Override

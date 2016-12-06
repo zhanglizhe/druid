@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import io.druid.query.filter.BitmapIndexSelector;
+import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.BooleanFilter;
 import io.druid.query.filter.Filter;
 import io.druid.query.filter.RowOffsetMatcherFactory;
@@ -31,6 +32,7 @@ import io.druid.query.filter.ValueMatcherFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 
 /**
  */
@@ -52,18 +54,27 @@ public class OrFilter implements BooleanFilter
   }
 
   @Override
-  public ImmutableBitmap getBitmapIndex(BitmapIndexSelector selector)
+  public BitmapResult getBitmapIndex(BitmapIndexSelector selector)
   {
     if (filters.size() == 1) {
       return filters.get(0).getBitmapIndex(selector);
     }
 
-    List<ImmutableBitmap> bitmaps = Lists.newArrayList();
+    List<BitmapResult> bitmapResults = Lists.newArrayList();
     for (int i = 0; i < filters.size(); i++) {
-      bitmaps.add(filters.get(i).getBitmapIndex(selector));
+      bitmapResults.add(filters.get(i).getBitmapIndex(selector));
     }
-
-    return selector.getBitmapFactory().union(bitmaps);
+    List<ImmutableBitmap> bitmaps = new ArrayList<>(bitmapResults.size());
+    TreeMap<String, Integer> bitmapConstructionSpecs = new TreeMap<>();
+    for (BitmapResult bitmapResult : bitmapResults) {
+      Integer count = bitmapConstructionSpecs.get(bitmapResult.getConstructionSpecification());
+      bitmapConstructionSpecs.put(bitmapResult.getConstructionSpecification(), count != null ? count + 1 : 1);
+      bitmaps.add(bitmapResult.getBitmap());
+    }
+    return new BitmapResult(
+        selector.getBitmapFactory().union(bitmaps),
+        "union " + bitmapConstructionSpecs
+    );
   }
 
   @Override
@@ -89,7 +100,7 @@ public class OrFilter implements BooleanFilter
 
     for (Filter filter : filters) {
       if (filter.supportsBitmapIndex(selector)) {
-        bitmaps.add(filter.getBitmapIndex(selector));
+        bitmaps.add(filter.getBitmapIndex(selector).getBitmap());
       } else {
         ValueMatcher matcher = filter.makeMatcher(valueMatcherFactory);
         matchers.add(matcher);

@@ -19,8 +19,6 @@
 
 package io.druid.query.filter;
 
-import com.metamx.collections.bitmap.ImmutableBitmap;
-
 /**
  */
 public interface Filter
@@ -31,7 +29,7 @@ public interface Filter
    * @param selector Object used to retrieve bitmap indexes
    * @return A bitmap indicating rows that match this filter.
    */
-  public ImmutableBitmap getBitmapIndex(BitmapIndexSelector selector);
+  public BitmapResult getBitmapIndex(BitmapIndexSelector selector);
 
 
   /**
