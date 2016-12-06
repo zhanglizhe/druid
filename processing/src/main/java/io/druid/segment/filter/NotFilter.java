@@ -21,6 +21,7 @@ package io.druid.segment.filter;
 
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import io.druid.query.filter.BitmapIndexSelector;
+import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.Filter;
 import io.druid.query.filter.RowOffsetMatcherFactory;
 import io.druid.query.filter.ValueMatcher;
@@ -40,12 +41,14 @@ public class NotFilter implements Filter
   }
 
   @Override
-  public ImmutableBitmap getBitmapIndex(BitmapIndexSelector selector)
+  public BitmapResult getBitmapIndex(BitmapIndexSelector selector)
   {
-    return selector.getBitmapFactory().complement(
-        baseFilter.getBitmapIndex(selector),
+    BitmapResult baseBitmapResult = baseFilter.getBitmapIndex(selector);
+    ImmutableBitmap bitmap = selector.getBitmapFactory().complement(
+        baseBitmapResult.getBitmap(),
         selector.getNumRows()
     );
+    return new BitmapResult(bitmap, "complement {" + baseBitmapResult.getConstructionSpecification() + "}");
   }
 
   @Override

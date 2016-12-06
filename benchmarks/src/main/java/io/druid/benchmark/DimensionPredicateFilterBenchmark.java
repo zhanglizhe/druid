@@ -191,7 +191,7 @@ public class DimensionPredicateFilterBenchmark
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public void matchIsEven()
   {
-    final ImmutableBitmap bitmapIndex = IS_EVEN.getBitmapIndex(selector);
+    final ImmutableBitmap bitmapIndex = IS_EVEN.getBitmapIndex(selector).getBitmap();
     Preconditions.checkState(bitmapIndex.size() == cardinality / 2);
   }
 

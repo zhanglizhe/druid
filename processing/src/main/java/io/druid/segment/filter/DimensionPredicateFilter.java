@@ -24,6 +24,7 @@ import com.google.common.base.Predicate;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.BitmapIndexSelector;
+import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.DruidLongPredicate;
 import io.druid.query.filter.DruidPredicateFactory;
 import io.druid.query.filter.Filter;
@@ -87,7 +88,7 @@ public class DimensionPredicateFilter implements Filter
   }
 
   @Override
-  public ImmutableBitmap getBitmapIndex(final BitmapIndexSelector selector)
+  public BitmapResult getBitmapIndex(final BitmapIndexSelector selector)
   {
     return Filters.matchPredicate(dimension, selector, predicateFactory.makeStringPredicate());
   }

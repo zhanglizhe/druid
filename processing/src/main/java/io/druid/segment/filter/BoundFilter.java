@@ -21,9 +21,11 @@ package io.druid.segment.filter;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
+import com.metamx.collections.bitmap.BitmapFactory;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.BitmapIndexSelector;
+import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.BoundDimFilter;
 import io.druid.query.filter.DruidLongPredicate;
 import io.druid.query.filter.DruidPredicateFactory;
@@ -53,19 +55,25 @@ public class BoundFilter implements Filter
   }
 
   @Override
-  public ImmutableBitmap getBitmapIndex(final BitmapIndexSelector selector)
+  public BitmapResult getBitmapIndex(final BitmapIndexSelector selector)
   {
     if (boundDimFilter.getOrdering().equals(StringComparators.LEXICOGRAPHIC) && extractionFn == null) {
       // Optimization for lexicographic bounds with no extractionFn => binary search through the index
 
       final BitmapIndex bitmapIndex = selector.getBitmapIndex(boundDimFilter.getDimension());
 
+      BitmapFactory bitmapFactory = selector.getBitmapFactory();
       if (bitmapIndex == null || bitmapIndex.getCardinality() == 0) {
         if (doesMatch(null)) {
-          return selector.getBitmapFactory()
-                         .complement(selector.getBitmapFactory().makeEmptyImmutableBitmap(), selector.getNumRows());
+          return new BitmapResult(
+              bitmapFactory.complement(bitmapFactory.makeEmptyImmutableBitmap(), selector.getNumRows()),
+              "all"
+          );
         } else {
-          return selector.getBitmapFactory().makeEmptyImmutableBitmap();
+          return new BitmapResult(
+              bitmapFactory.makeEmptyImmutableBitmap(),
+              "empty"
+          );
         }
       }
 
@@ -96,7 +104,7 @@ public class BoundFilter implements Filter
         }
       }
 
-      return selector.getBitmapFactory().union(
+      ImmutableBitmap bitmap = bitmapFactory.union(
           new Iterable<ImmutableBitmap>()
           {
             @Override
@@ -127,6 +135,7 @@ public class BoundFilter implements Filter
             }
           }
       );
+      return new BitmapResult(bitmap, "union {dimValue=" + (endIndex - startIndex) + "}");
     } else {
       return Filters.matchPredicate(
           boundDimFilter.getDimension(),
