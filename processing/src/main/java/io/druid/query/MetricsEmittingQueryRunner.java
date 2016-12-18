@@ -38,6 +38,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
 {
+  private static final boolean emitTimeNsMetrics = Boolean.getBoolean("emitTimeNsMetrics");
+
   private final ServiceEmitter emitter;
   private final Function<Query<T>, ServiceMetricEvent.Builder> builderFn;
   private final QueryRunner<T> queryRunner;
@@ -202,13 +204,17 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
           builder.setDimension(dimension.getKey(), dimension.getValue());
         }
 
-        emitter.emit(builder.build(metricName + "Ns", timeTakenNs));
+        if (emitTimeNsMetrics) {
+          emitter.emit(builder.build(metricName + "Ns", timeTakenNs));
+        }
         emitter.emit(builder.build(metricName, TimeUnit.NANOSECONDS.toMillis(timeTakenNs)));
 
 
         if (creationTimeNs > 0) {
           long waitTimeNs = startTimeNs - creationTimeNs;
-          emitter.emit(builder.build("query/wait/timeNs", waitTimeNs));
+          if (emitTimeNsMetrics) {
+            emitter.emit(builder.build("query/wait/timeNs", waitTimeNs));
+          }
           emitter.emit(builder.build("query/wait/time", TimeUnit.NANOSECONDS.toMillis(waitTimeNs)));
         }
 

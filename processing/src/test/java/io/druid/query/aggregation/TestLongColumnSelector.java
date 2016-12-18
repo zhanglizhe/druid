@@ -23,7 +23,7 @@ import io.druid.segment.LongColumnSelector;
 
 /**
  */
-public class TestLongColumnSelector extends LongColumnSelector
+public class TestLongColumnSelector implements LongColumnSelector
 {
   private final long[] longs;
 
@@ -43,5 +43,11 @@ public class TestLongColumnSelector extends LongColumnSelector
   public void increment()
   {
     ++index;
+  }
+
+  @Override
+  public String getLongColumnSelectorType()
+  {
+    return getClass().getName();
   }
 }

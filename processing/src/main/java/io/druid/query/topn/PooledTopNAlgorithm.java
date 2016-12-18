@@ -21,16 +21,37 @@ package io.druid.query.topn;
 
 import com.metamx.common.Pair;
 import com.metamx.common.guava.CloseQuietly;
+import com.metamx.common.logger.Logger;
 import io.druid.collections.ResourceHolder;
 import io.druid.collections.StupidPool;
+import io.druid.query.BaseQuery;
 import io.druid.query.aggregation.BufferAggregator;
+import io.druid.query.aggregation.DoubleSumBufferAggregator;
+import io.druid.query.aggregation.SimpleDoubleBufferAggregator;
+import io.druid.segment.BitmapOffset;
 import io.druid.segment.Capabilities;
 import io.druid.segment.Cursor;
 import io.druid.segment.DimensionSelector;
+import io.druid.segment.FloatColumnSelector;
 import io.druid.segment.data.IndexedInts;
+import io.druid.segment.data.Offset;
+import io.druid.segment.historical.HistoricalCursor;
+import io.druid.segment.historical.HistoricalDimensionSelector;
+import io.druid.segment.historical.HistoricalFloatColumnSelector;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.commons.ClassRemapper;
+import org.objectweb.asm.commons.SimpleRemapper;
+import sun.misc.Unsafe;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -38,6 +59,90 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class PooledTopNAlgorithm
     extends BaseTopNAlgorithm<int[], BufferAggregator[], PooledTopNAlgorithm.PooledTopNParams>
 {
+  private static final Unsafe UNSAFE;
+
+  static {
+    try {
+      Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
+      theUnsafe.setAccessible(true);
+      UNSAFE = (Unsafe) theUnsafe.get(null);
+    } catch (Exception e) {
+      throw new RuntimeException("Cannot access Unsafe methods", e);
+    }
+  }
+  private static final com.metamx.common.logger.Logger LOG = new Logger(PooledTopNAlgorithm.class);
+
+  private static final boolean optimizeDoublePooledTopN = !Boolean.getBoolean("dontOptimizeDoublePooledTopN");
+  private static final boolean optimizeGenericPooledTopN = !Boolean.getBoolean("dontOptimizeGenericPooledTopN");
+  private static final boolean optimizeGeneric2PooledTopN = !Boolean.getBoolean("dontOptimizeGeneric2PooledTopN");
+  private static final boolean dontCopyClass = Boolean.getBoolean("dontCopyClass");
+  private static final ConcurrentHashMap<String, Object> pooledScanners = new ConcurrentHashMap<>();
+
+  private static <T> T getPooledTopNScanner(
+      String runtimeShape,
+      Class<? extends T> prototypeClass,
+      HistoricalCursor cursor
+  )
+  {
+    T scanner = (T) pooledScanners.get(runtimeShape);
+    if (scanner != null) {
+      return scanner;
+    }
+    synchronized (pooledScanners) {
+      scanner = (T) pooledScanners.get(runtimeShape);
+      if (scanner != null) {
+        return scanner;
+      }
+      scanner = makeNewPooledTopNScanner(prototypeClass, cursor != null ? cursor.copyOffset().getClass() : null);
+      pooledScanners.put(runtimeShape, scanner);
+      return scanner;
+    }
+  }
+
+  private static <T> T makeNewPooledTopNScanner(
+      Class<? extends T> prototypeClass,
+      Class<? extends Offset> specializingOffsetClass
+  )
+  {
+    if (dontCopyClass) {
+      try {
+        return prototypeClass.newInstance();
+      }
+      catch (InstantiationException | IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    ClassLoader cl = prototypeClass.getClassLoader();
+    String prototypeClassName = prototypeClass.getName();
+    String prototypeClassBytecodeName = prototypeClassName.replace('.', '/');
+    String specializedClassName = prototypeClassName + "$Copy" + pooledScanners.size();
+    ClassWriter specializedClassWriter = new ClassWriter(0);
+    HashMap<String, String> remapping = new HashMap<>();
+    remapping.put(prototypeClassBytecodeName, specializedClassName.replace('.', '/'));
+    if (specializingOffsetClass != null) {
+      remapping.put(BitmapOffset.class.getName().replace('.', '/'), specializingOffsetClass.getName().replace('.', '/'));
+    }
+    ClassVisitor classTransformer = new ClassRemapper(specializedClassWriter, new SimpleRemapper(remapping));
+    String prototypeClassResource = prototypeClassBytecodeName+ ".class";
+    try (InputStream prototypeClassBytecodeStream = cl.getResourceAsStream(prototypeClassResource)) {
+      ClassReader prototypeClassReader = new ClassReader(prototypeClassBytecodeStream);
+      prototypeClassReader.accept(classTransformer, 0);
+      byte[] specializedClassBytecode = specializedClassWriter.toByteArray();
+      Class specializedClass = UNSAFE.defineClass(
+          specializedClassName,
+          specializedClassBytecode,
+          0,
+          specializedClassBytecode.length,
+          cl,
+          prototypeClass.getProtectionDomain()
+      );
+      return (T) specializedClass.newInstance();
+    }
+    catch (InstantiationException | IllegalAccessException | IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   private final Capabilities capabilities;
   private final TopNQuery query;
   private final StupidPool<ByteBuffer> bufferPool;
@@ -187,6 +292,81 @@ public class PooledTopNAlgorithm
       final int[] positions,
       final BufferAggregator[] theAggregators,
       final int numProcessed
+  )
+  {
+    final Cursor cursor = params.getCursor();
+    if (optimizeDoublePooledTopN && cursor instanceof HistoricalCursor && theAggregators.length == 1) {
+      BufferAggregator aggregator = theAggregators[0];
+      if (aggregator instanceof SimpleDoubleBufferAggregator) {
+        FloatColumnSelector metricSelector = ((DoubleSumBufferAggregator) aggregator).getSelector();
+        String runtimeShape = aggregator.getBufferAggregatorType();
+        DoublePooledTopNScanner doublePooledTopNScanner = getPooledTopNScanner(
+            runtimeShape,
+            DoublePooledTopNScannerPrototype.class,
+            (HistoricalCursor) cursor
+        );
+        long scannedRows = doublePooledTopNScanner.scanAndAggregateHistorical(
+            (HistoricalDimensionSelector) params.getDimSelector(),
+            (HistoricalFloatColumnSelector) metricSelector,
+            (SimpleDoubleBufferAggregator) aggregator,
+            (HistoricalCursor) cursor,
+            positions,
+            params.getResultsBuf()
+        );
+        BaseQuery.checkInterrupted();
+        return scannedRows;
+      }
+    }
+    if (optimizeGenericPooledTopN && theAggregators.length == 1) {
+      BufferAggregator aggregator = theAggregators[0];
+      String runtimeShape = aggregator.getBufferAggregatorType();
+      GenericPooledTopNScanner pooledTopNScanner = getPooledTopNScanner(
+          runtimeShape,
+          GenericPooledTopNScannerPrototype.class,
+          null
+      );
+      long scannedRows = pooledTopNScanner.scanAndAggregate(
+          params.getDimSelector(),
+          aggregator,
+          params.getAggregatorSizes()[0],
+          cursor,
+          positions,
+          params.getResultsBuf()
+      );
+      BaseQuery.checkInterrupted();
+      return scannedRows;
+    }
+    if (optimizeGeneric2PooledTopN && theAggregators.length == 2) {
+      BufferAggregator aggregator1 = theAggregators[0];
+      BufferAggregator aggregator2 = theAggregators[1];
+      String runtimeShape = aggregator1.getBufferAggregatorType() + "," + aggregator2.getBufferAggregatorType();
+      Generic2PooledTopNScanner pooledTopNScanner = getPooledTopNScanner(
+          runtimeShape,
+          Generic2PooledTopNScannerPrototype.class,
+          null
+      );
+      int[] aggregatorSizes = params.getAggregatorSizes();
+      long scannedRows = pooledTopNScanner.scanAndAggregate(
+          params.getDimSelector(),
+          aggregator1,
+          aggregatorSizes[0],
+          aggregator2,
+          aggregatorSizes[1],
+          cursor,
+          positions,
+          params.getResultsBuf()
+      );
+      BaseQuery.checkInterrupted();
+      return scannedRows;
+    }
+    return genericScanAndAggregate(params, positions, theAggregators, numProcessed);
+  }
+
+  private static long genericScanAndAggregate(
+      PooledTopNParams params,
+      int[] positions,
+      BufferAggregator[] theAggregators,
+      int numProcessed
   )
   {
     final ByteBuffer resultsBuf = params.getResultsBuf();

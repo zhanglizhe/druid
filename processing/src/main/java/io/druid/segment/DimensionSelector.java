@@ -17,14 +17,16 @@
  * under the License.
  */
 
-package io.druid.segment;import io.druid.segment.data.IndexedInts;
+package io.druid.segment;
+
+import io.druid.segment.data.IndexedInts;
 
 /**
  */
-public abstract class DimensionSelector
+public interface DimensionSelector
 {
-  public static final int CARDINALITY_UNKNOWN = -1;
-  public static final int VARIABLE_ROW_SIZE = -1;
+  int CARDINALITY_UNKNOWN = -1;
+  int VARIABLE_ROW_SIZE = -1;
 
   /**
    * Gets all values for the row inside of an IntBuffer.  I.e. one possible implementation could be
@@ -33,7 +35,7 @@ public abstract class DimensionSelector
    *
    * @return all values for the row as an IntBuffer
    */
-  public abstract IndexedInts getRow();
+  IndexedInts getRow();
 
   /**
    * If this DimensionSelector always returns rows of the same {@linkplain IndexedInts#size() size}, returns this size,
@@ -42,7 +44,7 @@ public abstract class DimensionSelector
    * <p>This method is allowed to return {@link #VARIABLE_ROW_SIZE} even if it actually always returns rows of the same
    * size.
    */
-  public abstract int constantRowSize();
+  int constantRowSize();
 
   /**
    * Value cardinality is the cardinality of the different occurring values.  If there were 4 rows:
@@ -61,7 +63,7 @@ public abstract class DimensionSelector
    *
    * @return the value cardinality, or -1 if unknown.
    */
-  public abstract int getValueCardinality();
+  int getValueCardinality();
 
   /**
    * The Name is the String name of the actual field.  It is assumed that storage layers convert names
@@ -87,7 +89,7 @@ public abstract class DimensionSelector
    * @param id id to lookup the field name for
    * @return the field name for the given id
    */
-  public abstract String lookupName(int id);
+  String lookupName(int id);
 
   /**
    * The ID is the int id value of the field.
@@ -95,10 +97,7 @@ public abstract class DimensionSelector
    * @param name field name to look up the id for
    * @return the id for the given field name
    */
-  public abstract int lookupId(String name);
+  int lookupId(String name);
 
-  public String getDimensionSelectorType()
-  {
-    return getClass().getName();
-  }
+  String getDimensionSelectorType();
 }

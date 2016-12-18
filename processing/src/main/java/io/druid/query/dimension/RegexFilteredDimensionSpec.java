@@ -22,9 +22,11 @@ package io.druid.query.dimension;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.metamx.common.Pair;
 import com.metamx.common.StringUtils;
 import io.druid.query.filter.DimFilterUtils;
 import io.druid.segment.DimensionSelector;
+import io.druid.segment.historical.HistoricalDimensionSelector;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -64,7 +66,19 @@ public class RegexFilteredDimensionSpec extends BaseFilteredDimensionSpec
     if (selector == null) {
       return selector;
     }
+    Pair<Map<Integer, Integer>, int[]> forwarding = prepareForwarding(selector);
+    return BaseFilteredDimensionSpec.decorate(selector, forwarding.lhs, forwarding.rhs);
+  }
 
+  @Override
+  public HistoricalDimensionSelector decorateHistorical(HistoricalDimensionSelector selector)
+  {
+    Pair<Map<Integer, Integer>, int[]> forwarding = prepareForwarding(selector);
+    return BaseFilteredDimensionSpec.decorateHistorical(selector, forwarding.lhs, forwarding.rhs);
+  }
+
+  private com.metamx.common.Pair<Map<Integer, Integer>, int[]> prepareForwarding(DimensionSelector selector)
+  {
     int count = 0;
     final Map<Integer,Integer> forwardMapping = new HashMap<>();
 
@@ -83,7 +97,7 @@ public class RegexFilteredDimensionSpec extends BaseFilteredDimensionSpec
     for (Map.Entry<Integer, Integer> e : forwardMapping.entrySet()) {
       reverseMapping[e.getValue().intValue()] = e.getKey().intValue();
     }
-    return BaseFilteredDimensionSpec.decorate(selector, forwardMapping, reverseMapping);
+    return new Pair<>(forwardMapping, reverseMapping);
   }
 
   @Override

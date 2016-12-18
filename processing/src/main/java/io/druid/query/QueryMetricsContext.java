@@ -41,30 +41,24 @@ public final class QueryMetricsContext
 {
 
   /**
-   * Return the closest number to the given {@code metric}, that has not more than {@code significantDigits} non-zero
-   * digits. Examples: {@code roundMetric(5, 2)} = 5, {@code roundMetric(54, 2)} = 54, {@code roundMetric(543, 2)} =
-   * 540, {@code roundMetric(567, 2)} = 570.
+   * Return the closest number to the given {@code metric}, that is a power of two. Examples:
+   * roundToPowerOfTwo(5) = 4,
+   * roundToPowerOfTwo(6) = 8
    * @param metric a number to round
-   * @param significantDigits a number of significant digits to leave
    * @return rounded metric
-   * @throws IllegalArgumentException if metric is negative; if significant digits <= 0
+   * @throws IllegalArgumentException if metric is negative
    */
-  public static long roundMetric(long metric, int significantDigits)
+  public static long roundToPowerOfTwo(long metric)
   {
     if (metric < 0) {
       throw new IAE("metric should be non-negative: %d", metric);
     }
-    if (significantDigits <= 0) {
-      throw new IAE("significant digits must be positive: %d", significantDigits);
-    }
 
-    int log10 = metric == 0 ? 0 : LongMath.log10(metric, RoundingMode.UP);
-    int granularity = IntMath.pow(10, Math.max(log10 - significantDigits, 0));
-    long metricUp = metric + (granularity / 2);
+    long metricUp = metric + (metric >> 1);
     if (metricUp < 0) { // overflow
       metricUp = Long.MAX_VALUE;
     }
-    return metricUp - (metricUp % granularity);
+    return Long.highestOneBit(metricUp);
   }
 
   @JsonProperty("singleValueDimensions")

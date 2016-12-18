@@ -19,14 +19,16 @@
 
 package io.druid.segment;
 
+import io.druid.segment.historical.HistoricalFloatColumnSelector;
+
 /**
  * {@link FloatColumnSelector} which always returns 0.0f, e. g. if a column not found.
  */
-public final class FloatZeroSelector extends FloatColumnSelector
+public final class FloatZeroSelector implements HistoricalFloatColumnSelector
 {
-  private static final FloatColumnSelector SINGLETON = new FloatZeroSelector();
+  private static final FloatZeroSelector SINGLETON = new FloatZeroSelector();
 
-  public static FloatColumnSelector singleton()
+  public static FloatZeroSelector singleton()
   {
     return SINGLETON;
   }
@@ -37,5 +39,17 @@ public final class FloatZeroSelector extends FloatColumnSelector
   public float get()
   {
     return 0.0f;
+  }
+
+  @Override
+  public float get(int rowNum)
+  {
+    return 0.0f;
+  }
+
+  @Override
+  public String getFloatColumnSelectorType()
+  {
+    return getClass().getName();
   }
 }

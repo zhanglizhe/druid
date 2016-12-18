@@ -28,6 +28,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.metamx.common.guava.CloseQuietly;
 import com.metamx.common.logger.Logger;
+import io.druid.query.BaseQuery;
 import io.druid.query.QueryInterruptedException;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.segment.ColumnSelectorFactory;
@@ -187,9 +188,7 @@ public class SpillingGrouper<KeyType extends Comparable<KeyType>> implements Gro
       outFile = out.getFile();
       final Iterator<Entry<KeyType>> it = grouper.iterator(true);
       while (it.hasNext()) {
-        if (Thread.interrupted()) {
-          throw new QueryInterruptedException(new InterruptedException());
-        }
+        BaseQuery.checkInterrupted();
 
         jsonGenerator.writeObject(it.next());
       }

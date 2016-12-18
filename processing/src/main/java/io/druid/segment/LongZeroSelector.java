@@ -19,15 +19,17 @@
 
 package io.druid.segment;
 
+import io.druid.segment.historical.HistoricalLongColumnSelector;
+
 /**
  * {@link LongColumnSelector} which always returns 0, e. g. if a column not found.
  */
-public final class LongZeroSelector extends LongColumnSelector
+public final class LongZeroSelector implements HistoricalLongColumnSelector
 {
 
   private static final LongZeroSelector SINGLETON = new LongZeroSelector();
 
-  public static LongColumnSelector singleton()
+  public static LongZeroSelector singleton()
   {
     return SINGLETON;
   }
@@ -38,5 +40,17 @@ public final class LongZeroSelector extends LongColumnSelector
   public long get()
   {
     return 0;
+  }
+
+  @Override
+  public long get(int rowNum)
+  {
+    return 0;
+  }
+
+  @Override
+  public String getLongColumnSelectorType()
+  {
+    return getClass().getName();
   }
 }

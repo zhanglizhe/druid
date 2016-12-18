@@ -52,7 +52,7 @@ import java.util.Map;
 
 public class CardinalityAggregatorTest
 {
-  public static class TestDimensionSelector extends DimensionSelector
+  public static class TestDimensionSelector implements DimensionSelector
   {
     private final List<Integer[]> column;
     private final Map<String, Integer> ids;
@@ -176,6 +176,12 @@ public class CardinalityAggregatorTest
     public int lookupId(String s)
     {
       return ids.get(s);
+    }
+
+    @Override
+    public String getDimensionSelectorType()
+    {
+      return getClass().getName();
     }
   }
 

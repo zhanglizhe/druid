@@ -23,6 +23,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.metamx.collections.bitmap.BitmapFactory;
 import com.metamx.collections.bitmap.ImmutableBitmap;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.BitmapIndexSelector;
 import io.druid.query.filter.BitmapResult;
@@ -135,7 +136,8 @@ public class BoundFilter implements Filter
             }
           }
       );
-      return new BitmapResult(bitmap, "union {dimValue=" + (endIndex - startIndex) + "}");
+      long bitmapsUnified = QueryMetricsContext.roundToPowerOfTwo(Math.max(endIndex - startIndex, 0));
+      return new BitmapResult(bitmap, "union {dimValue=" + bitmapsUnified + "}");
     } else {
       return Filters.matchPredicate(
           boundDimFilter.getDimension(),

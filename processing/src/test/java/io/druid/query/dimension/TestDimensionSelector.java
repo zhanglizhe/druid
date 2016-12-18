@@ -28,7 +28,7 @@ import io.druid.segment.data.IndexedInts;
  * encoding 0 -> a, 1 -> b, ...
  * row -> [c,e,g]
  */
-class TestDimensionSelector extends DimensionSelector
+class TestDimensionSelector implements DimensionSelector
 {
   public final static TestDimensionSelector instance = new TestDimensionSelector();
 
@@ -67,4 +67,9 @@ class TestDimensionSelector extends DimensionSelector
     return name.charAt(0) - 'a';
   }
 
+  @Override
+  public String getDimensionSelectorType()
+  {
+    return getClass().getName();
+  }
 }

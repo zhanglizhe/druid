@@ -81,7 +81,7 @@ public class BitmapOffsetTest
       mutable.add(val);
     }
 
-    final BitmapOffset offset = new BitmapOffset(factory, factory.makeImmutableBitmap(mutable), descending);
+    final BitmapOffset offset = BitmapOffset.of(factory.makeImmutableBitmap(mutable), descending, 0.0);
     final int[] expected = descending ? TEST_VALS_FLIP : TEST_VALS;
 
     int count = 0;

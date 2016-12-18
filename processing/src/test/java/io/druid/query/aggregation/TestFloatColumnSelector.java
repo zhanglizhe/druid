@@ -23,7 +23,7 @@ import io.druid.segment.FloatColumnSelector;
 
 /**
  */
-public class TestFloatColumnSelector extends FloatColumnSelector
+public class TestFloatColumnSelector implements FloatColumnSelector
 {
   private final float[] floats;
 
@@ -48,5 +48,11 @@ public class TestFloatColumnSelector extends FloatColumnSelector
   public int getIndex()
   {
     return index;
+  }
+
+  @Override
+  public String getFloatColumnSelectorType()
+  {
+    return getClass().getName();
   }
 }

@@ -85,7 +85,7 @@ public class IntersectingOffset extends Offset {
   }
 
   @Override
-  public Offset clone()
+  public IntersectingOffset clone()
   {
     final Offset lhsClone = lhs.clone();
     final Offset rhsClone = rhs.clone();

@@ -22,11 +22,12 @@ package io.druid.segment;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterators;
 import io.druid.segment.data.IndexedInts;
+import io.druid.segment.historical.SingleValueHistoricalDimensionSelector;
 
 import java.io.IOException;
 import java.util.Iterator;
 
-public class NullDimensionSelector extends DimensionSelector
+public class NullDimensionSelector implements SingleValueHistoricalDimensionSelector
 {
 
   private static final IndexedInts SINGLETON = new IndexedInts() {
@@ -65,6 +66,24 @@ public class NullDimensionSelector extends DimensionSelector
   }
 
   @Override
+  public int getRowValue()
+  {
+    return 0;
+  }
+
+  @Override
+  public IndexedInts getRow(int rowNum)
+  {
+    return SINGLETON;
+  }
+
+  @Override
+  public int getRowValue(int rowNum)
+  {
+    return 0;
+  }
+
+  @Override
   public int constantRowSize()
   {
     return 1;
@@ -86,5 +105,11 @@ public class NullDimensionSelector extends DimensionSelector
   public int lookupId(String name)
   {
     return Strings.isNullOrEmpty(name) ? 0 : -1;
+  }
+
+  @Override
+  public String getDimensionSelectorType()
+  {
+    return getClass().getName();
   }
 }

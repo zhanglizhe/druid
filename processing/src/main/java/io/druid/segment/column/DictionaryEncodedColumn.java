@@ -19,7 +19,12 @@
 
 package io.druid.segment.column;
 
+import io.druid.query.extraction.ExtractionFn;
+import io.druid.segment.DimensionSelector;
+import io.druid.segment.QueryableIndexStorageAdapter;
 import io.druid.segment.data.IndexedInts;
+import io.druid.segment.data.Offset;
+import io.druid.segment.historical.HistoricalDimensionSelector;
 
 import java.io.Closeable;
 
@@ -34,5 +39,9 @@ public interface DictionaryEncodedColumn<ActualType extends Comparable> extends 
   public ActualType lookupName(int id);
   public int lookupId(ActualType name);
   public int getCardinality();
+  HistoricalDimensionSelector makeHistoricalDimensionSelector(
+      QueryableIndexStorageAdapter.CursorOffsetHolder offset,
+      ExtractionFn extractionFn
+  );
   String getDictionaryEncodedColumnType();
 }

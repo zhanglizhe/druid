@@ -28,6 +28,7 @@ import com.google.common.primitives.Longs;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import com.metamx.common.guava.FunctionalIterable;
 import io.druid.query.Query;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.filter.BitmapIndexSelector;
 import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.BooleanFilter;
@@ -43,6 +44,7 @@ import io.druid.segment.data.Indexed;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  */
@@ -127,30 +129,44 @@ public class Filters
     // Apply predicate to all dimension values and union the matching bitmaps
     final BitmapIndex bitmapIndex = selector.getBitmapIndex(dimension);
     class CountingIterator implements Iterator<ImmutableBitmap> {
-      int currIndex = 0;
-      int dimCount = 0;
-      boolean empty = false;
+      private final int bitmapIndexCardinality = bitmapIndex.getCardinality();
+      private int nextIndex = 0;
+      private ImmutableBitmap nextBitmap;
+      private int dimCount = 0;
+
+      {
+        findNextBitmap();
+      }
+
+      private void findNextBitmap()
+      {
+        while (nextIndex < bitmapIndexCardinality) {
+          if (predicate.apply(dimValues.get(nextIndex))) {
+            nextBitmap = bitmapIndex.getBitmap(nextIndex);
+            dimCount++;
+            nextIndex++;
+            return;
+          }
+          nextIndex++;
+        }
+        nextBitmap = null;
+      }
 
       @Override
       public boolean hasNext()
       {
-        return currIndex < bitmapIndex.getCardinality();
+        return nextBitmap != null;
       }
 
       @Override
       public ImmutableBitmap next()
       {
-        while (currIndex < bitmapIndex.getCardinality() && !predicate.apply(dimValues.get(currIndex))) {
-          currIndex++;
+        ImmutableBitmap bitmap = nextBitmap;
+        if (bitmap == null) {
+          throw new NoSuchElementException();
         }
-
-        if (currIndex == bitmapIndex.getCardinality()) {
-          empty = true;
-          return bitmapIndex.getBitmapFactory().makeEmptyImmutableBitmap();
-        }
-
-        dimCount++;
-        return bitmapIndex.getBitmap(currIndex++);
+        findNextBitmap();
+        return bitmap;
       }
 
       @Override
@@ -176,11 +192,8 @@ public class Filters
           }
         }
     );
-    String constructionSpec = "union {dimValue=" + countingIterator.dimCount;
-    if (countingIterator.empty) {
-      constructionSpec += ", empty=1";
-    }
-    constructionSpec += "}";
+    long unifiedBitmaps = QueryMetricsContext.roundToPowerOfTwo(countingIterator.dimCount);
+    String constructionSpec = "union {dimValue=" + unifiedBitmaps + "}";
     return new BitmapResult(bitmap, constructionSpec);
   }
 

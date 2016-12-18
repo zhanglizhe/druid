@@ -19,7 +19,7 @@
 
 package io.druid.segment.data;
 
-public abstract class Indexed<T> extends Iterable<T>
+public abstract class Indexed<T> implements Iterable<T>
 {
   public abstract Class<? extends T> getClazz();
 

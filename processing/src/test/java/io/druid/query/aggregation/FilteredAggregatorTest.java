@@ -144,6 +144,12 @@ public class FilteredAggregatorTest
                       throw new IllegalArgumentException();
                   }
                 }
+
+                @Override
+                public String getDimensionSelectorType()
+                {
+                  return getClass().getName();
+                }
               }
           );
         } else {

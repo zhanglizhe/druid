@@ -23,6 +23,7 @@ import com.google.common.base.Supplier;
 import com.metamx.common.logger.Logger;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class OffheapBufferGenerator implements Supplier<ByteBuffer>
@@ -49,6 +50,6 @@ public class OffheapBufferGenerator implements Supplier<ByteBuffer>
         computationBufferSize
     );
 
-    return ByteBuffer.allocateDirect(computationBufferSize);
+    return ByteBuffer.allocateDirect(computationBufferSize).order(ByteOrder.nativeOrder());
   }
 }

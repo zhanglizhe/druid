@@ -22,9 +22,11 @@ package io.druid.query.dimension;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.metamx.common.Pair;
 import com.metamx.common.StringUtils;
 import io.druid.query.filter.DimFilterUtils;
 import io.druid.segment.DimensionSelector;
+import io.druid.segment.historical.HistoricalDimensionSelector;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -73,7 +75,19 @@ public class ListFilteredDimensionSpec extends BaseFilteredDimensionSpec
     if (selector == null) {
       return selector;
     }
+    Pair<Map<Integer, Integer>, int[]> forwarding = prepareForwarding(selector);
+    return BaseFilteredDimensionSpec.decorate(selector, forwarding.lhs, forwarding.rhs);
+  }
 
+  @Override
+  public HistoricalDimensionSelector decorateHistorical(HistoricalDimensionSelector selector)
+  {
+    Pair<Map<Integer, Integer>, int[]> forwarding = prepareForwarding(selector);
+    return BaseFilteredDimensionSpec.decorateHistorical(selector, forwarding.lhs, forwarding.rhs);
+  }
+
+  private Pair<Map<Integer, Integer>, int[]> prepareForwarding(DimensionSelector selector)
+  {
     final int selectorCardinality = selector.getValueCardinality();
     if (selectorCardinality < 0) {
       throw new UnsupportedOperationException("Cannot decorate a selector with no dictionary");
@@ -102,8 +116,7 @@ public class ListFilteredDimensionSpec extends BaseFilteredDimensionSpec
         }
       }
     }
-
-    return BaseFilteredDimensionSpec.decorate(selector, forwardMapping, reverseMapping);
+    return new Pair<>(forwardMapping, reverseMapping);
   }
 
   @Override

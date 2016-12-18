@@ -102,22 +102,7 @@ public class BlockLayoutIndexedFloatSupplier implements Supplier<IndexedFloats>
       return floatBuffer.get(floatBuffer.position() + bufferIndex);
     }
 
-    @Override
-    public void fill(int index, float[] toFill)
-    {
-      if (totalSize - index < toFill.length) {
-        throw new IndexOutOfBoundsException(
-            String.format(
-                "Cannot fill array of size[%,d] at index[%,d].  Max size[%,d]", toFill.length, index, totalSize
-            )
-        );
-      }
-      for (int i = 0; i < toFill.length; i++) {
-        toFill[i] = get(index + i);
-      }
-    }
-
-    protected void loadBuffer(int bufferNum)
+    void loadBuffer(int bufferNum)
     {
       CloseQuietly.close(holder);
       holder = singleThreadedFloatBuffers.get(bufferNum);

@@ -61,7 +61,7 @@ public class ArrayBasedOffset extends Offset
   }
 
   @Override
-  public Offset clone()
+  public ArrayBasedOffset clone()
   {
     final ArrayBasedOffset retVal = new ArrayBasedOffset(ints);
     retVal.currIndex = currIndex;

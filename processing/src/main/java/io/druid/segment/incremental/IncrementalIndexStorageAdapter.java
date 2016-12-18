@@ -28,7 +28,7 @@ import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.logger.Logger;
 import io.druid.granularity.QueryGranularity;
-import io.druid.query.QueryInterruptedException;
+import io.druid.query.BaseQuery;
 import io.druid.query.QueryMetricsContext;
 import io.druid.query.dimension.DefaultDimensionSpec;
 import io.druid.query.dimension.DimensionSpec;
@@ -44,6 +44,7 @@ import io.druid.segment.DimensionHandler;
 import io.druid.segment.DimensionIndexer;
 import io.druid.segment.DimensionSelector;
 import io.druid.segment.FloatColumnSelector;
+import io.druid.segment.FloatZeroSelector;
 import io.druid.segment.LongColumnSelector;
 import io.druid.segment.LongZeroSelector;
 import io.druid.segment.Metadata;
@@ -51,7 +52,6 @@ import io.druid.segment.NullDimensionSelector;
 import io.druid.segment.ObjectColumnSelector;
 import io.druid.segment.SingleScanTimeDimSelector;
 import io.druid.segment.StorageAdapter;
-import io.druid.segment.FloatZeroSelector;
 import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.ValueType;
@@ -286,8 +286,31 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
                 }
 
                 while (baseIter.hasNext()) {
-                  if (Thread.interrupted()) {
-                    throw new QueryInterruptedException(new InterruptedException());
+                  BaseQuery.checkInterrupted();
+
+                  currEntry.set(baseIter.next());
+
+                  if (filterMatcher.matches()) {
+                    return;
+                  }
+                }
+
+                if (!filterMatcher.matches()) {
+                  done = true;
+                }
+              }
+
+              @Override
+              public void advanceWithoutInterruptedException()
+              {
+                if (!baseIter.hasNext()) {
+                  done = true;
+                  return;
+                }
+
+                while (baseIter.hasNext()) {
+                  if (Thread.currentThread().isInterrupted()) {
+                    return;
                   }
 
                   currEntry.set(baseIter.next());
@@ -319,6 +342,12 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
               }
 
               @Override
+              public boolean isDoneOrInterrupted()
+              {
+                return done || Thread.currentThread().isInterrupted();
+              }
+
+              @Override
               public void reset()
               {
                 baseIter = cursorIterable.iterator();
@@ -329,9 +358,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
                   Iterators.advance(baseIter, numAdvanced);
                 }
 
-                if (Thread.interrupted()) {
-                  throw new QueryInterruptedException(new InterruptedException());
-                }
+                BaseQuery.checkInterrupted();
 
                 boolean foundMatched = false;
                 while (baseIter.hasNext()) {
@@ -400,6 +427,12 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
                   {
                     return index.getMetricFloatValue(currEntry.getValue(), metricIndex);
                   }
+
+                  @Override
+                  public String getFloatColumnSelectorType()
+                  {
+                    return getClass().getName();
+                  }
                 };
               }
 
@@ -408,12 +441,18 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
               {
                 if (columnName.equals(Column.TIME_COLUMN_NAME)) {
                   // Local class has a name => more readable toString()
-                  class TimeColumnSelector extends LongColumnSelector
+                  class TimeColumnSelector implements LongColumnSelector
                   {
                     @Override
                     public long get()
                     {
                       return currEntry.getKey().getTimestamp();
+                    }
+
+                    @Override
+                    public String getLongColumnSelectorType()
+                    {
+                      return getClass().getName();
                     }
                   }
                   return new TimeColumnSelector();
@@ -446,6 +485,12 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
                         currEntry.getValue(),
                         metricIndex
                     );
+                  }
+
+                  @Override
+                  public String getLongColumnSelectorType()
+                  {
+                    return getClass().getName();
                   }
                 };
               }

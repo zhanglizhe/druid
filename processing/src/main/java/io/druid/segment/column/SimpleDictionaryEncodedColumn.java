@@ -21,9 +21,14 @@ package io.druid.segment.column;
 
 import com.google.common.base.Strings;
 import com.metamx.common.guava.CloseQuietly;
+import io.druid.query.extraction.ExtractionFn;
+import io.druid.segment.QueryableIndexStorageAdapter;
 import io.druid.segment.data.CachingIndexed;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedMultivalue;
+import io.druid.segment.data.SingleIndexedInt;
+import io.druid.segment.historical.HistoricalDimensionSelector;
+import io.druid.segment.historical.SingleValueHistoricalDimensionSelector;
 
 import java.io.IOException;
 
@@ -88,6 +93,80 @@ public class SimpleDictionaryEncodedColumn
   public int getCardinality()
   {
     return cachedLookups.size();
+  }
+
+  @Override
+  public HistoricalDimensionSelector makeHistoricalDimensionSelector(
+      final QueryableIndexStorageAdapter.CursorOffsetHolder offsetHolder,
+      final ExtractionFn extractionFn
+  )
+  {
+    class SingleValueDimensionSelector implements SingleValueHistoricalDimensionSelector
+    {
+      @Override
+      public IndexedInts getRow()
+      {
+        return new SingleIndexedInt(column.get(offsetHolder.get().getOffset()));
+      }
+
+      @Override
+      public int getRowValue()
+      {
+        return column.get(offsetHolder.get().getOffset());
+      }
+
+      @Override
+      public int getRowValue(int rowNum)
+      {
+        return column.get(rowNum);
+      }
+
+      @Override
+      public IndexedInts getRow(int rowNum)
+      {
+        return new SingleIndexedInt(column.get(rowNum));
+      }
+
+      @Override
+      public int constantRowSize()
+      {
+        return 1;
+      }
+
+      @Override
+      public int getValueCardinality()
+      {
+        return SimpleDictionaryEncodedColumn.this.getCardinality();
+      }
+
+      @Override
+      public String lookupName(int id)
+      {
+        final String value = SimpleDictionaryEncodedColumn.this.lookupName(id);
+        return extractionFn == null ? value : extractionFn.apply(value);
+      }
+
+      @Override
+      public int lookupId(String name)
+      {
+        if (extractionFn != null) {
+          throw new UnsupportedOperationException(
+              "cannot perform lookup when applying an extraction function"
+          );
+        }
+        return SimpleDictionaryEncodedColumn.this.lookupId(name);
+      }
+
+      @Override
+      public String getDimensionSelectorType()
+      {
+        return getClass().getName() + "["
+               + "column=" + SimpleDictionaryEncodedColumn.this.getDictionaryEncodedColumnType()
+               + ", cursorOffset=" + offsetHolder.get().getOffsetType()
+               + "]";
+      }
+    }
+    return new SingleValueDimensionSelector();
   }
 
   @Override

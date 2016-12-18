@@ -22,6 +22,7 @@ package io.druid.segment.filter;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.metamx.collections.bitmap.ImmutableBitmap;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.filter.BitmapIndexSelector;
 import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.BooleanFilter;
@@ -32,6 +33,7 @@ import io.druid.query.filter.ValueMatcherFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 
 /**
@@ -65,11 +67,14 @@ public class OrFilter implements BooleanFilter
       bitmapResults.add(filters.get(i).getBitmapIndex(selector));
     }
     List<ImmutableBitmap> bitmaps = new ArrayList<>(bitmapResults.size());
-    TreeMap<String, Integer> bitmapConstructionSpecs = new TreeMap<>();
+    TreeMap<String, Long> bitmapConstructionSpecs = new TreeMap<>();
     for (BitmapResult bitmapResult : bitmapResults) {
-      Integer count = bitmapConstructionSpecs.get(bitmapResult.getConstructionSpecification());
+      Long count = bitmapConstructionSpecs.get(bitmapResult.getConstructionSpecification());
       bitmapConstructionSpecs.put(bitmapResult.getConstructionSpecification(), count != null ? count + 1 : 1);
       bitmaps.add(bitmapResult.getBitmap());
+    }
+    for (Map.Entry<String, Long> e : bitmapConstructionSpecs.entrySet()) {
+      e.setValue(QueryMetricsContext.roundToPowerOfTwo(e.getValue()));
     }
     return new BitmapResult(
         selector.getBitmapFactory().union(bitmaps),

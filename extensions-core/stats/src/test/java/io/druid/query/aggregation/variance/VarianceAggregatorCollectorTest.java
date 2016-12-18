@@ -141,7 +141,7 @@ public class VarianceAggregatorCollectorTest
     }
   }
 
-  private static class FloatHandOver extends FloatColumnSelector
+  private static class FloatHandOver implements FloatColumnSelector
   {
     float v;
 
@@ -149,6 +149,12 @@ public class VarianceAggregatorCollectorTest
     public float get()
     {
       return v;
+    }
+
+    @Override
+    public String getFloatColumnSelectorType()
+    {
+      return getClass().getName();
     }
   }
 

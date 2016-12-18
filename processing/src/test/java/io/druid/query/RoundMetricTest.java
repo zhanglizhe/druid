@@ -21,7 +21,7 @@ package io.druid.query;
 
 import org.junit.Test;
 
-import static io.druid.query.QueryMetricsContext.roundMetric;
+import static io.druid.query.QueryMetricsContext.roundToPowerOfTwo;
 import static org.junit.Assert.assertEquals;
 
 public class RoundMetricTest
@@ -29,35 +29,17 @@ public class RoundMetricTest
   @Test
   public void testRoundMetric()
   {
-    assertEquals(0, roundMetric(0, 1));
-    assertEquals(5, roundMetric(5, 1));
-    assertEquals(60, roundMetric(55, 1));
-    assertEquals(50, roundMetric(54, 1));
-    assertEquals(100, roundMetric(149, 1));
-    assertEquals(200, roundMetric(150, 1));
-    assertEquals(149, roundMetric(149, 3));
-    assertEquals(150, roundMetric(149, 2));
-    assertEquals(2147483600, roundMetric(2147483647, 8));
-    assertEquals(2147483650L, roundMetric(2147483647, 9));
-    assertEquals(2147483647, roundMetric(2147483647, 10));
-    assertEquals(2147483647, roundMetric(2147483647, Integer.MAX_VALUE));
+    assertEquals(0, roundToPowerOfTwo(0));
+    assertEquals(4, roundToPowerOfTwo(5));
+    assertEquals(8, roundToPowerOfTwo(6));
+    assertEquals(64, roundToPowerOfTwo(55));
+    assertEquals(128, roundToPowerOfTwo(149));
+    assertEquals(1L << 31, roundToPowerOfTwo(2147483647));
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testRoundNegativeMetric()
   {
-    roundMetric(-1, 1);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void testRoundMetricNonZeroDigits()
-  {
-    roundMetric(1, 0);
-  }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void testRoundMetricNonNegativeDigits()
-  {
-    roundMetric(1, -1);
+    roundToPowerOfTwo(-1);
   }
 }

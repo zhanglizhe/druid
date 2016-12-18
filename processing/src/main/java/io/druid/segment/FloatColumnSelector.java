@@ -24,12 +24,9 @@ package io.druid.segment;
  * FloatColumnSelector has a handle onto some other stateful object (e.g. an Offset) which is changing between calls
  * to get() (though, that doesn't have to be the case if you always want the same value...).
  */
-public abstract class FloatColumnSelector
+public interface FloatColumnSelector
 {
-  public abstract float get();
+  float get();
 
-  public String getFloatColumnSelectorType()
-  {
-    return getClass().getName();
-  }
+  String getFloatColumnSelectorType();
 }

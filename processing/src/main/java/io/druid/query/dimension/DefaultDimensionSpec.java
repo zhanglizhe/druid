@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import com.metamx.common.StringUtils;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.segment.DimensionSelector;
+import io.druid.segment.historical.HistoricalDimensionSelector;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -95,6 +96,12 @@ public class DefaultDimensionSpec implements DimensionSpec
 
   @Override
   public DimensionSelector decorate(DimensionSelector selector)
+  {
+    return selector;
+  }
+
+  @Override
+  public HistoricalDimensionSelector decorateHistorical(HistoricalDimensionSelector selector)
   {
     return selector;
   }

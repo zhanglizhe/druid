@@ -23,11 +23,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.segment.DimensionSelector;
-import io.druid.segment.data.IndexedInts;
-import io.druid.segment.data.ListBasedIndexedInts;
+import io.druid.segment.historical.HistoricalDimensionSelector;
+import io.druid.segment.historical.HistoricalForwardingDimensionSelector;
+import io.druid.segment.historical.SingleValueHistoricalDimensionSelector;
+import io.druid.segment.historical.SingleValueHistoricalForwardingDimensionSelector;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -80,80 +80,26 @@ public abstract class BaseFilteredDimensionSpec implements DimensionSpec
   )
   {
     if (selector == null) {
-      return selector;
+      return null;
     }
 
-    return new ForwardingDimensionSelector(selector, forwardMapping, reverseMapping);
+    return new ForwardingDimensionSelector<>(selector, forwardMapping, reverseMapping);
   }
 
-  private static class ForwardingDimensionSelector extends DimensionSelector
+  protected static HistoricalDimensionSelector decorateHistorical(
+      final HistoricalDimensionSelector selector,
+      final Map<Integer, Integer> forwardMapping,
+      final int[] reverseMapping
+  )
   {
-    private final DimensionSelector selector;
-    private final Map<Integer, Integer> forwardMapping;
-    private final int[] reverseMapping;
-
-    public ForwardingDimensionSelector(
-        DimensionSelector selector,
-        Map<Integer, Integer> forwardMapping,
-        int[] reverseMapping
-    )
-    {
-      this.selector = selector;
-      this.forwardMapping = forwardMapping;
-      this.reverseMapping = reverseMapping;
-    }
-
-    @Override
-    public IndexedInts getRow()
-    {
-      IndexedInts baseRow = selector.getRow();
-      List<Integer> result = new ArrayList<>(baseRow.size());
-
-      for (int i : baseRow) {
-        if (forwardMapping.containsKey(i)) {
-          result.add(forwardMapping.get(i));
-        }
-      }
-
-      return new ListBasedIndexedInts(result);
-    }
-
-    @Override
-    public int constantRowSize()
-    {
-      return selector.constantRowSize();
-    }
-
-    @Override
-    public int getValueCardinality()
-    {
-      return forwardMapping.size();
-    }
-
-    @Override
-    public String lookupName(int id)
-    {
-      return selector.lookupName(reverseMapping[id]);
-    }
-
-    @Override
-    public int lookupId(String name)
-    {
-      return forwardMapping.get(selector.lookupId(name));
-    }
-
-    @Override
-    public String getDimensionSelectorType()
-    {
-      return getClass().getName() + "[selector=" + selector.getDimensionSelectorType() + "]";
-    }
-
-    @Override
-    public String toString()
-    {
-      return "ForwardingDimensionSelector{" +
-             "selector=" + selector +
-             '}';
+    if (selector instanceof SingleValueHistoricalDimensionSelector) {
+      return new SingleValueHistoricalForwardingDimensionSelector(
+          (SingleValueHistoricalDimensionSelector) selector,
+          forwardMapping,
+          reverseMapping
+      );
+    } else {
+      return new HistoricalForwardingDimensionSelector<>(selector, forwardMapping, reverseMapping);
     }
   }
 }

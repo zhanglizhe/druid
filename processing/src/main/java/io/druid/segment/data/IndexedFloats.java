@@ -24,12 +24,25 @@ import java.io.Closeable;
 /**
  * Get a float at an index (array or list lookup abstraction without boxing).
  */
-public interface IndexedFloats extends Closeable
+public abstract class IndexedFloats implements Closeable
 {
-  public int size();
-  public float get(int index);
-  public void fill(int index, float[] toFill);
+  public abstract int size();
+  public abstract float get(int index);
+
+  public final void fill(int index, float[] toFill)
+  {
+    if (size() - index < toFill.length) {
+      throw new IndexOutOfBoundsException(
+          String.format(
+              "Cannot fill array of size[%,d] at index[%,d].  Max size[%,d]", toFill.length, index, size()
+          )
+      );
+    }
+    for (int i = 0; i < toFill.length; i++) {
+      toFill[i] = get(index + i);
+    }
+  }
 
   @Override
-  void close();
+  public abstract void close();
 }

@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.segment.DimensionSelector;
+import io.druid.segment.historical.HistoricalDimensionSelector;
 
 /**
  */
@@ -45,6 +46,8 @@ public interface DimensionSpec
   ExtractionFn getExtractionFn();
 
   DimensionSelector decorate(DimensionSelector selector);
+
+  HistoricalDimensionSelector decorateHistorical(HistoricalDimensionSelector selector);
 
   byte[] getCacheKey();
 

@@ -58,21 +58,6 @@ public class EntireLayoutIndexedFloatSupplier implements Supplier<IndexedFloats>
     }
 
     @Override
-    public void fill(int index, float[] toFill)
-    {
-      if (totalSize - index < toFill.length) {
-        throw new IndexOutOfBoundsException(
-            String.format(
-                "Cannot fill array of size[%,d] at index[%,d].  Max size[%,d]", toFill.length, index, totalSize
-            )
-        );
-      }
-      for (int i = 0; i < toFill.length; i++) {
-        toFill[i] = get(index + i);
-      }
-    }
-
-    @Override
     public String toString()
     {
       return "EntireCompressedIndexedFloats_Anonymous{" +

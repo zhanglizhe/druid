@@ -49,6 +49,12 @@ public class MetricManipulatorFnsTest
       {
         return longVal;
       }
+
+      @Override
+      public String getLongColumnSelectorType()
+      {
+        return getClass().getName();
+      }
     }
     );
     LongMinAggregatorFactory longMinAggregatorFactory = new LongMinAggregatorFactory(NAME, FIELD);
@@ -87,6 +93,12 @@ public class MetricManipulatorFnsTest
       public long get()
       {
         return longVal;
+      }
+
+      @Override
+      public String getLongColumnSelectorType()
+      {
+        return getClass().getName();
       }
     }
     );

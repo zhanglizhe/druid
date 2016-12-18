@@ -19,9 +19,12 @@
 
 package io.druid.segment.column;
 
+import io.druid.segment.QueryableIndexStorageAdapter;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedFloats;
 import io.druid.segment.data.IndexedLongs;
+import io.druid.segment.data.Offset;
+import io.druid.segment.historical.HistoricalFloatColumnSelector;
 
 import java.io.Closeable;
 
@@ -39,6 +42,10 @@ public interface GenericColumn extends Closeable
   public IndexedFloats getFloatMultiValueRow(int rowNum);
   public long getLongSingleValueRow(int rowNum);
   public IndexedLongs getLongMultiValueRow(int rowNum);
+
+  HistoricalFloatColumnSelector makeHistoricalColumnFloatSelector(
+      QueryableIndexStorageAdapter.CursorOffsetHolder offsetHolder
+  );
 
   @Override
   void close();

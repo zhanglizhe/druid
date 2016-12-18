@@ -19,9 +19,11 @@
 
 package io.druid.segment.column;
 
+import io.druid.segment.QueryableIndexStorageAdapter;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedFloats;
 import io.druid.segment.data.IndexedLongs;
+import io.druid.segment.historical.HistoricalFloatColumnSelector;
 
 /**
 */
@@ -87,6 +89,36 @@ public class IndexedFloatsGenericColumn implements GenericColumn
   public IndexedLongs getLongMultiValueRow(int rowNum)
   {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public HistoricalFloatColumnSelector makeHistoricalColumnFloatSelector(
+      final QueryableIndexStorageAdapter.CursorOffsetHolder offsetHolder
+  )
+  {
+    return new HistoricalFloatColumnSelector()
+    {
+      @Override
+      public float get()
+      {
+        return getFloatSingleValueRow(offsetHolder.get().getOffset());
+      }
+
+      @Override
+      public float get(int rowNum)
+      {
+        return column.get(rowNum);
+      }
+
+      @Override
+      public String getFloatColumnSelectorType()
+      {
+        return getClass().getName() + "["
+               + "metricVals=" + IndexedFloatsGenericColumn.this.getGenericColumnType()
+               + ", cursorOffset=" + offsetHolder.get().getOffsetType()
+               + "]";
+      }
+    };
   }
 
   @Override

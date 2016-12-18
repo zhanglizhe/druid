@@ -22,6 +22,7 @@ package io.druid.query.topn;
 import com.metamx.common.ISE;
 import com.metamx.common.Pair;
 import io.druid.collections.StupidPool;
+import io.druid.query.DataSourceQueryMetrics;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.AggregatorUtil;
 import io.druid.query.aggregation.PostAggregator;
@@ -71,7 +72,7 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
       TopNParams params,
       int[] ints,
       TopNResultBuilder resultBuilder,
-      @Nullable TopNQueryMetrics topNQueryMetrics
+      @Nullable DataSourceQueryMetrics dataSourceQueryMetrics
   )
   {
     final String metric = query.getTopNMetricSpec().getMetricName(query.getDimensionSpec());
@@ -119,7 +120,7 @@ public class AggregateTopNMetricFirstAlgorithm implements TopNAlgorithm<int[], T
           allMetricsParam,
           dimValSelector,
           resultBuilder,
-          topNQueryMetrics
+          dataSourceQueryMetrics
       );
     }
     finally {

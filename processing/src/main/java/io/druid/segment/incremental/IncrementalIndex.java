@@ -57,6 +57,7 @@ import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.ColumnCapabilitiesImpl;
 import io.druid.segment.column.ValueType;
 import io.druid.segment.data.IndexedInts;
+import io.druid.segment.data.ListBasedIndexedInts;
 import io.druid.segment.serde.ComplexMetricExtractor;
 import io.druid.segment.serde.ComplexMetricSerde;
 import io.druid.segment.serde.ComplexMetrics;
@@ -66,7 +67,6 @@ import org.joda.time.Interval;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import java.io.Closeable;
-import java.io.IOException;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -115,12 +115,18 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
       {
         if (columnName.equals(Column.TIME_COLUMN_NAME)) {
           // Local class has a name => more readable toString()
-          class TimeColumnSelector extends LongColumnSelector
+          class TimeColumnSelector implements LongColumnSelector
           {
             @Override
             public long get()
             {
               return in.get().getTimestampFromEpoch();
+            }
+
+            @Override
+            public String getLongColumnSelectorType()
+            {
+              return getClass().getName();
             }
           }
           return new TimeColumnSelector();
@@ -131,6 +137,12 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
             public long get()
             {
               return in.get().getLongMetric(columnName);
+            }
+
+            @Override
+            public String getLongColumnSelectorType()
+            {
+              return getClass().getName();
             }
           };
         }
@@ -145,6 +157,12 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
           public float get()
           {
             return in.get().getFloatMetric(columnName);
+          }
+
+          @Override
+          public String getFloatColumnSelectorType()
+          {
+            return getClass().getName();
           }
         };
       }
@@ -236,39 +254,7 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
                 vals.add(i);
               }
             }
-
-            return new IndexedInts()
-            {
-              @Override
-              public int size()
-              {
-                return vals.size();
-              }
-
-              @Override
-              public int get(int index)
-              {
-                return vals.get(index);
-              }
-
-              @Override
-              public Iterator<Integer> iterator()
-              {
-                return vals.iterator();
-              }
-
-              @Override
-              public void close() throws IOException
-              {
-
-              }
-
-              @Override
-              public void fill(int index, int[] toFill)
-              {
-                throw new UnsupportedOperationException("fill not supported");
-              }
-            };
+            return new ListBasedIndexedInts(vals);
           }
 
           @Override
@@ -297,6 +283,12 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
               throw new UnsupportedOperationException("cannot perform lookup when applying an extraction function");
             }
             return in.get().getDimension(dimension).indexOf(name);
+          }
+
+          @Override
+          public String getDimensionSelectorType()
+          {
+            return getClass().getName();
           }
         };
       }

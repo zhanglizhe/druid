@@ -34,11 +34,11 @@ import io.druid.query.filter.ValueMatcher;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedIterable;
+import io.druid.segment.data.ListBasedIndexedInts;
 import io.druid.segment.filter.BooleanValueMatcher;
 import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.IncrementalIndexStorageAdapter;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -369,38 +369,7 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
         }
 
         final List<Integer> vals = valsTmp == null ? Collections.EMPTY_LIST : valsTmp;
-        return new IndexedInts()
-        {
-          @Override
-          public int size()
-          {
-            return vals.size();
-          }
-
-          @Override
-          public int get(int index)
-          {
-            return vals.get(index);
-          }
-
-          @Override
-          public Iterator<Integer> iterator()
-          {
-            return vals.iterator();
-          }
-
-          @Override
-          public void fill(int index, int[] toFill)
-          {
-            throw new UnsupportedOperationException("fill not supported");
-          }
-
-          @Override
-          public void close() throws IOException
-          {
-
-          }
-        };
+        return new ListBasedIndexedInts(vals);
       }
 
       @Override
@@ -431,6 +400,12 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
           );
         }
         return getEncodedValue(name, false);
+      }
+
+      @Override
+      public String getDimensionSelectorType()
+      {
+        return getClass().getName();
       }
     };
   }

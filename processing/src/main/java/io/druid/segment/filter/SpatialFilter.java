@@ -23,6 +23,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Lists;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import com.metamx.collections.spatial.search.Bound;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.filter.BitmapIndexSelector;
 import io.druid.query.filter.BitmapResult;
 import io.druid.query.filter.DruidLongPredicate;
@@ -55,9 +56,10 @@ public class SpatialFilter implements Filter
   {
     Iterable<ImmutableBitmap> search = selector.getSpatialIndex(dimension).search(bound);
     List<ImmutableBitmap> bitmaps = Lists.newArrayList(search);
+    long bitmapsUnified = QueryMetricsContext.roundToPowerOfTwo(bitmaps.size());
     return new BitmapResult(
         selector.getBitmapFactory().union(search),
-        "union {dimValue=" + bitmaps.size() + "}"
+        "union {dimValue=" + bitmapsUnified + "}"
     );
   }
 

@@ -25,6 +25,7 @@ import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.metamx.collections.bitmap.ImmutableBitmap;
+import io.druid.query.QueryMetricsContext;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.BitmapIndexSelector;
 import io.druid.query.filter.BitmapResult;
@@ -74,7 +75,8 @@ public class InFilter implements Filter
               }
           )
       );
-      return new BitmapResult(bitmap, "union {dimValue=" + values.size() + "}");
+      long bitmapsUnified = QueryMetricsContext.roundToPowerOfTwo(values.size());
+      return new BitmapResult(bitmap, "union {dimValue=" + bitmapsUnified + "}");
     } else {
       return Filters.matchPredicate(
           dimension,

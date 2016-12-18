@@ -17,49 +17,14 @@
  * under the License.
  */
 
-package io.druid.segment.data;
+package io.druid.query;
 
-/**
- */
-public class StartLimitedOffset extends Offset
+import io.druid.segment.DimensionSelector;
+
+public class DataSourceQueryMetrics
 {
-  private final Offset baseOffset;
-  private final int limit;
-
-  public StartLimitedOffset(
-      Offset baseOffset,
-      int limit
-  )
-  {
-    this.baseOffset = baseOffset;
-    this.limit = limit;
-
-    while (baseOffset.withinBounds() && baseOffset.getOffset() < limit) {
-      baseOffset.increment();
-    }
-  }
-
-  @Override
-  public void increment()
-  {
-    baseOffset.increment();
-  }
-
-  @Override
-  public boolean withinBounds()
-  {
-    return baseOffset.withinBounds();
-  }
-
-  @Override
-  public Offset clone()
-  {
-    return new StartLimitedOffset(baseOffset.clone(), limit);
-  }
-
-  @Override
-  public int getOffset()
-  {
-    return baseOffset.getOffset();
-  }
+  public long scannedRows;
+  public long scanTimeNs;
+  public int cursors;
+  public DimensionSelector dimensionSelector;
 }

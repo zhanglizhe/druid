@@ -31,6 +31,7 @@ import io.druid.query.lookup.LookupExtractionFn;
 import io.druid.query.lookup.LookupExtractor;
 import io.druid.query.lookup.LookupReferencesManager;
 import io.druid.segment.DimensionSelector;
+import io.druid.segment.historical.HistoricalDimensionSelector;
 
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
@@ -145,6 +146,12 @@ public class LookupDimensionSpec implements DimensionSpec
 
   @Override
   public DimensionSelector decorate(DimensionSelector selector)
+  {
+    return selector;
+  }
+
+  @Override
+  public HistoricalDimensionSelector decorateHistorical(HistoricalDimensionSelector selector)
   {
     return selector;
   }

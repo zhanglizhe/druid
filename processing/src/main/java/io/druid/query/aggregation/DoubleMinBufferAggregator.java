@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 
 /**
  */
-public class DoubleMinBufferAggregator extends BufferAggregator
+public class DoubleMinBufferAggregator extends BufferAggregator implements SimpleDoubleBufferAggregator
 {
   private final FloatColumnSelector selector;
 
@@ -44,6 +44,12 @@ public class DoubleMinBufferAggregator extends BufferAggregator
   public void aggregate(ByteBuffer buf, int position)
   {
     buf.putDouble(position, Math.min(buf.getDouble(position), (double) selector.get()));
+  }
+
+  @Override
+  public void aggregate(ByteBuffer buf, int position, double value)
+  {
+    buf.putDouble(position, Math.min(buf.getDouble(position), value));
   }
 
   @Override

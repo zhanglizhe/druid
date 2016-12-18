@@ -53,6 +53,12 @@ public class TestColumnSelectorFactory implements ColumnSelectorFactory
       {
         return row.get().getFloatMetric(columnName);
       }
+
+      @Override
+      public String getFloatColumnSelectorType()
+      {
+        return getClass().getName();
+      }
     };
   }
 
@@ -65,6 +71,12 @@ public class TestColumnSelectorFactory implements ColumnSelectorFactory
       public long get()
       {
         return row.get().getLongMetric(columnName);
+      }
+
+      @Override
+      public String getLongColumnSelectorType()
+      {
+        return getClass().getName();
       }
     };
   }

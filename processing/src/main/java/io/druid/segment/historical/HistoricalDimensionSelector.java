@@ -17,53 +17,13 @@
  * under the License.
  */
 
-package io.druid.segment;
+package io.druid.segment.historical;
 
+import io.druid.segment.DimensionSelector;
 import io.druid.segment.data.IndexedInts;
-import io.druid.segment.data.Offset;
 
-/**
-*/
-class IndexedIntsOffset extends Offset
+public interface HistoricalDimensionSelector extends DimensionSelector
 {
-  int currRow;
-  private final IndexedInts invertedIndex;
 
-  public IndexedIntsOffset(IndexedInts invertedIndex)
-  {
-    this.invertedIndex = invertedIndex;
-    currRow = 0;
-  }
-
-  @Override
-  public void increment()
-  {
-    ++currRow;
-  }
-
-  @Override
-  public boolean withinBounds()
-  {
-    return currRow < invertedIndex.size();
-  }
-
-  @Override
-  public Offset clone()
-  {
-    final IndexedIntsOffset retVal = new IndexedIntsOffset(invertedIndex);
-    retVal.currRow = currRow;
-    return retVal;
-  }
-
-  @Override
-  public int getOffset()
-  {
-    return invertedIndex.get(currRow);
-  }
-
-  @Override
-  public String getOffsetType()
-  {
-    return getClass().getName() + "[invertedIndex=" + invertedIndex.getIndexedIntsType() + "]";
-  }
+  IndexedInts getRow(int rowNum);
 }

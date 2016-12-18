@@ -83,6 +83,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
@@ -1330,7 +1331,8 @@ public class IndexMerger
         }
         Indexed<String> indexed = dimValueLookups[i];
         if (useDirect) {
-          conversions[i] = ByteBuffer.allocateDirect(indexed.size() * Ints.BYTES).asIntBuffer();
+          ByteBuffer byteBuffer = ByteBuffer.allocateDirect(indexed.size() * Ints.BYTES).order(ByteOrder.nativeOrder());
+          conversions[i] = byteBuffer.asIntBuffer();
         } else {
           conversions[i] = IntBuffer.allocate(indexed.size());
         }

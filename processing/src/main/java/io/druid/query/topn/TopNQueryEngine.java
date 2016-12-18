@@ -28,6 +28,7 @@ import com.metamx.common.logger.Logger;
 import io.druid.collections.StupidPool;
 import io.druid.common.guava.MoreSequences;
 import io.druid.granularity.QueryGranularity;
+import io.druid.query.DataSourceQueryMetrics;
 import io.druid.query.QueryMetricsContext;
 import io.druid.query.Result;
 import io.druid.query.aggregation.AggregatorFactory;
@@ -35,6 +36,7 @@ import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.Filter;
 import io.druid.segment.Capabilities;
 import io.druid.segment.Cursor;
+import io.druid.segment.DimensionSelector;
 import io.druid.segment.SegmentMissingException;
 import io.druid.segment.StorageAdapter;
 import io.druid.segment.column.Column;
@@ -80,7 +82,12 @@ public class TopNQueryEngine
         queryIntervals.size() == 1, "Can only handle a single interval, got[%s]", queryIntervals
     );
 
-    final TopNQueryMetrics topNQueryMetrics = queryMetricsContext != null ? new TopNQueryMetrics() : null;
+    final DataSourceQueryMetrics dataSourceQueryMetrics;
+    if (queryMetricsContext != null) {
+      dataSourceQueryMetrics = new DataSourceQueryMetrics();
+    } else {
+      dataSourceQueryMetrics = null;
+    }
 
     Sequence<Result<TopNResultValue>> topNQueryResults = Sequences.filter(
         Sequences.map(
@@ -94,7 +101,10 @@ public class TopNQueryEngine
               {
                 log.debug("Running over cursor[%s]", adapter.getInterval(), cursor.getTime());
                 Result<TopNResultValue> topNResult =
-                    mapFn.apply(cursor, first, first ? queryMetricsContext : null, topNQueryMetrics);
+                    mapFn.apply(cursor, first, first ? queryMetricsContext : null, dataSourceQueryMetrics);
+                if (queryMetricsContext != null) {
+                  dataSourceQueryMetrics.cursors++;
+                }
                 first = false;
                 return topNResult;
               }
@@ -108,8 +118,12 @@ public class TopNQueryEngine
       public void close()
       {
         if (queryMetricsContext != null) {
-          queryMetricsContext.metrics.put("query/scannedRows", topNQueryMetrics.scannedRows);
-          queryMetricsContext.metrics.put("query/scanTimeNs", topNQueryMetrics.scanTimeNs);
+          String lastDimensionSelectorType = dataSourceQueryMetrics.dimensionSelector.getDimensionSelectorType();
+          queryMetricsContext.setDimension("lastDimensionSelector", lastDimensionSelectorType);
+          long numCursors = QueryMetricsContext.roundToPowerOfTwo(dataSourceQueryMetrics.cursors);
+          queryMetricsContext.setDimension("numCursors", numCursors);
+          queryMetricsContext.metrics.put("query/scannedRows", dataSourceQueryMetrics.scannedRows);
+          queryMetricsContext.metrics.put("query/scanTimeNs", dataSourceQueryMetrics.scanTimeNs);
         }
       }
     });
@@ -126,7 +140,7 @@ public class TopNQueryEngine
 
     final int cardinality = adapter.getDimensionCardinality(dimension);
     if (queryMetricsContext != null) {
-      queryMetricsContext.setDimension("dimensionCardinality", QueryMetricsContext.roundMetric(cardinality, 2));
+      queryMetricsContext.setDimension("dimensionCardinality", QueryMetricsContext.roundToPowerOfTwo(cardinality));
       log.debug("TopN aggregators: %s", query.getAggregatorSpecs());
     }
 

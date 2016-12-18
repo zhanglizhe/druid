@@ -19,7 +19,7 @@
 
 package io.druid.query.topn;
 
-import com.metamx.common.logger.Logger;
+import io.druid.query.DataSourceQueryMetrics;
 import io.druid.query.QueryMetricsContext;
 import io.druid.query.Result;
 import io.druid.segment.Cursor;
@@ -29,7 +29,6 @@ import javax.annotation.Nullable;
 
 public class TopNMapFn
 {
-  private static final Logger log = new Logger(TopNMapFn.class);
 
   private final TopNQuery query;
   private final TopNAlgorithm topNAlgorithm;
@@ -48,7 +47,7 @@ public class TopNMapFn
    * @param first if this is a first call of apply() in a series of similar calls over different ranges of rows, to
    *              set some dimensions in queryMetricsContext and log some diagnostic things only once
    * @param queryMetricsContext "output parameter", to set some dimensions to, if the given first argument is true
-   * @param topNQueryMetrics to accumulate metrics to
+   * @param dataSourceQueryMetrics to accumulate metrics to
    * @return
    */
   @SuppressWarnings("unchecked")
@@ -56,7 +55,7 @@ public class TopNMapFn
       Cursor cursor,
       boolean first,
       @Nullable QueryMetricsContext queryMetricsContext,
-      @Nullable TopNQueryMetrics topNQueryMetrics
+      @Nullable DataSourceQueryMetrics dataSourceQueryMetrics
   )
   {
     final DimensionSelector dimSelector = cursor.makeDimensionSelector(
@@ -70,17 +69,17 @@ public class TopNMapFn
     try {
       params = topNAlgorithm.makeInitParams(dimSelector, cursor);
       if (first && queryMetricsContext != null) {
-        log.debug("TopN cursor: %s", cursor);
-        log.debug("TopN dimension selector: %s", dimSelector);
-        long numValuesPerPass = QueryMetricsContext.roundMetric(params.getNumValuesPerPass(), 2);
+        queryMetricsContext.setDimension("firstDimensionSelector", dimSelector.getDimensionSelectorType());
+        dataSourceQueryMetrics.dimensionSelector = dimSelector;
+        long numValuesPerPass = QueryMetricsContext.roundToPowerOfTwo(params.getNumValuesPerPass());
         queryMetricsContext.setDimension("numValuesPerPass", numValuesPerPass);
-        long valueCardinality = QueryMetricsContext.roundMetric(params.getCardinality(), 2);
+        long valueCardinality = QueryMetricsContext.roundToPowerOfTwo(params.getCardinality());
         queryMetricsContext.setDimension("valueCardinality", valueCardinality);
       }
 
       TopNResultBuilder resultBuilder = BaseTopNAlgorithm.makeResultBuilder(params, query);
 
-      topNAlgorithm.run(params, null, resultBuilder, topNQueryMetrics);
+      topNAlgorithm.run(params, null, resultBuilder, dataSourceQueryMetrics);
 
       return resultBuilder.build();
     }

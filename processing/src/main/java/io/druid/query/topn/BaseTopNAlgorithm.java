@@ -20,6 +20,8 @@
 package io.druid.query.topn;
 
 import com.metamx.common.Pair;
+import io.druid.query.BaseQuery;
+import io.druid.query.DataSourceQueryMetrics;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.BufferAggregator;
@@ -71,10 +73,10 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
       Parameters params,
       DimValSelector dimValSelector,
       TopNResultBuilder resultBuilder,
-      @Nullable TopNQueryMetrics topNQueryMetrics
+      @Nullable DataSourceQueryMetrics dataSourceQueryMetrics
   )
   {
-    long startTimeNs = topNQueryMetrics != null ? System.nanoTime() : 0;
+    long startTimeNs = dataSourceQueryMetrics != null ? System.nanoTime() : 0;
     boolean hasDimValSelector = (dimValSelector != null);
 
     final int cardinality = params.getCardinality();
@@ -105,10 +107,10 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
       numProcessed += numToProcess;
       params.getCursor().reset();
     }
-    if (topNQueryMetrics != null) {
+    if (dataSourceQueryMetrics != null) {
       long scanTimeNs = System.nanoTime() - startTimeNs;
-      topNQueryMetrics.scannedRows += scannedRows;
-      topNQueryMetrics.scanTimeNs += scanTimeNs;
+      dataSourceQueryMetrics.scannedRows += scannedRows;
+      dataSourceQueryMetrics.scanTimeNs += scanTimeNs;
     }
   }
 

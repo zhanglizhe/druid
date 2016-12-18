@@ -19,8 +19,20 @@
 
 package io.druid.query.topn;
 
-public class TopNQueryMetrics
+import io.druid.query.aggregation.BufferAggregator;
+import io.druid.segment.Cursor;
+import io.druid.segment.DimensionSelector;
+
+import java.nio.ByteBuffer;
+
+public interface GenericPooledTopNScanner
 {
-  public long scannedRows;
-  public long scanTimeNs;
+  long scanAndAggregate(
+      DimensionSelector dimensionSelector,
+      BufferAggregator aggregator,
+      int aggregatorSize,
+      Cursor cursor,
+      int[] positions,
+      ByteBuffer resultsBuffer
+  );
 }

@@ -35,7 +35,7 @@ import com.metamx.common.guava.Accumulator;
 import io.druid.data.input.MapBasedRow;
 import io.druid.data.input.Row;
 import io.druid.granularity.AllGranularity;
-import io.druid.query.QueryInterruptedException;
+import io.druid.query.BaseQuery;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.extraction.ExtractionFn;
@@ -50,14 +50,13 @@ import io.druid.segment.ObjectColumnSelector;
 import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.data.IndexedInts;
+import io.druid.segment.data.ListBasedIndexedInts;
 import org.joda.time.DateTime;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -134,9 +133,7 @@ public class RowBasedGrouperHelper
           final Row row
       )
       {
-        if (Thread.interrupted()) {
-          throw new QueryInterruptedException(new InterruptedException());
-        }
+        BaseQuery.checkInterrupted();
 
         if (theGrouper == null) {
           // Pass-through null returns without doing more work.
@@ -536,39 +533,7 @@ public class RowBasedGrouperHelper
               vals.add(i);
             }
           }
-
-          return new IndexedInts()
-          {
-            @Override
-            public int size()
-            {
-              return vals.size();
-            }
-
-            @Override
-            public int get(int index)
-            {
-              return vals.get(index);
-            }
-
-            @Override
-            public Iterator<Integer> iterator()
-            {
-              return vals.iterator();
-            }
-
-            @Override
-            public void close() throws IOException
-            {
-
-            }
-
-            @Override
-            public void fill(int index, int[] toFill)
-            {
-              throw new UnsupportedOperationException("fill not supported");
-            }
-          };
+          return new ListBasedIndexedInts(vals);
         }
 
         @Override
@@ -598,6 +563,12 @@ public class RowBasedGrouperHelper
           }
           return row.get().getDimension(dimension).indexOf(name);
         }
+
+        @Override
+        public String getDimensionSelectorType()
+        {
+          return getClass().getName();
+        }
       };
     }
 
@@ -611,6 +582,12 @@ public class RowBasedGrouperHelper
         {
           return row.get().getFloatMetric(columnName);
         }
+
+        @Override
+        public String getFloatColumnSelectorType()
+        {
+          return getClass().getName();
+        }
       };
     }
 
@@ -619,12 +596,18 @@ public class RowBasedGrouperHelper
     {
       if (columnName.equals(Column.TIME_COLUMN_NAME)) {
         // Local class has a name => more readable toString()
-        class TimeColumnSelector extends LongColumnSelector
+        class TimeColumnSelector implements LongColumnSelector
         {
           @Override
           public long get()
           {
             return row.get().getTimestampFromEpoch();
+          }
+
+          @Override
+          public String getLongColumnSelectorType()
+          {
+            return getClass().getName();
           }
         }
         return new TimeColumnSelector();
@@ -635,6 +618,12 @@ public class RowBasedGrouperHelper
         public long get()
         {
           return row.get().getLongMetric(columnName);
+        }
+
+        @Override
+        public String getLongColumnSelectorType()
+        {
+          return getClass().getName();
         }
       };
     }

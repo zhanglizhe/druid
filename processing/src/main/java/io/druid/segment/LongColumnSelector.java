@@ -21,12 +21,9 @@ package io.druid.segment;
 
 /**
  */
-public abstract class LongColumnSelector
+public interface LongColumnSelector
 {
-  public abstract long get();
+  long get();
 
-  public String getLongColumnSelectorType()
-  {
-    return getClass().getName();
-  }
+  String getLongColumnSelectorType();
 }

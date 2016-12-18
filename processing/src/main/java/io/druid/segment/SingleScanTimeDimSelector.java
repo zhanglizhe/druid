@@ -19,32 +19,31 @@
 
 package io.druid.segment;
 
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Maps;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.segment.data.IndexedInts;
+import io.druid.segment.data.SingleIndexedInt;
 
-import java.io.IOException;
-import java.util.Iterator;
 import java.util.Map;
 
-public class SingleScanTimeDimSelector extends DimensionSelector
+public class SingleScanTimeDimSelector<LongColumnSelectorType extends LongColumnSelector>
+    implements DimensionSelector
 {
   private final ExtractionFn extractionFn;
-  private final LongColumnSelector selector;
+  protected final LongColumnSelectorType selector;
   private final boolean descending;
 
   private final Map<Integer, String> timeValues = Maps.newHashMap();
   private String currentValue = null;
   private long currentTimestamp = Long.MIN_VALUE;
-  private int index = -1;
+  protected int index = -1;
 
 
   // Use a special DimSelector for projected time columns
   // - it assumes time values are scanned once and values are grouped together
   //   (i.e. we never revisit a timestamp we have seen before, unless it is the same as the last accessed one)
   // - it also applies and caches extraction function values at the DimSelector level to speed things up
-  public SingleScanTimeDimSelector(LongColumnSelector selector, ExtractionFn extractionFn, boolean descending)
+  public SingleScanTimeDimSelector(LongColumnSelectorType selector, ExtractionFn extractionFn, boolean descending)
   {
     if (extractionFn == null) {
       throw new UnsupportedOperationException("time dimension must provide an extraction function");
@@ -60,6 +59,12 @@ public class SingleScanTimeDimSelector extends DimensionSelector
   {
     // if this the first timestamp, apply and cache extraction function result
     final long timestamp = selector.get();
+    updateIndex(timestamp);
+    return new SingleIndexedInt(index);
+  }
+
+  protected void updateIndex(long timestamp)
+  {
     if (index < 0) {
       currentTimestamp = timestamp;
       currentValue = extractionFn.apply(timestamp);
@@ -91,40 +96,6 @@ public class SingleScanTimeDimSelector extends DimensionSelector
     }
     // otherwise, if the current timestamp is the same as the previous timestamp,
     // keep using the same dimension value index
-
-    final int dimensionValueIndex = index;
-    return new IndexedInts()
-    {
-      @Override
-      public int size()
-      {
-        return 1;
-      }
-
-      @Override
-      public int get(int i)
-      {
-        return dimensionValueIndex;
-      }
-
-      @Override
-      public Iterator<Integer> iterator()
-      {
-        return Iterators.singletonIterator(dimensionValueIndex);
-      }
-
-      @Override
-      public void fill(int index, int[] toFill)
-      {
-        throw new UnsupportedOperationException("fill not supported");
-      }
-
-      @Override
-      public void close() throws IOException
-      {
-
-      }
-    };
   }
 
   @Override

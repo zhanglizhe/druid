@@ -97,6 +97,16 @@ public abstract class BaseQuery<T extends Comparable<T>> implements Query<T>
     }
   }
 
+  /**
+   *
+   */
+  public static void checkInterrupted()
+  {
+    if (Thread.interrupted()) {
+      throw new QueryInterruptedException(new InterruptedException());
+    }
+  }
+
   public static final String QUERYID = "queryId";
   private final DataSource dataSource;
   private final boolean descending;
