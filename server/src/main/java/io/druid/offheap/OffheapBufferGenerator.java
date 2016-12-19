@@ -50,6 +50,6 @@ public class OffheapBufferGenerator implements Supplier<ByteBuffer>
         computationBufferSize
     );
 
-    return ByteBuffer.allocateDirect(computationBufferSize).order(ByteOrder.nativeOrder());
+    return ByteBuffer.allocateDirect(computationBufferSize);
   }
 }

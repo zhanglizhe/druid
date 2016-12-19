@@ -1331,8 +1331,7 @@ public class IndexMerger
         }
         Indexed<String> indexed = dimValueLookups[i];
         if (useDirect) {
-          ByteBuffer byteBuffer = ByteBuffer.allocateDirect(indexed.size() * Ints.BYTES).order(ByteOrder.nativeOrder());
-          conversions[i] = byteBuffer.asIntBuffer();
+          conversions[i] = ByteBuffer.allocateDirect(indexed.size() * Ints.BYTES).asIntBuffer();
         } else {
           conversions[i] = IntBuffer.allocate(indexed.size());
         }
