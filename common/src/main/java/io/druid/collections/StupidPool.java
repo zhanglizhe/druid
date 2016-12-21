@@ -26,6 +26,7 @@ import sun.misc.Cleaner;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -37,11 +38,11 @@ public class StupidPool<T>
 
   private final Supplier<T> generator;
 
-  private final Queue<T> objects = new ConcurrentLinkedQueue<>();
+  private final Queue<ObjectResourceHolder> objects = new ConcurrentLinkedQueue<>();
   /**
    * {@link ConcurrentLinkedQueue}'s size() is O(n) queue traversal apparently for the sake of being 100%
    * wait-free, that is not required by {@code StupidPool}. In {@code poolSize} we account the queue size
-   * ourselves, to avoid traversal of {@link #objects} in {@link #tryReturnToPool(Object)}.
+   * ourselves, to avoid traversal of {@link #objects} in {@link #tryReturnToPool}.
    */
   private final AtomicLong poolSize = new AtomicLong(0);
 
@@ -67,12 +68,15 @@ public class StupidPool<T>
 
   public ResourceHolder<T> take()
   {
-    final T obj = objects.poll();
-    if (obj == null) {
-      return new ObjectResourceHolder(generator.get());
+    ObjectResourceHolder resourceHolder = objects.poll();
+    if (resourceHolder == null) {
+      T object = generator.get();
+      ObjectId objectId = new ObjectId();
+      ObjectLeakNotifier notifier = new ObjectLeakNotifier();
+      return new ObjectResourceHolder(object, objectId, Cleaner.create(objectId, notifier), notifier);
     } else {
       poolSize.decrementAndGet();
-      return new ObjectResourceHolder(obj);
+      return resourceHolder;
     }
   }
 
@@ -81,31 +85,45 @@ public class StupidPool<T>
     return poolSize.get();
   }
 
-  private void tryReturnToPool(T object)
+  private void tryReturnToPool(T object, ObjectId objectId, Cleaner cleaner, ObjectLeakNotifier notifier)
   {
     long currentPoolSize;
     do {
       currentPoolSize = poolSize.get();
       if (currentPoolSize >= objectsCacheMaxCount) {
-        log.debug("cache num entries is exceeding max limit [%s]", objectsCacheMaxCount);
+        notifier.disable();
+        // important to use the objectId (we use it in logging message) after notifier.disable(), otherwise VM may
+        // already decide that the objectId is unreachable and run Cleaner, that would be reported as a false-positive
+        // "leak". Ideally reachabilityFence(objectId) should be used here
+        log.debug("cache num entries is exceeding max limit [%s], objectId [%s]", objectsCacheMaxCount, objectId);
         return;
       }
     } while (!poolSize.compareAndSet(currentPoolSize, currentPoolSize + 1));
-    if (!objects.offer(object)) {
+    if (!objects.offer(new ObjectResourceHolder(object, objectId, cleaner, notifier))) {
       poolSize.decrementAndGet();
-      log.warn(new ISE("Queue offer failed"), "Could not offer object [%s] back into the queue", object);
+      notifier.disable();
+      log.warn(new ISE("Queue offer failed"), "Could not offer object [%s] back into the queue, objectId [%s]", object, objectId);
     }
   }
 
   private class ObjectResourceHolder implements ResourceHolder<T>
   {
     private final AtomicReference<T> objectRef;
+    private volatile ObjectId objectId;
     private final Cleaner cleaner;
+    private final ObjectLeakNotifier notifier;
 
-    ObjectResourceHolder(final T object)
+    ObjectResourceHolder(
+        final T object,
+        final ObjectId objectId,
+        final Cleaner cleaner,
+        final ObjectLeakNotifier notifier
+    )
     {
       this.objectRef = new AtomicReference<>(object);
-      this.cleaner = Cleaner.create(ObjectResourceHolder.this, new ObjectReclaimer(objectRef));
+      this.objectId = objectId;
+      this.cleaner = cleaner;
+      this.notifier = notifier;
     }
 
     // WARNING: it is entirely possible for a caller to hold onto the object and call ObjectResourceHolder.close,
@@ -126,44 +144,43 @@ public class StupidPool<T>
     {
       final T object = objectRef.get();
       if (object != null && objectRef.compareAndSet(object, null)) {
-        tryReturnToPool(object);
-        // Effectively does nothing, because objectRef is already set to null. The purpose of this call is to
-        // deregister the cleaner from the internal linked list of all cleaners in the JVM.
-        cleaner.clean();
-      } else {
-        log.warn(new ISE("Already Closed!"), "Already closed");
+        ObjectId objectId = this.objectId;
+        this.objectId = null;
+        tryReturnToPool(object, objectId, cleaner, notifier);
       }
     }
   }
 
-  private class ObjectReclaimer implements Runnable
+  private class ObjectLeakNotifier implements Runnable
   {
-    private final AtomicReference<T> objectRef;
-
-    private ObjectReclaimer(AtomicReference<T> objectRef)
-    {
-      this.objectRef = objectRef;
-    }
+    final AtomicBoolean leak = new AtomicBoolean(true);
 
     @Override
     public void run()
     {
       try {
-        final T object = objectRef.get();
-        if (object != null && objectRef.compareAndSet(object, null)) {
-          log.warn("Not closed!  Object was[%s]. Allowing gc to prevent leak.", object);
-          tryReturnToPool(object);
+        if (leak.getAndSet(false)) {
+          log.warn("Not closed! Object leaked from pool[%s]. Allowing gc to prevent leak.", StupidPool.this);
         }
       }
       // Exceptions must not be thrown in Cleaner.clean(), which calls this ObjectReclaimer.run() method
       catch (Exception e) {
         try {
-          log.error(e, "Exception in ObjectReclaimer.run()");
+          log.error(e, "Exception in ObjectLeakNotifier.run()");
         }
         catch (Exception ignore) {
           // ignore
         }
       }
     }
+
+    public void disable()
+    {
+      leak.set(false);
+    }
+  }
+
+  private static class ObjectId
+  {
   }
 }
