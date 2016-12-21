@@ -144,9 +144,9 @@ public class PooledTopNAlgorithm
 
     long totalScannerRows(long scannedRows)
     {
-      long currentTime = System.currentTimeMillis();
-      long currentMinute = currentTime - (currentTime % TimeUnit.MINUTES.toMillis(1));
-      long minuteOneHourAgo = currentMinute - TimeUnit.HOURS.toMillis(1);
+      long currentMillis = System.currentTimeMillis();
+      long currentMinute = currentMillis / TimeUnit.MINUTES.toMillis(1);
+      long minuteOneHourAgo = currentMinute - TimeUnit.HOURS.toMinutes(1);
       long totalScannedRows = 0;
       boolean currentMinutePresent = false;
       for (Iterator<Map.Entry<Long, AtomicLong>> it = stats.entrySet().iterator(); it.hasNext(); ) {
@@ -154,13 +154,11 @@ public class PooledTopNAlgorithm
         long minute = minuteStats.getKey();
         if (minute < minuteOneHourAgo) {
           it.remove();
+        } else if (minute == currentMinute) {
+          totalScannedRows += minuteStats.getValue().addAndGet(scannedRows);
+          currentMinutePresent = true;
         } else {
-          if (minute == currentMinute) {
-            totalScannedRows += minuteStats.getValue().addAndGet(scannedRows);
-            currentMinutePresent = true;
-          } else {
-            totalScannedRows += minuteStats.getValue().get();
-          }
+          totalScannedRows += minuteStats.getValue().get();
         }
       }
       if (!currentMinutePresent) {
@@ -200,28 +198,25 @@ public class PooledTopNAlgorithm
       long scannedRows
   )
   {
-    while (true) {
-      ShapeState<T> shapeState = shapeStateReference.get();
-      if (!(shapeState instanceof StatsShapeState)) {
-        return;
-      }
-      if (scannedRows > C2_INLINE_THRESHOLD ||
-          ((StatsShapeState) shapeState).totalScannerRows(scannedRows) > C2_INLINE_THRESHOLD) {
-        if (shapeStateReference.compareAndSet(shapeState, new ShapeState<>(shapeState.shape, shapeState.scanner))) {
-          Class<? extends Offset> offsetClassToSpecialize;
-          if (cursor != null) {
-            offsetClassToSpecialize = ((Offset) cursor.copyOffset()).getClass();
-          } else {
-            offsetClassToSpecialize = null;
-          }
-          ClassSpecializationTask<T> classSpecializationTask = new ClassSpecializationTask<>(
-              shapeStateReference,
-              prototypeClass,
-              offsetClassToSpecialize
-          );
-          classSpecializationService.submit(classSpecializationTask);
-          return;
+    ShapeState<T> shapeState = shapeStateReference.get();
+    if (!(shapeState instanceof StatsShapeState)) {
+      return;
+    }
+    if (scannedRows > C2_INLINE_THRESHOLD ||
+        ((StatsShapeState) shapeState).totalScannerRows(scannedRows) > C2_INLINE_THRESHOLD) {
+      if (shapeStateReference.compareAndSet(shapeState, new ShapeState<>(shapeState.shape, shapeState.scanner))) {
+        Class<? extends Offset> offsetClassToSpecialize;
+        if (cursor != null) {
+          offsetClassToSpecialize = ((Offset) cursor.copyOffset()).getClass();
+        } else {
+          offsetClassToSpecialize = null;
         }
+        ClassSpecializationTask<T> classSpecializationTask = new ClassSpecializationTask<>(
+            shapeStateReference,
+            prototypeClass,
+            offsetClassToSpecialize
+        );
+        classSpecializationService.submit(classSpecializationTask);
       }
     }
   }
