@@ -19,6 +19,7 @@
 
 package io.druid.query.topn;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.metamx.common.Pair;
 import com.metamx.common.guava.CloseQuietly;
 import com.metamx.common.logger.Logger;
@@ -28,7 +29,6 @@ import io.druid.query.BaseQuery;
 import io.druid.query.aggregation.BufferAggregator;
 import io.druid.query.aggregation.DoubleSumBufferAggregator;
 import io.druid.query.aggregation.SimpleDoubleBufferAggregator;
-import io.druid.segment.BitmapOffset;
 import io.druid.segment.Capabilities;
 import io.druid.segment.Cursor;
 import io.druid.segment.DimensionSelector;
@@ -51,8 +51,16 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  */
@@ -70,32 +78,151 @@ public class PooledTopNAlgorithm
       throw new RuntimeException("Cannot access Unsafe methods", e);
     }
   }
-  private static final com.metamx.common.logger.Logger LOG = new Logger(PooledTopNAlgorithm.class);
+  private static final Logger LOG = new Logger(PooledTopNAlgorithm.class);
 
   private static final boolean optimizeDoublePooledTopN = !Boolean.getBoolean("dontOptimizeDoublePooledTopN");
   private static final boolean optimizeGenericPooledTopN = !Boolean.getBoolean("dontOptimizeGenericPooledTopN");
   private static final boolean optimizeGeneric2PooledTopN = !Boolean.getBoolean("dontOptimizeGeneric2PooledTopN");
   private static final boolean dontCopyClass = Boolean.getBoolean("dontCopyClass");
-  private static final ConcurrentHashMap<String, Object> pooledScanners = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, AtomicReference> shapeStates =
+      new ConcurrentHashMap<>();
+  private static final long C2_INLINE_THRESHOLD = 10_000;
+  private static final ExecutorService classSpecializationService = Executors.newFixedThreadPool(
+      1,
+      new ThreadFactoryBuilder().setDaemon(true).setNameFormat("class-specialization-%d").build()
+  );
+  static class ClassSpecializationTask<T> implements Runnable
+  {
+    private final AtomicReference<ShapeState<T>> shapeStateReference;
+    private final Class<? extends T> prototypeClass;
+    private final Class<? extends Offset> offsetClassToSpecialize;
 
-  private static <T> T getPooledTopNScanner(
+    ClassSpecializationTask(
+        AtomicReference<ShapeState<T>> shapeStateReference,
+        Class<? extends T> prototypeClass,
+        Class<? extends Offset> offsetClassToSpecialize
+    ) {
+      this.shapeStateReference = shapeStateReference;
+      this.prototypeClass = prototypeClass;
+      this.offsetClassToSpecialize = offsetClassToSpecialize;
+    }
+
+    @Override
+    public void run()
+    {
+      try {
+        T specializedScanner = makeNewPooledTopNScanner(prototypeClass, offsetClassToSpecialize);
+        shapeStateReference.set(new ShapeState<T>(shapeStateReference.get().shape, specializedScanner));
+      }
+      catch (Exception e) {
+        LOG.error(e, "Error specializing class for shape: %s", shapeStateReference.get().shape);
+      }
+    }
+  }
+  private static final AtomicLong specializedClassCounter = new AtomicLong();
+
+  static class ShapeState<T>
+  {
+    final String shape;
+    final T scanner;
+
+    protected ShapeState(String shape, T scanner)
+    {
+      this.shape = shape;
+      this.scanner = scanner;
+    }
+  }
+
+  static class StatsShapeState<T> extends ShapeState<T>
+  {
+    final ConcurrentMap<Long, AtomicLong> stats = new ConcurrentHashMap<>();
+
+    protected StatsShapeState(String shape, T scanner)
+    {
+      super(shape, scanner);
+    }
+
+    long totalScannerRows(long scannedRows)
+    {
+      long currentTime = System.currentTimeMillis();
+      long currentMinute = currentTime - (currentTime % TimeUnit.MINUTES.toMillis(1));
+      long minuteOneHourAgo = currentMinute - TimeUnit.HOURS.toMillis(1);
+      long totalScannedRows = 0;
+      boolean currentMinutePresent = false;
+      for (Iterator<Map.Entry<Long, AtomicLong>> it = stats.entrySet().iterator(); it.hasNext(); ) {
+        Map.Entry<Long, AtomicLong> minuteStats = it.next();
+        long minute = minuteStats.getKey();
+        if (minute < minuteOneHourAgo) {
+          it.remove();
+        } else {
+          if (minute == currentMinute) {
+            totalScannedRows += minuteStats.getValue().addAndGet(scannedRows);
+            currentMinutePresent = true;
+          } else {
+            totalScannedRows += minuteStats.getValue().get();
+          }
+        }
+      }
+      if (!currentMinutePresent) {
+        AtomicLong existingValue = stats.putIfAbsent(currentMinute, new AtomicLong(scannedRows));
+        if (existingValue != null) {
+          existingValue.addAndGet(scannedRows);
+        }
+        totalScannedRows += scannedRows;
+      }
+      return totalScannedRows;
+    }
+  }
+
+  private static <T> AtomicReference<ShapeState<T>> getPooledTopShapeState(
       String runtimeShape,
-      Class<? extends T> prototypeClass,
-      HistoricalCursor cursor
+      Class<? extends T> prototypeClass
   )
   {
-    T scanner = (T) pooledScanners.get(runtimeShape);
-    if (scanner != null) {
-      return scanner;
+    AtomicReference<ShapeState<T>> shapeState = (AtomicReference<ShapeState<T>>) shapeStates.get(runtimeShape);
+    if (shapeState != null) {
+      return shapeState;
     }
-    synchronized (pooledScanners) {
-      scanner = (T) pooledScanners.get(runtimeShape);
-      if (scanner != null) {
-        return scanner;
+    try {
+      shapeState = new AtomicReference<ShapeState<T>>(new StatsShapeState<>(runtimeShape, prototypeClass.newInstance()));
+      AtomicReference existingShapeState = shapeStates.putIfAbsent(runtimeShape, shapeState);
+      return existingShapeState != null ? existingShapeState : shapeState;
+    }
+    catch (InstantiationException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static <T> void updateShapeState(
+      AtomicReference<ShapeState<T>> shapeStateReference,
+      Class<? extends T> prototypeClass,
+      HistoricalCursor cursor,
+      long scannedRows
+  )
+  {
+    while (true) {
+      ShapeState<T> shapeState = shapeStateReference.get();
+      if (!(shapeState instanceof StatsShapeState)) {
+        return;
       }
-      scanner = makeNewPooledTopNScanner(prototypeClass, cursor != null ? cursor.copyOffset().getClass() : null);
-      pooledScanners.put(runtimeShape, scanner);
-      return scanner;
+      if (scannedRows > C2_INLINE_THRESHOLD ||
+          ((StatsShapeState) shapeState).totalScannerRows(scannedRows) > C2_INLINE_THRESHOLD) {
+        if (shapeStateReference.compareAndSet(shapeState, new ShapeState<>(shapeState.shape, shapeState.scanner))) {
+          Class<? extends Offset> offsetClassToSpecialize;
+          if (cursor != null) {
+            offsetClassToSpecialize = ((Offset) cursor.copyOffset()).getClass();
+          } else {
+            offsetClassToSpecialize = null;
+          }
+          ClassSpecializationTask<T> classSpecializationTask = new ClassSpecializationTask<>(
+              shapeStateReference,
+              prototypeClass,
+              offsetClassToSpecialize
+          );
+          classSpecializationService.submit(classSpecializationTask);
+          return;
+        }
+      }
     }
   }
 
@@ -115,12 +242,12 @@ public class PooledTopNAlgorithm
     ClassLoader cl = prototypeClass.getClassLoader();
     String prototypeClassName = prototypeClass.getName();
     String prototypeClassBytecodeName = prototypeClassName.replace('.', '/');
-    String specializedClassName = prototypeClassName + "$Copy" + pooledScanners.size();
+    String specializedClassName = prototypeClassName + "$Copy" + specializedClassCounter.getAndIncrement();
     ClassWriter specializedClassWriter = new ClassWriter(0);
     HashMap<String, String> remapping = new HashMap<>();
     remapping.put(prototypeClassBytecodeName, specializedClassName.replace('.', '/'));
     if (specializingOffsetClass != null) {
-      remapping.put(BitmapOffset.class.getName().replace('.', '/'), specializingOffsetClass.getName().replace('.', '/'));
+      remapping.put(Offset.class.getName().replace('.', '/'), specializingOffsetClass.getName().replace('.', '/'));
     }
     ClassVisitor classTransformer = new ClassRemapper(specializedClassWriter, new SimpleRemapper(remapping));
     String prototypeClassResource = prototypeClassBytecodeName+ ".class";
@@ -300,19 +427,21 @@ public class PooledTopNAlgorithm
       if (aggregator instanceof SimpleDoubleBufferAggregator) {
         FloatColumnSelector metricSelector = ((DoubleSumBufferAggregator) aggregator).getSelector();
         String runtimeShape = aggregator.getBufferAggregatorType();
-        DoublePooledTopNScanner doublePooledTopNScanner = getPooledTopNScanner(
+        Class<? extends DoublePooledTopNScanner> prototypeClass = DoublePooledTopNScannerPrototype.class;
+        AtomicReference<ShapeState<DoublePooledTopNScanner>> shapeStateReference = getPooledTopShapeState(
             runtimeShape,
-            DoublePooledTopNScannerPrototype.class,
-            (HistoricalCursor) cursor
+            prototypeClass
         );
-        long scannedRows = doublePooledTopNScanner.scanAndAggregateHistorical(
+        HistoricalCursor historicalCursor = (HistoricalCursor) cursor;
+        long scannedRows = shapeStateReference.get().scanner.scanAndAggregateHistorical(
             (HistoricalDimensionSelector) params.getDimSelector(),
             (HistoricalFloatColumnSelector) metricSelector,
             (SimpleDoubleBufferAggregator) aggregator,
-            (HistoricalCursor) cursor,
+            historicalCursor,
             positions,
             params.getResultsBuf()
         );
+        updateShapeState(shapeStateReference, prototypeClass, historicalCursor, scannedRows);
         BaseQuery.checkInterrupted();
         return scannedRows;
       }
@@ -320,12 +449,12 @@ public class PooledTopNAlgorithm
     if (optimizeGenericPooledTopN && theAggregators.length == 1) {
       BufferAggregator aggregator = theAggregators[0];
       String runtimeShape = aggregator.getBufferAggregatorType();
-      GenericPooledTopNScanner pooledTopNScanner = getPooledTopNScanner(
+      Class<? extends GenericPooledTopNScanner> prototypeClass = GenericPooledTopNScannerPrototype.class;
+      AtomicReference<ShapeState<GenericPooledTopNScanner>> shapeStateReference = getPooledTopShapeState(
           runtimeShape,
-          GenericPooledTopNScannerPrototype.class,
-          null
+          prototypeClass
       );
-      long scannedRows = pooledTopNScanner.scanAndAggregate(
+      long scannedRows = shapeStateReference.get().scanner.scanAndAggregate(
           params.getDimSelector(),
           aggregator,
           params.getAggregatorSizes()[0],
@@ -333,6 +462,7 @@ public class PooledTopNAlgorithm
           positions,
           params.getResultsBuf()
       );
+      updateShapeState(shapeStateReference, prototypeClass, null, scannedRows);
       BaseQuery.checkInterrupted();
       return scannedRows;
     }
@@ -340,13 +470,13 @@ public class PooledTopNAlgorithm
       BufferAggregator aggregator1 = theAggregators[0];
       BufferAggregator aggregator2 = theAggregators[1];
       String runtimeShape = aggregator1.getBufferAggregatorType() + "," + aggregator2.getBufferAggregatorType();
-      Generic2PooledTopNScanner pooledTopNScanner = getPooledTopNScanner(
+      Class<? extends Generic2PooledTopNScanner> prototypeClass = Generic2PooledTopNScannerPrototype.class;
+      AtomicReference<ShapeState<Generic2PooledTopNScanner>> shapeStateReference = getPooledTopShapeState(
           runtimeShape,
-          Generic2PooledTopNScannerPrototype.class,
-          null
+          prototypeClass
       );
       int[] aggregatorSizes = params.getAggregatorSizes();
-      long scannedRows = pooledTopNScanner.scanAndAggregate(
+      long scannedRows = shapeStateReference.get().scanner.scanAndAggregate(
           params.getDimSelector(),
           aggregator1,
           aggregatorSizes[0],
@@ -356,6 +486,7 @@ public class PooledTopNAlgorithm
           positions,
           params.getResultsBuf()
       );
+      updateShapeState(shapeStateReference, prototypeClass, null, scannedRows);
       BaseQuery.checkInterrupted();
       return scannedRows;
     }

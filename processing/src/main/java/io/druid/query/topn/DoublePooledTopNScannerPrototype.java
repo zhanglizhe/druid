@@ -20,8 +20,8 @@
 package io.druid.query.topn;
 
 import io.druid.query.aggregation.SimpleDoubleBufferAggregator;
-import io.druid.segment.BitmapOffset;
 import io.druid.segment.data.IndexedInts;
+import io.druid.segment.data.Offset;
 import io.druid.segment.historical.HistoricalCursor;
 import io.druid.segment.historical.HistoricalDimensionSelector;
 import io.druid.segment.historical.HistoricalFloatColumnSelector;
@@ -73,7 +73,7 @@ public final class DoublePooledTopNScannerPrototype implements DoublePooledTopNS
       ByteBuffer resultsBuffer
   )
   {
-    BitmapOffset offset = (BitmapOffset) cursor.copyOffset();
+    Offset offset = (Offset) cursor.copyOffset();
     long scannedRows = 0;
     int positionToAllocate = 0;
     while (offset.withinBounds() && !Thread.currentThread().isInterrupted()) {
@@ -102,7 +102,7 @@ public final class DoublePooledTopNScannerPrototype implements DoublePooledTopNS
       ByteBuffer resultsBuffer
   )
   {
-    BitmapOffset offset = (BitmapOffset) cursor.copyOffset();
+    Offset offset = (Offset) cursor.copyOffset();
     long scannedRows = 0;
     int positionToAllocate = 0;
     while (offset.withinBounds() && !Thread.currentThread().isInterrupted()) {

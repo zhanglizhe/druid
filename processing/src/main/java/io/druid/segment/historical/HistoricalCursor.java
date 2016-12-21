@@ -25,7 +25,7 @@ import io.druid.segment.data.Offset;
 
 public interface HistoricalCursor extends Cursor
 {
-  Offset copyOffset();
+  Object copyOffset();
 
   @Override
   HistoricalDimensionSelector makeDimensionSelector(DimensionSpec dimensionSpec);
