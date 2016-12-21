@@ -132,6 +132,7 @@ import org.junit.runners.Parameterized;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -1548,7 +1549,7 @@ public class KafkaIndexTaskTest
                                   .build();
 
     ArrayList<Result<TimeseriesResultValue>> results = Sequences.toList(
-        task.getQueryRunner(query).run(query, ImmutableMap.<String, Object>of()),
+        task.getQueryRunner(query).run(query, new HashMap<String, Object>()),
         Lists.<Result<TimeseriesResultValue>>newArrayList()
     );
 

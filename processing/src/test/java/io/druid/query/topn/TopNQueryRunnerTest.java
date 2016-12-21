@@ -156,7 +156,7 @@ public class TopNQueryRunnerTest
       TopNQuery query
   )
   {
-    return runWithMerge(query, ImmutableMap.<String, Object>of());
+    return runWithMerge(query, new HashMap<String, Object>());
   }
 
   private Sequence<Result<TopNResultValue>> runWithMerge(
@@ -3445,7 +3445,7 @@ public class TopNQueryRunnerTest
   }
 
   private Sequence<Result<TopNResultValue>> runWithPreMergeAndMerge(TopNQuery query){
-    return runWithPreMergeAndMerge(query, ImmutableMap.<String, Object>of());
+    return runWithPreMergeAndMerge(query, new HashMap<String, Object>());
   }
 
   private Sequence<Result<TopNResultValue>> runWithPreMergeAndMerge(TopNQuery query, Map<String, Object> context)

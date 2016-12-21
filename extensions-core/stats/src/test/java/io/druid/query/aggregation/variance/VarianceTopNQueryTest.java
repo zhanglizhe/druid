@@ -44,6 +44,7 @@ import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -141,7 +142,7 @@ public class VarianceTopNQueryTest
         QueryRunnerTestHelper.NoopIntervalChunkingQueryRunnerDecorator()
     );
     final QueryRunner<Result<TopNResultValue>> mergeRunner = chest.mergeResults(runner);
-    final Sequence<Result<TopNResultValue>> retval = mergeRunner.run(query, ImmutableMap.<String, Object>of());
+    final Sequence<Result<TopNResultValue>> retval = mergeRunner.run(query, new HashMap<String, Object>());
     TestHelper.assertExpectedResults(expectedResults, retval);
     return retval;
   }

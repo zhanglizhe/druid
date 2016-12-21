@@ -46,6 +46,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 public class TopNQueryQueryToolChestTest
@@ -139,18 +140,18 @@ public class TopNQueryQueryToolChestTest
     TopNQuery query1 = builder.threshold(10).context(null).build();
     MockQueryRunner mockRunner = new MockQueryRunner(runner);
     new TopNQueryQueryToolChest.ThresholdAdjustingQueryRunner(mockRunner, config)
-        .run(query1, ImmutableMap.<String, Object>of());
+        .run(query1, new HashMap<String, Object>());
     Assert.assertEquals(1000, mockRunner.query.getThreshold());
 
     TopNQuery query2 = builder.threshold(10).context(context).build();
 
     new TopNQueryQueryToolChest.ThresholdAdjustingQueryRunner(mockRunner, config)
-        .run(query2, ImmutableMap.<String, Object>of());
+        .run(query2, new HashMap<String, Object>());
     Assert.assertEquals(500, mockRunner.query.getThreshold());
 
     TopNQuery query3 = builder.threshold(2000).context(context).build();
     new TopNQueryQueryToolChest.ThresholdAdjustingQueryRunner(mockRunner, config)
-        .run(query3, ImmutableMap.<String, Object>of());
+        .run(query3, new HashMap<String, Object>());
     Assert.assertEquals(2000, mockRunner.query.getThreshold());
   }
 

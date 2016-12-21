@@ -124,6 +124,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -1082,7 +1083,7 @@ public class RealtimeIndexTaskTest
                                   .build();
 
     ArrayList<Result<TimeseriesResultValue>> results = Sequences.toList(
-        task.getQueryRunner(query).run(query, ImmutableMap.<String, Object>of()),
+        task.getQueryRunner(query).run(query, new HashMap<String, Object>()),
         Lists.<Result<TimeseriesResultValue>>newArrayList()
     );
     return results.isEmpty() ? 0 : results.get(0).getValue().getLongMetric(metric);

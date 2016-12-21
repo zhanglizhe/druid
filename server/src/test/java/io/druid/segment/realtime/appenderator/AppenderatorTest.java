@@ -50,6 +50,7 @@ import org.junit.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -269,7 +270,7 @@ public class AppenderatorTest
                                            .build();
 
       final List<Result<TimeseriesResultValue>> results1 = Lists.newArrayList();
-      Sequences.toList(query1.run(appenderator, ImmutableMap.<String, Object>of()), results1);
+      Sequences.toList(query1.run(appenderator, new HashMap<String, Object>()), results1);
       Assert.assertEquals(
           "query1",
           ImmutableList.of(
@@ -295,7 +296,7 @@ public class AppenderatorTest
                                            .build();
 
       final List<Result<TimeseriesResultValue>> results2 = Lists.newArrayList();
-      Sequences.toList(query2.run(appenderator, ImmutableMap.<String, Object>of()), results2);
+      Sequences.toList(query2.run(appenderator, new HashMap<String, Object>()), results2);
       Assert.assertEquals(
           "query2",
           ImmutableList.of(
@@ -325,7 +326,7 @@ public class AppenderatorTest
                                            .build();
 
       final List<Result<TimeseriesResultValue>> results3 = Lists.newArrayList();
-      Sequences.toList(query3.run(appenderator, ImmutableMap.<String, Object>of()), results3);
+      Sequences.toList(query3.run(appenderator, new HashMap<String, Object>()), results3);
       Assert.assertEquals(
           ImmutableList.of(
               new Result<>(
@@ -359,7 +360,7 @@ public class AppenderatorTest
                                            .build();
 
       final List<Result<TimeseriesResultValue>> results4 = Lists.newArrayList();
-      Sequences.toList(query4.run(appenderator, ImmutableMap.<String, Object>of()), results4);
+      Sequences.toList(query4.run(appenderator, new HashMap<String, Object>()), results4);
       Assert.assertEquals(
           ImmutableList.of(
               new Result<>(
@@ -415,7 +416,7 @@ public class AppenderatorTest
                                            .build();
 
       final List<Result<TimeseriesResultValue>> results1 = Lists.newArrayList();
-      Sequences.toList(query1.run(appenderator, ImmutableMap.<String, Object>of()), results1);
+      Sequences.toList(query1.run(appenderator, new HashMap<String, Object>()), results1);
       Assert.assertEquals(
           "query1",
           ImmutableList.of(
@@ -451,7 +452,7 @@ public class AppenderatorTest
                                            .build();
 
       final List<Result<TimeseriesResultValue>> results2 = Lists.newArrayList();
-      Sequences.toList(query2.run(appenderator, ImmutableMap.<String, Object>of()), results2);
+      Sequences.toList(query2.run(appenderator, new HashMap<String, Object>()), results2);
       Assert.assertEquals(
           "query2",
           ImmutableList.of(
@@ -492,7 +493,7 @@ public class AppenderatorTest
                                            .build();
 
       final List<Result<TimeseriesResultValue>> results3 = Lists.newArrayList();
-      Sequences.toList(query3.run(appenderator, ImmutableMap.<String, Object>of()), results3);
+      Sequences.toList(query3.run(appenderator, new HashMap<String, Object>()), results3);
       Assert.assertEquals(
           "query2",
           ImmutableList.of(
