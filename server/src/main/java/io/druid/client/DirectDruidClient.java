@@ -29,7 +29,7 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.dataformat.smile.SmileFactory;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import com.google.common.base.Charsets;
-import com.google.common.base.Strings;
+import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteSource;
@@ -54,7 +54,6 @@ import com.metamx.http.client.response.StatusResponseHandler;
 import com.metamx.http.client.response.StatusResponseHolder;
 import io.druid.query.BaseQuery;
 import io.druid.query.BySegmentResultValueClass;
-import io.druid.query.DruidMetrics;
 import io.druid.query.Query;
 import io.druid.query.QueryInterruptedException;
 import io.druid.query.QueryRunner;
@@ -70,6 +69,7 @@ import org.jboss.netty.handler.codec.http.HttpHeaders;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 
+import javax.annotation.Nullable;
 import javax.ws.rs.core.MediaType;
 import java.io.Closeable;
 import java.io.IOException;
@@ -79,8 +79,10 @@ import java.net.URL;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -155,6 +157,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
       typeRef = types.lhs;
     }
 
+    final Queue<Map<String, Object>> responseContexts = new ConcurrentLinkedQueue<>();
     final ListenableFuture<InputStream> future;
     final String url = String.format("http://%s/druid/v2/", host);
     final String cancelUrl = String.format("http://%s/druid/v2/%s", host, query.getId());
@@ -185,7 +188,7 @@ public class DirectDruidClient<T> implements QueryRunner<T>
             final String responseContext = response.headers().get("X-Druid-Response-Context");
             // context may be null in case of error or query timeout
             if (responseContext != null) {
-              context.putAll(
+              responseContexts.add(
                   objectMapper.<Map<String, Object>>readValue(
                       responseContext, new TypeReference<Map<String, Object>>()
                       {
@@ -399,6 +402,22 @@ public class DirectDruidClient<T> implements QueryRunner<T>
           public void cleanup(JsonParserIterator<T> iterFromMake)
           {
             CloseQuietly.close(iterFromMake);
+          }
+        }
+    );
+
+    retVal = Sequences.map(
+        retVal,
+        new Function<T, T>()
+        {
+          @Nullable
+          @Override
+          public T apply(@Nullable T input)
+          {
+            for (Map<String, Object> subResponseContext; (subResponseContext = responseContexts.poll()) != null;) {
+              context.putAll(subResponseContext);
+            }
+            return input;
           }
         }
     );

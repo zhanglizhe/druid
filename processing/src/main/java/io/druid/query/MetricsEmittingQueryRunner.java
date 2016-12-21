@@ -28,7 +28,6 @@ import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.common.guava.MoreSequences;
 import io.druid.common.guava.SequenceWrapper;
-import io.druid.query.topn.TopNQuery;
 
 import java.io.IOException;
 import java.util.Map;
@@ -170,40 +169,27 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
     return MoreSequences.wrap(statusRecordingSequence, new SequenceWrapper()
     {
       private long startTimeNs;
-      private QueryMetricsContext queryMetricsContext;
 
       @Override
       public void open()
       {
         startTimeNs = System.nanoTime();
-        queryMetricsContext = new QueryMetricsContext();
-        if (query instanceof TopNQuery) {
-          // Response context seems to be the easiest way to transmit queryMetricsContext between queryRunner and
-          // queryEngine, because it doesn't require to change interfaces throughout the codebase. If more types of
-          // queries (not just topN) are interested in queryMetricsContext, it should probably be added to
-          // queryRunner.run() parameters.
-          //
-          // This queryMetricsContext is extracted from the responseContext in TopNQueryRunnerFactory.createRunner()
-          // method.
-          responseContext.put("queryMetricsContext", queryMetricsContext);
-        }
       }
 
       @Override
       public void close()
       {
-        if (query instanceof TopNQuery) {
-          responseContext.remove("queryMetricsContext");
-        }
         long timeTakenNs = System.nanoTime() - startTimeNs;
-
-        for (Map.Entry<String, String> dimension : queryMetricsContext.singleValueDimensions.entrySet()) {
-          builder.setDimension(dimension.getKey(), dimension.getValue());
+        QueryMetricsContext queryMetricsContext =
+            (QueryMetricsContext) responseContext.remove("queryMetricsContext");
+        if (queryMetricsContext != null) {
+          for (Map.Entry<String, String> dimension : queryMetricsContext.singleValueDimensions.entrySet()) {
+            builder.setDimension(dimension.getKey(), dimension.getValue());
+          }
+          for (Map.Entry<String, String[]> dimension : queryMetricsContext.multiValueDimensions.entrySet()) {
+            builder.setDimension(dimension.getKey(), dimension.getValue());
+          }
         }
-        for (Map.Entry<String, String[]> dimension : queryMetricsContext.multiValueDimensions.entrySet()) {
-          builder.setDimension(dimension.getKey(), dimension.getValue());
-        }
-
         if (emitTimeNsMetrics) {
           emitter.emit(builder.build(metricName + "Ns", timeTakenNs));
         }
@@ -218,8 +204,10 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
           emitter.emit(builder.build("query/wait/time", TimeUnit.NANOSECONDS.toMillis(waitTimeNs)));
         }
 
-        for (Map.Entry<String, Number> queryMetric : queryMetricsContext.metrics.entrySet()) {
-          emitter.emit(builder.build(queryMetric.getKey(), queryMetric.getValue()));
+        if (queryMetricsContext != null) {
+          for (Map.Entry<String, Number> queryMetric : queryMetricsContext.metrics.entrySet()) {
+            emitter.emit(builder.build(queryMetric.getKey(), queryMetric.getValue()));
+          }
         }
       }
     });

@@ -44,6 +44,7 @@ import io.druid.query.groupby.GroupByQueryHelper;
 import io.druid.segment.incremental.IncrementalIndex;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -93,26 +94,27 @@ public class GroupByMergedQueryRunner<T> implements QueryRunner<T>
     final boolean bySegment = BaseQuery.getContextBySegment(query, false);
     final int priority = BaseQuery.getContextPriority(query, 0);
 
-    ListenableFuture<List<Void>> futures = Futures.allAsList(
+    ListenableFuture<List<Map<String, Object>>> futures = Futures.allAsList(
         Lists.newArrayList(
             Iterables.transform(
                 queryables,
-                new Function<QueryRunner<T>, ListenableFuture<Void>>()
+                new Function<QueryRunner<T>, ListenableFuture<Map<String, Object>>>()
                 {
                   @Override
-                  public ListenableFuture<Void> apply(final QueryRunner<T> input)
+                  public ListenableFuture<Map<String, Object>> apply(final QueryRunner<T> input)
                   {
                     if (input == null) {
                       throw new ISE("Null queryRunner! Looks to be some segment unmapping action happening");
                     }
 
-                    ListenableFuture<Void> future = exec.submit(
-                        new AbstractPrioritizedCallable<Void>(priority)
+                    ListenableFuture<Map<String, Object>> future = exec.submit(
+                        new AbstractPrioritizedCallable<Map<String, Object>>(priority)
                         {
                           @Override
-                          public Void call() throws Exception
+                          public Map<String, Object> call() throws Exception
                           {
                             try {
+                              Map<String, Object> responseContext = new HashMap<>();
                               if (bySegment) {
                                 input.run(queryParam, responseContext)
                                      .accumulate(bySegmentAccumulatorPair.lhs, bySegmentAccumulatorPair.rhs);
@@ -121,7 +123,7 @@ public class GroupByMergedQueryRunner<T> implements QueryRunner<T>
                                      .accumulate(indexAccumulatorPair.lhs, indexAccumulatorPair.rhs);
                               }
 
-                              return null;
+                              return responseContext;
                             }
                             catch (QueryInterruptedException e) {
                               throw Throwables.propagate(e);
@@ -147,6 +149,9 @@ public class GroupByMergedQueryRunner<T> implements QueryRunner<T>
 
     if (!isSingleThreaded) {
       waitForFutureCompletion(query, futures, indexAccumulatorPair.lhs);
+    }
+    for (Map<String, Object> subResponseContext : getFutureResult(query, futures, indexAccumulatorPair.lhs)) {
+      responseContext.putAll(subResponseContext);
     }
 
     if (bySegment) {
@@ -176,13 +181,18 @@ public class GroupByMergedQueryRunner<T> implements QueryRunner<T>
       IncrementalIndex<?> closeOnFailure
   )
   {
+    queryWatcher.registerQuery(query, future);
+    getFutureResult(query, future, closeOnFailure);
+  }
+
+  private <T> T getFutureResult(GroupByQuery query, ListenableFuture<T> future, IncrementalIndex<?> closeOnFailure)
+  {
     try {
-      queryWatcher.registerQuery(query, future);
       final Number timeout = query.getContextValue(QueryContextKeys.TIMEOUT, (Number) null);
       if (timeout == null) {
-        future.get();
+        return future.get();
       } else {
-        future.get(timeout.longValue(), TimeUnit.MILLISECONDS);
+        return future.get(timeout.longValue(), TimeUnit.MILLISECONDS);
       }
     }
     catch (InterruptedException e) {

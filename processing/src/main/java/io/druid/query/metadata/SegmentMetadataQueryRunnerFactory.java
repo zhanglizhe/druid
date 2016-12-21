@@ -32,6 +32,7 @@ import com.metamx.common.logger.Logger;
 import io.druid.data.input.impl.TimestampSpec;
 import io.druid.granularity.QueryGranularity;
 import io.druid.query.AbstractPrioritizedCallable;
+import io.druid.query.AsyncResponse;
 import io.druid.query.BaseQuery;
 import io.druid.query.ConcatQueryRunner;
 import io.druid.query.Query;
@@ -52,6 +53,7 @@ import org.joda.time.Interval;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
@@ -203,14 +205,17 @@ public class SegmentMetadataQueryRunnerFactory implements QueryRunnerFactory<Seg
                   )
                   {
                     final int priority = BaseQuery.getContextPriority(query, 0);
-                    ListenableFuture<Sequence<SegmentAnalysis>> future = queryExecutor.submit(
-                        new AbstractPrioritizedCallable<Sequence<SegmentAnalysis>>(priority)
+                    ListenableFuture<AsyncResponse<Sequence<SegmentAnalysis>>> future = queryExecutor.submit(
+                        new AbstractPrioritizedCallable<AsyncResponse<Sequence<SegmentAnalysis>>>(priority)
                         {
                           @Override
-                          public Sequence<SegmentAnalysis> call() throws Exception
+                          public AsyncResponse<Sequence<SegmentAnalysis>> call() throws Exception
                           {
-                            return Sequences.simple(
-                                Sequences.toList(input.run(query, responseContext), new ArrayList<SegmentAnalysis>())
+                            Map<String, Object> responseContext = new HashMap<>();
+                            Sequence<SegmentAnalysis> results = input.run(query, responseContext);
+                            return new AsyncResponse<>(
+                                Sequences.simple(Sequences.toList(results, new ArrayList<SegmentAnalysis>())),
+                                responseContext
                             );
                           }
                         }
@@ -218,7 +223,14 @@ public class SegmentMetadataQueryRunnerFactory implements QueryRunnerFactory<Seg
                     try {
                       queryWatcher.registerQuery(query, future);
                       final Number timeout = query.getContextValue(QueryContextKeys.TIMEOUT, (Number) null);
-                      return timeout == null ? future.get() : future.get(timeout.longValue(), TimeUnit.MILLISECONDS);
+                      AsyncResponse<Sequence<SegmentAnalysis>> asyncResponse;
+                      if (timeout == null) {
+                        asyncResponse = future.get();
+                      } else {
+                        asyncResponse = future.get(timeout.longValue(), TimeUnit.MILLISECONDS);
+                      }
+                      responseContext.putAll(asyncResponse.responseContext);
+                      return asyncResponse.result;
                     }
                     catch (InterruptedException e) {
                       log.warn(e, "Query interrupted, cancelling pending results, query id [%s]", query.getId());

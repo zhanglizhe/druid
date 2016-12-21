@@ -43,6 +43,7 @@ import io.druid.collections.Releaser;
 import io.druid.common.utils.JodaUtils;
 import io.druid.data.input.Row;
 import io.druid.query.AbstractPrioritizedCallable;
+import io.druid.query.AsyncResponse;
 import io.druid.query.BaseQuery;
 import io.druid.query.ChainedExecutionQueryRunner;
 import io.druid.query.Query;
@@ -60,6 +61,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -190,14 +192,14 @@ public class GroupByMergingQueryRunnerV2 implements QueryRunner
                   ReferenceCountingResourceHolder.fromCloseable(grouper);
               resources.add(grouperHolder);
 
-              ListenableFuture<List<Boolean>> futures = Futures.allAsList(
+              ListenableFuture<List<AsyncResponse<Boolean>>> futures = Futures.allAsList(
                   Lists.newArrayList(
                       Iterables.transform(
                           queryables,
-                          new Function<QueryRunner<Row>, ListenableFuture<Boolean>>()
+                          new Function<QueryRunner<Row>, ListenableFuture<AsyncResponse<Boolean>>>()
                           {
                             @Override
-                            public ListenableFuture<Boolean> apply(final QueryRunner<Row> input)
+                            public ListenableFuture<AsyncResponse<Boolean>> apply(final QueryRunner<Row> input)
                             {
                               if (input == null) {
                                 throw new ISE(
@@ -206,20 +208,21 @@ public class GroupByMergingQueryRunnerV2 implements QueryRunner
                               }
 
                               return exec.submit(
-                                  new AbstractPrioritizedCallable<Boolean>(priority)
+                                  new AbstractPrioritizedCallable<AsyncResponse<Boolean>>(priority)
                                   {
                                     @Override
-                                    public Boolean call() throws Exception
+                                    public AsyncResponse<Boolean> call() throws Exception
                                     {
                                       try (
                                           Releaser bufferReleaser = mergeBufferHolder.increment();
                                           Releaser grouperReleaser = grouperHolder.increment()
                                       ) {
+                                        Map<String, Object> responseContext = new HashMap<>();
                                         final Object retVal = input.run(queryForRunners, responseContext)
                                                                    .accumulate(grouper, accumulator);
 
                                         // Return true if OK, false if resources were exhausted.
-                                        return retVal == grouper;
+                                        return new AsyncResponse<>(retVal == grouper, responseContext);
                                       }
                                       catch (QueryInterruptedException e) {
                                         throw e;
@@ -237,7 +240,7 @@ public class GroupByMergingQueryRunnerV2 implements QueryRunner
                   )
               );
 
-              waitForFutureCompletion(query, futures, timeoutAt - System.currentTimeMillis());
+              waitForFutureCompletion(query, futures, timeoutAt - System.currentTimeMillis(), responseContext);
 
               return RowBasedGrouperHelper.makeGrouperIterator(
                   grouper,
@@ -274,8 +277,9 @@ public class GroupByMergingQueryRunnerV2 implements QueryRunner
 
   private void waitForFutureCompletion(
       GroupByQuery query,
-      ListenableFuture<List<Boolean>> future,
-      long timeout
+      ListenableFuture<List<AsyncResponse<Boolean>>> future,
+      long timeout,
+      Map<String, Object> responseContext
   )
   {
     try {
@@ -287,13 +291,18 @@ public class GroupByMergingQueryRunnerV2 implements QueryRunner
         throw new TimeoutException();
       }
 
-      final List<Boolean> results = future.get(timeout, TimeUnit.MILLISECONDS);
+      final List<AsyncResponse<Boolean>> responses = future.get(timeout, TimeUnit.MILLISECONDS);
 
-      for (Boolean result : results) {
-        if (!result) {
-          future.cancel(true);
-          throw new ResourceLimitExceededException("Grouping resources exhausted");
+      boolean fail = false;
+      for (AsyncResponse<Boolean> response : responses) {
+        if (!response.result) {
+          fail = true;
         }
+        responseContext.putAll(response.responseContext);
+      }
+      if (fail) {
+        future.cancel(true);
+        throw new ResourceLimitExceededException("Grouping resources exhausted");
       }
     }
     catch (InterruptedException e) {

@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.metamx.common.guava.LazySequence;
 import com.metamx.common.guava.Sequence;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -50,14 +51,15 @@ public class AsyncQueryRunner<T> implements QueryRunner<T>
   public Sequence<T> run(final Query<T> query, final Map<String, Object> responseContext)
   {
     final int priority = BaseQuery.getContextPriority(query, 0);
-    final ListenableFuture<Sequence<T>> future = executor.submit(new AbstractPrioritizedCallable<Sequence<T>>(priority)
+    final ListenableFuture<AsyncResponse<Sequence<T>>> future = executor.submit(new AbstractPrioritizedCallable<AsyncResponse<Sequence<T>>>(priority)
         {
           @Override
-          public Sequence<T> call() throws Exception
+          public AsyncResponse<Sequence<T>> call() throws Exception
           {
+            Map<String, Object> responseContext = new HashMap<>();
             //Note: this is assumed that baseRunner does most of the work eagerly on call to the
             //run() method and resulting sequence accumulate/yield is fast.
-            return baseRunner.run(query, responseContext);
+            return new AsyncResponse<>(baseRunner.run(query, responseContext), responseContext);
           }
         });
     queryWatcher.registerQuery(query, future);
@@ -69,11 +71,14 @@ public class AsyncQueryRunner<T> implements QueryRunner<T>
       {
         try {
           Number timeout = query.getContextValue(QueryContextKeys.TIMEOUT);
+          AsyncResponse<Sequence<T>> asyncResponse;
           if (timeout == null) {
-            return future.get();
+            asyncResponse = future.get();
           } else {
-            return future.get(timeout.longValue(), TimeUnit.MILLISECONDS);
+            asyncResponse = future.get(timeout.longValue(), TimeUnit.MILLISECONDS);
           }
+          responseContext.putAll(asyncResponse.responseContext);
+          return asyncResponse.result;
         } catch (ExecutionException | InterruptedException | TimeoutException ex) {
           throw Throwables.propagate(ex);
         }

@@ -35,7 +35,9 @@ import com.metamx.common.guava.Sequence;
 import com.metamx.common.guava.Sequences;
 import com.metamx.common.logger.Logger;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -101,26 +103,27 @@ public class ChainedExecutionQueryRunner<T> implements QueryRunner<T>
           public Iterator<T> make()
           {
             // Make it a List<> to materialize all of the values (so that it will submit everything to the executor)
-            ListenableFuture<List<Iterable<T>>> futures = Futures.allAsList(
+            ListenableFuture<List<AsyncResponse<Iterable<T>>>> futures = Futures.allAsList(
                 Lists.newArrayList(
                     Iterables.transform(
                         queryables,
-                        new Function<QueryRunner<T>, ListenableFuture<Iterable<T>>>()
+                        new Function<QueryRunner<T>, ListenableFuture<AsyncResponse<Iterable<T>>>>()
                         {
                           @Override
-                          public ListenableFuture<Iterable<T>> apply(final QueryRunner<T> input)
+                          public ListenableFuture<AsyncResponse<Iterable<T>>> apply(final QueryRunner<T> input)
                           {
                             if (input == null) {
                               throw new ISE("Null queryRunner! Looks to be some segment unmapping action happening");
                             }
 
                             return exec.submit(
-                                new AbstractPrioritizedCallable<Iterable<T>>(priority)
+                                new AbstractPrioritizedCallable<AsyncResponse<Iterable<T>>>(priority)
                                 {
                                   @Override
-                                  public Iterable<T> call() throws Exception
+                                  public AsyncResponse<Iterable<T>> call() throws Exception
                                   {
                                     try {
+                                      Map<String, Object> responseContext = new HashMap<>();
                                       Sequence<T> result = input.run(query, responseContext);
                                       if (result == null) {
                                         throw new ISE("Got a null result! Segments are missing!");
@@ -131,7 +134,7 @@ public class ChainedExecutionQueryRunner<T> implements QueryRunner<T>
                                         throw new ISE("Got a null list of results! WTF?!");
                                       }
 
-                                      return retVal;
+                                      return new AsyncResponse<Iterable<T>>(retVal, responseContext);
                                     }
                                     catch (QueryInterruptedException e) {
                                       throw Throwables.propagate(e);
@@ -153,12 +156,18 @@ public class ChainedExecutionQueryRunner<T> implements QueryRunner<T>
 
             try {
               final Number timeout = query.getContextValue(QueryContextKeys.TIMEOUT, (Number) null);
-              return new MergeIterable<>(
-                  ordering.nullsFirst(),
-                  timeout == null ?
-                  futures.get() :
-                  futures.get(timeout.longValue(), TimeUnit.MILLISECONDS)
-              ).iterator();
+              List<AsyncResponse<Iterable<T>>> responses;
+              if (timeout == null) {
+                responses = futures.get();
+              } else {
+                responses = futures.get(timeout.longValue(), TimeUnit.MILLISECONDS);
+              }
+              List<Iterable<T>> results = new ArrayList<>();
+              for (AsyncResponse<Iterable<T>> response : responses) {
+                results.add(response.result);
+                responseContext.putAll(response.responseContext);
+              }
+              return new MergeIterable<>(ordering.nullsFirst(), results).iterator();
             }
             catch (InterruptedException e) {
               log.warn(e, "Query interrupted, cancelling pending results, query id [%s]", query.getId());
