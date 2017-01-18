@@ -31,6 +31,7 @@ import io.druid.common.guava.SequenceWrapper;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -38,6 +39,12 @@ import java.util.concurrent.TimeUnit;
 public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
 {
   private static final boolean emitTimeNsMetrics = Boolean.getBoolean("emitTimeNsMetrics");
+
+  private static final double extraDimensionsRatio = Double.parseDouble(
+      System.getProperty("extraDimensionsRatio", "0.1")
+  );
+
+  private static final double extraMetricsRatio = Double.parseDouble(System.getProperty("extraMetricsRatio", "0.1"));
 
   private final ServiceEmitter emitter;
   private final Function<Query<T>, ServiceMetricEvent.Builder> builderFn;
@@ -182,7 +189,8 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
         long timeTakenNs = System.nanoTime() - startTimeNs;
         QueryMetricsContext queryMetricsContext =
             (QueryMetricsContext) responseContext.remove("queryMetricsContext");
-        if (queryMetricsContext != null) {
+        double random = queryMetricsContext != null ? ThreadLocalRandom.current().nextDouble() : 0;
+        if (queryMetricsContext != null && random < extraDimensionsRatio) {
           for (Map.Entry<String, String> dimension : queryMetricsContext.singleValueDimensions.entrySet()) {
             builder.setDimension(dimension.getKey(), dimension.getValue());
           }
@@ -204,7 +212,7 @@ public class MetricsEmittingQueryRunner<T> implements QueryRunner<T>
           emitter.emit(builder.build("query/wait/time", TimeUnit.NANOSECONDS.toMillis(waitTimeNs)));
         }
 
-        if (queryMetricsContext != null) {
+        if (queryMetricsContext != null && random < extraMetricsRatio) {
           for (Map.Entry<String, Number> queryMetric : queryMetricsContext.metrics.entrySet()) {
             emitter.emit(builder.build(queryMetric.getKey(), queryMetric.getValue()));
           }

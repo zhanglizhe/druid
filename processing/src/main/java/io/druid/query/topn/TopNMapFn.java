@@ -73,8 +73,6 @@ public class TopNMapFn
         dataSourceQueryMetrics.dimensionSelector = dimSelector;
         long numValuesPerPass = QueryMetricsContext.roundToPowerOfTwo(params.getNumValuesPerPass());
         queryMetricsContext.setDimension("numValuesPerPass", numValuesPerPass);
-        long valueCardinality = QueryMetricsContext.roundToPowerOfTwo(params.getCardinality());
-        queryMetricsContext.setDimension("valueCardinality", valueCardinality);
       }
 
       TopNResultBuilder resultBuilder = BaseTopNAlgorithm.makeResultBuilder(params, query);
