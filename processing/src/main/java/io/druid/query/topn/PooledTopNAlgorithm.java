@@ -27,7 +27,6 @@ import io.druid.collections.ResourceHolder;
 import io.druid.collections.StupidPool;
 import io.druid.query.BaseQuery;
 import io.druid.query.aggregation.BufferAggregator;
-import io.druid.query.aggregation.DoubleSumBufferAggregator;
 import io.druid.query.aggregation.SimpleDoubleBufferAggregator;
 import io.druid.segment.Capabilities;
 import io.druid.segment.Cursor;
@@ -420,7 +419,7 @@ public class PooledTopNAlgorithm
     if (optimizeDoublePooledTopN && cursor instanceof HistoricalCursor && theAggregators.length == 1) {
       BufferAggregator aggregator = theAggregators[0];
       if (aggregator instanceof SimpleDoubleBufferAggregator) {
-        FloatColumnSelector metricSelector = ((DoubleSumBufferAggregator) aggregator).getSelector();
+        FloatColumnSelector metricSelector = ((SimpleDoubleBufferAggregator) aggregator).getSelector();
         String runtimeShape = aggregator.getBufferAggregatorType();
         Class<? extends DoublePooledTopNScanner> prototypeClass = DoublePooledTopNScannerPrototype.class;
         AtomicReference<ShapeState<DoublePooledTopNScanner>> shapeStateReference = getPooledTopShapeState(

@@ -36,6 +36,7 @@ public class DoubleSumBufferAggregator extends BufferAggregator implements Simpl
     this.selector = selector;
   }
 
+  @Override
   public FloatColumnSelector getSelector()
   {
     return selector;

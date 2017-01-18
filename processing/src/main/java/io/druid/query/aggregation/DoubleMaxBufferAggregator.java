@@ -35,6 +35,12 @@ public class DoubleMaxBufferAggregator extends BufferAggregator implements Simpl
   }
 
   @Override
+  public FloatColumnSelector getSelector()
+  {
+    return selector;
+  }
+
+  @Override
   public void init(ByteBuffer buf, int position)
   {
     buf.putDouble(position, Double.NEGATIVE_INFINITY);

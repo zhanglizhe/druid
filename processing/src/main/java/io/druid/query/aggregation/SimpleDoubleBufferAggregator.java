@@ -19,9 +19,13 @@
 
 package io.druid.query.aggregation;
 
+import io.druid.segment.FloatColumnSelector;
+
 import java.nio.ByteBuffer;
 
 public interface SimpleDoubleBufferAggregator
 {
   void aggregate(ByteBuffer buf, int position, double value);
+
+  FloatColumnSelector getSelector();
 }
