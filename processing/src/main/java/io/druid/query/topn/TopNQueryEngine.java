@@ -118,8 +118,10 @@ public class TopNQueryEngine
       public void close()
       {
         if (queryMetricsContext != null) {
-          String lastDimensionSelectorType = dataSourceQueryMetrics.dimensionSelector.getDimensionSelectorType();
-          queryMetricsContext.setDimension("lastDimensionSelector", lastDimensionSelectorType);
+          if (dataSourceQueryMetrics.dimensionSelector != null) {
+            String lastDimensionSelectorType = dataSourceQueryMetrics.dimensionSelector.getDimensionSelectorType();
+            queryMetricsContext.setDimension("lastDimensionSelector", lastDimensionSelectorType);
+          }
           long numCursors = QueryMetricsContext.roundToPowerOfTwo(dataSourceQueryMetrics.cursors);
           queryMetricsContext.setDimension("numCursors", numCursors);
           queryMetricsContext.metrics.put("query/scannedRows", dataSourceQueryMetrics.scannedRows);
