@@ -22,6 +22,7 @@ package io.druid.segment.loading;
 import com.google.common.io.ByteStreams;
 import com.metamx.common.StringUtils;
 import io.druid.storage.hdfs.HdfsFileTimestampVersionFinder;
+import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
@@ -57,7 +58,6 @@ public class HdfsFileTimestampVersionFinderTest
   public static void setupStatic() throws IOException, ClassNotFoundException
   {
     hdfsTmpDir = File.createTempFile("hdfsHandlerTest", "dir");
-    hdfsTmpDir.deleteOnExit();
     if (!hdfsTmpDir.delete()) {
       throw new IOException(String.format("Unable to delete hdfsTmpDir [%s]", hdfsTmpDir.getAbsolutePath()));
     }
@@ -69,7 +69,6 @@ public class HdfsFileTimestampVersionFinderTest
     final File tmpFile = File.createTempFile("hdfsHandlerTest", ".data");
     tmpFile.delete();
     try {
-      tmpFile.deleteOnExit();
       Files.copy(new ByteArrayInputStream(pathByteContents), tmpFile.toPath());
       try (OutputStream stream = miniCluster.getFileSystem().create(filePath)) {
         Files.copy(tmpFile.toPath(), stream);
@@ -86,6 +85,7 @@ public class HdfsFileTimestampVersionFinderTest
     if (miniCluster != null) {
       miniCluster.shutdown(true);
     }
+    FileUtils.deleteDirectory(hdfsTmpDir);
   }
 
 
