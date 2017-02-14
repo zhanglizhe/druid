@@ -108,7 +108,7 @@ public class MetadataTaskStorage implements TaskStorage
   public void start()
   {
     metadataStorageConnector.createTaskTables();
-    handler.takeOrphanTasksOwnership(config.getTaskOwnerId());
+    handler.takeTasksOwnership(config.getTaskOwnerId());
   }
 
   @LifecycleStop
@@ -302,18 +302,11 @@ public class MetadataTaskStorage implements TaskStorage
   @Override
   public List<TaskLock> getRemoteActiveLocks()
   {
-    return ImmutableList.copyOf(
-        Iterables.transform(
-            handler.getRemoteActiveLocks(config.getTaskOwnerId()).entrySet(), new Function<Map.Entry<Long, TaskLock>, TaskLock>()
-            {
-              @Override
-              public TaskLock apply(Map.Entry<Long, TaskLock> e)
-              {
-                return e.getValue();
-              }
-            }
-        )
-    );
+    ImmutableList.Builder<TaskLock> taskLocks = ImmutableList.builder();
+    for (Map.Entry<Long, TaskLock> e : handler.getRemoteActiveLocks(config.getTaskOwnerId()).entrySet()) {
+      taskLocks.add(e.getValue());
+    }
+    return taskLocks.build();
   }
 
   private Map<Long, TaskLock> getLocksWithIds(final String taskid)

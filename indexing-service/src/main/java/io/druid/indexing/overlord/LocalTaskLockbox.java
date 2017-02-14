@@ -65,9 +65,9 @@ public class LocalTaskLockbox implements TaskLockbox
   private final ReentrantLock giant = new ReentrantLock(true);
   private final Condition lockReleaseCondition = giant.newCondition();
 
-  private static final EmittingLogger log = new EmittingLogger(TaskLockbox.class);
+  private static final EmittingLogger log = new EmittingLogger(LocalTaskLockbox.class);
 
-  // Stores List of Active Tasks. TaskLockbox will only grant locks to active activeTasks.
+  // Stores List of Active Tasks. LocalTaskLockbox will only grant locks to active activeTasks.
   // this set should be accessed under the giant lock.
   private final Set<String> activeTasks = Sets.newHashSet();
 

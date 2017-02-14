@@ -33,7 +33,7 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
   /**
    * Creates a new entry.
    * 
-   * @param id entry id
+   * @param entryId entry id
    * @param timestamp timestamp this entry was created
    * @param dataSource datasource associated with this entry
    * @param entry object representing this entry
@@ -42,7 +42,7 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @throws EntryExistsException
    */
   void insert(
-      @NotNull String id,
+      @NotNull String entryId,
       @NotNull DateTime timestamp,
       @NotNull String dataSource,
       @NotNull EntryType entry,
@@ -145,24 +145,17 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
 
   /**
    * Returns owner for the given entry
-   * @param entryId
-   * @return
    */
   Optional<String> getOwner(String entryId);
 
   /**
    * Returns all locks acquired by active tasks with ownerId not equals to
    * the given ownerId
-   *
-   * @param ownerId
-   * @return
    */
   Map<Long, LockType> getRemoteActiveLocks(String ownerId);
 
   /**
-   * Take orphan tasks ownership
-   *
-   * @param ownerId
+   * Take ownership of all tasks that does not have owner
    */
-  void takeOrphanTasksOwnership(String ownerId);
+  void takeTasksOwnership(String ownerId);
 }

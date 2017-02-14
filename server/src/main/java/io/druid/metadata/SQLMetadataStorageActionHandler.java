@@ -250,7 +250,7 @@ public class SQLMetadataStorageActionHandler<EntryType, StatusType, LogType, Loc
                         entryTable
                     )
                 )
-                .map(new EntryAndStatusResultSetMapper())
+                .map(ENTRY_AND_STATUS_MAPPER)
                 .list();
           }
         }
@@ -277,7 +277,7 @@ public class SQLMetadataStorageActionHandler<EntryType, StatusType, LogType, Loc
                         ownerId
                     )
                 )
-                .map(new EntryAndStatusResultSetMapper())
+                .map(ENTRY_AND_STATUS_MAPPER)
                 .list();
           }
         }
@@ -458,23 +458,10 @@ public class SQLMetadataStorageActionHandler<EntryType, StatusType, LogType, Loc
                 )
             )
                          .bind("entryId", entryId)
-                         .map(new LockResultSetMapper())
+                         .map(LOCK_MAPPER)
                          .fold(
                              Maps.<Long, LockType>newLinkedHashMap(),
-                             new Folder3<Map<Long, LockType>, Pair<Long, LockType>>()
-                             {
-                               @Override
-                               public Map<Long, LockType> fold(
-                                   Map<Long, LockType> accumulator,
-                                   Pair<Long, LockType> lock,
-                                   FoldController control,
-                                   StatementContext ctx
-                               ) throws SQLException
-                               {
-                                 accumulator.put(lock.lhs, lock.rhs);
-                                 return accumulator;
-                               }
-                             }
+                             LOCKS_FOLDER
                          );
           }
         }
@@ -517,13 +504,13 @@ public class SQLMetadataStorageActionHandler<EntryType, StatusType, LogType, Loc
             return handle.createQuery(
                 String.format(
                     "SELECT l.id, l.lock_payload FROM %1$s AS l, %2$s AS t, %3$s AS o "
-                    + "WHERE l.%4$s_id = t.%4$s_id AND t.%4$s_id = o.%4$s_id "
+                    + "WHERE l.%4$s_id = t.id AND t.%4$s_id = o.%4$s_id "
                     + "AND t.active = TRUE AND o.owner_id != %5$s",
                     lockTable, entryTable,
                     entryOwnerTable, entryTypeName, ownerId
                 )
             )
-                         .map(new LockResultSetMapper())
+                         .map(LOCK_MAPPER)
                          .fold(
                              Maps.<Long, LockType>newLinkedHashMap(),
                              new Folder3<Map<Long, LockType>, Pair<Long, LockType>>()
@@ -547,7 +534,7 @@ public class SQLMetadataStorageActionHandler<EntryType, StatusType, LogType, Loc
   }
 
   @Override
-  public void takeOrphanTasksOwnership(final String ownerId)
+  public void takeTasksOwnership(final String ownerId)
   {
     connector.retryWithHandle(
         new HandleCallback<Integer>()
@@ -572,10 +559,25 @@ public class SQLMetadataStorageActionHandler<EntryType, StatusType, LogType, Loc
     );
   }
 
-  private class EntryAndStatusResultSetMapper implements ResultSetMapper<Pair<EntryType, StatusType>> {
+  private final Folder3<Map<Long, LockType>, Pair<Long, LockType>> LOCKS_FOLDER = new Folder3<Map<Long, LockType>, Pair<Long, LockType>>()
+  {
+    @Override
+    public Map<Long, LockType> fold(
+        Map<Long, LockType> accumulator,
+        Pair<Long, LockType> lock,
+        FoldController control,
+        StatementContext ctx
+    ) throws SQLException
+    {
+      accumulator.put(lock.lhs, lock.rhs);
+      return accumulator;
+    }
+  };
+
+  private final ResultSetMapper<Pair<EntryType, StatusType>> ENTRY_AND_STATUS_MAPPER = new ResultSetMapper<Pair<EntryType, StatusType>>() {
     @Override
     public Pair<EntryType, StatusType> map(int index, ResultSet r, StatementContext ctx)
-        throws SQLException
+          throws SQLException
     {
       try {
         return Pair.of(
@@ -594,9 +596,9 @@ public class SQLMetadataStorageActionHandler<EntryType, StatusType, LogType, Loc
         throw new SQLException(e);
       }
     }
-  }
+  };
 
-  private class LockResultSetMapper implements ResultSetMapper<Pair<Long, LockType>> {
+  private ResultSetMapper<Pair<Long, LockType>> LOCK_MAPPER = new ResultSetMapper<Pair<Long, LockType>> () {
     @Override
     public Pair<Long, LockType> map(int index, ResultSet r, StatementContext ctx)
         throws SQLException
@@ -620,6 +622,6 @@ public class SQLMetadataStorageActionHandler<EntryType, StatusType, LogType, Loc
         throw new SQLException(e);
       }
     }
-  }
+  };
 
 }
