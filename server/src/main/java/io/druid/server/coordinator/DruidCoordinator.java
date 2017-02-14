@@ -40,11 +40,11 @@ import com.metamx.common.lifecycle.LifecycleStart;
 import com.metamx.common.lifecycle.LifecycleStop;
 import com.metamx.emitter.EmittingLogger;
 import com.metamx.emitter.service.ServiceEmitter;
+import io.druid.client.AbstractServerInventoryView;
 import io.druid.client.DruidDataSource;
 import io.druid.client.DruidServer;
 import io.druid.client.ImmutableDruidDataSource;
 import io.druid.client.ImmutableDruidServer;
-import io.druid.client.ServerInventoryView;
 import io.druid.client.indexing.IndexingServiceClient;
 import io.druid.collections.CountingMap;
 import io.druid.common.config.JacksonConfigManager;
@@ -113,7 +113,7 @@ public class DruidCoordinator
   private final ZkPathsConfig zkPaths;
   private final JacksonConfigManager configManager;
   private final MetadataSegmentManager metadataSegmentManager;
-  private final ServerInventoryView<Object> serverInventoryView;
+  private final AbstractServerInventoryView<Object> serverInventoryView;
   private final MetadataRuleManager metadataRuleManager;
   private final CuratorFramework curator;
   private final ServiceEmitter emitter;
@@ -137,7 +137,7 @@ public class DruidCoordinator
       ZkPathsConfig zkPaths,
       JacksonConfigManager configManager,
       MetadataSegmentManager metadataSegmentManager,
-      ServerInventoryView serverInventoryView,
+      AbstractServerInventoryView serverInventoryView,
       MetadataRuleManager metadataRuleManager,
       CuratorFramework curator,
       ServiceEmitter emitter,
@@ -173,7 +173,7 @@ public class DruidCoordinator
       ZkPathsConfig zkPaths,
       JacksonConfigManager configManager,
       MetadataSegmentManager metadataSegmentManager,
-      ServerInventoryView serverInventoryView,
+      AbstractServerInventoryView serverInventoryView,
       MetadataRuleManager metadataRuleManager,
       CuratorFramework curator,
       ServiceEmitter emitter,

@@ -19,17 +19,34 @@
 
 package io.druid.client;
 
+import com.metamx.common.lifecycle.LifecycleStart;
+import com.metamx.common.lifecycle.LifecycleStop;
+import io.druid.curator.inventory.InventoryManagerConfig;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.google.inject.Provider;
+import java.io.IOException;
+import java.util.concurrent.Executor;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = FilteredBatchServerInventoryViewProvider.class)
-@JsonSubTypes(value = {
-    @JsonSubTypes.Type(name = "legacy", value = FilteredSingleServerInventoryViewProvider.class),
-    @JsonSubTypes.Type(name = "batch", value = FilteredBatchServerInventoryViewProvider.class),
-    @JsonSubTypes.Type(name = "twoZk", value = FilteredTwoZkServerInventoryViewProvider.class)
-})
-public interface FilteredServerInventoryViewProvider extends Provider<FilteredServerInventoryView>
+public interface AbstractServerInventoryView<InventoryType> extends ServerView, InventoryView
 {
+  @LifecycleStart
+  void start() throws Exception;
+
+  @LifecycleStop
+  void stop() throws IOException;
+
+  boolean isStarted();
+
+  @Override
+  DruidServer getInventoryValue(String containerKey);
+
+  @Override
+  Iterable<DruidServer> getInventory();
+
+  @Override
+  void registerServerCallback(Executor exec, ServerCallback callback);
+
+  @Override
+  void registerSegmentCallback(Executor exec, SegmentCallback callback);
+
+  InventoryManagerConfig getInventoryManagerConfig();
 }

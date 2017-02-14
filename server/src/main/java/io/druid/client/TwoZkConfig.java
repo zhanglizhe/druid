@@ -19,17 +19,35 @@
 
 package io.druid.client;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.druid.curator.CuratorConfig;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.google.inject.Provider;
-
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = FilteredBatchServerInventoryViewProvider.class)
-@JsonSubTypes(value = {
-    @JsonSubTypes.Type(name = "legacy", value = FilteredSingleServerInventoryViewProvider.class),
-    @JsonSubTypes.Type(name = "batch", value = FilteredBatchServerInventoryViewProvider.class),
-    @JsonSubTypes.Type(name = "twoZk", value = FilteredTwoZkServerInventoryViewProvider.class)
-})
-public interface FilteredServerInventoryViewProvider extends Provider<FilteredServerInventoryView>
+public class TwoZkConfig
 {
+
+  @JsonProperty
+  private CuratorConfig service1;
+
+  @JsonProperty
+  private CuratorConfig service2;
+
+  public CuratorConfig getService1()
+  {
+    return service1;
+  }
+
+  public void setService1(CuratorConfig service1)
+  {
+    this.service1 = service1;
+  }
+
+  public CuratorConfig getService2()
+  {
+    return service2;
+  }
+
+  public void setService2(CuratorConfig service2)
+  {
+    this.service2 = service2;
+  }
 }

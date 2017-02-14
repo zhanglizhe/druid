@@ -46,13 +46,13 @@ public class CoordinatorServerView implements InventoryView
   private final Map<String, SegmentLoadInfo> segmentLoadInfos;
   private final Map<String, VersionedIntervalTimeline<String, SegmentLoadInfo>> timelines;
 
-  private final ServerInventoryView baseView;
+  private final AbstractServerInventoryView baseView;
 
   private volatile boolean initialized = false;
 
   @Inject
   public CoordinatorServerView(
-      ServerInventoryView baseView
+      AbstractServerInventoryView baseView
   )
   {
     this.baseView = baseView;

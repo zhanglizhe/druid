@@ -21,12 +21,14 @@ package io.druid.guice;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import io.druid.client.AbstractServerInventoryView;
 import io.druid.client.FilteredServerInventoryView;
 import io.druid.client.FilteredServerInventoryViewProvider;
 import io.druid.client.InventoryView;
 import io.druid.client.ServerInventoryView;
 import io.druid.client.ServerInventoryViewProvider;
 import io.druid.client.ServerView;
+import io.druid.client.TwoZkConfig;
 
 /**
  */
@@ -35,11 +37,14 @@ public class ServerViewModule implements Module
   @Override
   public void configure(Binder binder)
   {
+    JsonConfigProvider.bind(binder, "druid.broker.zk", TwoZkConfig.class);
     JsonConfigProvider.bind(binder, "druid.announcer", ServerInventoryViewProvider.class);
     JsonConfigProvider.bind(binder, "druid.announcer", FilteredServerInventoryViewProvider.class);
     binder.bind(InventoryView.class).to(ServerInventoryView.class);
     binder.bind(ServerView.class).to(ServerInventoryView.class);
-    binder.bind(ServerInventoryView.class).toProvider(ServerInventoryViewProvider.class).in(ManageLifecycle.class);
+    binder.bind(AbstractServerInventoryView.class)
+          .toProvider(ServerInventoryViewProvider.class)
+          .in(ManageLifecycle.class);
     binder.bind(FilteredServerInventoryView.class)
           .toProvider(FilteredServerInventoryViewProvider.class)
           .in(ManageLifecycle.class);

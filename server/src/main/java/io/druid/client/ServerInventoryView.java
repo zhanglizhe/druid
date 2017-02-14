@@ -19,7 +19,6 @@
 
 package io.druid.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Charsets;
@@ -47,7 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  */
-public abstract class ServerInventoryView<InventoryType> implements ServerView, InventoryView
+public abstract class ServerInventoryView<InventoryType> implements AbstractServerInventoryView<InventoryType>
 {
 
   private final EmittingLogger log;
@@ -173,6 +172,7 @@ public abstract class ServerInventoryView<InventoryType> implements ServerView, 
     );
   }
 
+  @Override
   @LifecycleStart
   public void start() throws Exception
   {
@@ -184,6 +184,7 @@ public abstract class ServerInventoryView<InventoryType> implements ServerView, 
     }
   }
 
+  @Override
   @LifecycleStop
   public void stop() throws IOException
   {
@@ -194,6 +195,7 @@ public abstract class ServerInventoryView<InventoryType> implements ServerView, 
     }
   }
 
+  @Override
   public boolean isStarted()
   {
     return started.get();
@@ -223,6 +225,7 @@ public abstract class ServerInventoryView<InventoryType> implements ServerView, 
     segmentCallbacks.put(callback, exec);
   }
 
+  @Override
   public InventoryManagerConfig getInventoryManagerConfig()
   {
     return inventoryManager.getConfig();

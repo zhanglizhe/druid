@@ -28,8 +28,9 @@ import com.google.inject.Provider;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = BatchServerInventoryViewProvider.class)
 @JsonSubTypes(value = {
     @JsonSubTypes.Type(name = "legacy", value = SingleServerInventoryProvider.class),
-    @JsonSubTypes.Type(name = "batch", value = BatchServerInventoryViewProvider.class)
+    @JsonSubTypes.Type(name = "batch", value = BatchServerInventoryViewProvider.class),
+    @JsonSubTypes.Type(name = "twoZk", value = TwoZkServerInventoryViewProvider.class)
 })
-public interface ServerInventoryViewProvider extends Provider<ServerInventoryView>
+public interface ServerInventoryViewProvider extends Provider<AbstractServerInventoryView>
 {
 }

@@ -23,16 +23,16 @@ import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Predicates;
 import com.metamx.common.Pair;
+import com.metamx.common.lifecycle.Lifecycle;
 import io.druid.server.coordination.DruidServerMetadata;
 import io.druid.server.initialization.ZkPathsConfig;
 import io.druid.timeline.DataSegment;
-import org.apache.curator.framework.CuratorFramework;
 
 import javax.validation.constraints.NotNull;
 
 /**
  */
-public class SingleServerInventoryProvider implements ServerInventoryViewProvider
+public class TwoZkServerInventoryViewProvider implements ServerInventoryViewProvider
 {
   @JacksonInject
   @NotNull
@@ -40,20 +40,25 @@ public class SingleServerInventoryProvider implements ServerInventoryViewProvide
 
   @JacksonInject
   @NotNull
-  private CuratorFramework curator = null;
+  private TwoZkConfig twoZkConfig = null;
 
   @JacksonInject
   @NotNull
   private ObjectMapper jsonMapper = null;
 
+  @JacksonInject
+  @NotNull
+  private Lifecycle lifecycle = null;
+
   @Override
-  public AbstractServerInventoryView get()
+  public TwoZkServerInventoryView get()
   {
-    return new SingleServerInventoryView(
+    return new TwoZkServerInventoryView(
         zkPaths,
-        curator,
+        twoZkConfig,
         jsonMapper,
-        Predicates.<Pair<DruidServerMetadata, DataSegment>>alwaysTrue()
+        Predicates.<Pair<DruidServerMetadata, DataSegment>>alwaysTrue(),
+        lifecycle
     );
   }
 }

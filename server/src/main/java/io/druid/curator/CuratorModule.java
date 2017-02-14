@@ -28,18 +28,16 @@ import com.metamx.common.logger.Logger;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.LazySingleton;
 
-import org.apache.curator.framework.api.ACLProvider;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.api.ACLProvider;
 import org.apache.curator.framework.imps.DefaultACLProvider;
 import org.apache.curator.retry.BoundedExponentialBackoffRetry;
-
-import java.io.IOException;
-
-import java.util.List;
-
 import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.ACL;
+
+import java.io.IOException;
+import java.util.List;
 
 /**
  */
@@ -60,15 +58,25 @@ public class CuratorModule implements Module
   @LazySingleton
   public CuratorFramework makeCurator(CuratorConfig config, Lifecycle lifecycle) throws IOException
   {
-    final CuratorFramework framework =
-        CuratorFrameworkFactory.builder()
-                               .connectString(config.getZkHosts())
-                               .sessionTimeoutMs(config.getZkSessionTimeoutMs())
-                               .retryPolicy(new BoundedExponentialBackoffRetry(1000, 45000, 30))
-                               .compressionProvider(new PotentiallyGzippedCompressionProvider(config.getEnableCompression()))
-                               .aclProvider(config.getEnableAcl() ? new SecuredACLProvider() : new DefaultACLProvider())
-                               .build();
+    return makeCuratorAndRegisterLifecycle(config, lifecycle);
+  }
 
+  public static CuratorFramework makeCuratorAndRegisterLifecycle(CuratorConfig config, Lifecycle lifecycle)
+  {
+    CuratorFramework curator = CuratorFrameworkFactory
+        .builder()
+        .connectString(config.getZkHosts())
+        .sessionTimeoutMs(config.getZkSessionTimeoutMs())
+        .retryPolicy(new BoundedExponentialBackoffRetry(1000, 45000, 30))
+        .compressionProvider(new PotentiallyGzippedCompressionProvider(config.getEnableCompression()))
+        .aclProvider(config.getEnableAcl() ? new SecuredACLProvider() : new DefaultACLProvider())
+        .build();
+    addToLifecycle(lifecycle, curator);
+    return curator;
+  }
+
+  private static void addToLifecycle(Lifecycle lifecycle, final CuratorFramework curator)
+  {
     lifecycle.addHandler(
         new Lifecycle.Handler()
         {
@@ -76,22 +84,20 @@ public class CuratorModule implements Module
           public void start() throws Exception
           {
             log.info("Starting Curator");
-            framework.start();
+            curator.start();
           }
 
           @Override
           public void stop()
           {
             log.info("Stopping Curator");
-            framework.close();
+            curator.close();
           }
         }
     );
-
-    return framework;
   }
 
-  class SecuredACLProvider implements ACLProvider
+  static class SecuredACLProvider implements ACLProvider
   {
     @Override
     public List<ACL> getDefaultAcl()
