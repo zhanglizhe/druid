@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  */
-public abstract class ServerInventoryView<InventoryType> implements AbstractServerInventoryView<InventoryType>
+public abstract class ServerInventoryView<InventoryType> implements AbstractServerInventoryView
 {
 
   private final EmittingLogger log;

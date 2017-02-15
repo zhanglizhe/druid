@@ -26,7 +26,7 @@ import io.druid.curator.inventory.InventoryManagerConfig;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 
-public interface AbstractServerInventoryView<InventoryType> extends ServerView, InventoryView
+public interface AbstractServerInventoryView extends ServerView, InventoryView
 {
   @LifecycleStart
   void start() throws Exception;

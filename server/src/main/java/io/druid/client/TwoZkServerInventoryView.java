@@ -27,7 +27,6 @@ import com.metamx.common.Pair;
 import com.metamx.common.lifecycle.Lifecycle;
 import com.metamx.common.lifecycle.LifecycleStart;
 import com.metamx.common.lifecycle.LifecycleStop;
-import com.metamx.emitter.EmittingLogger;
 import io.druid.concurrent.LifecycleLock;
 import io.druid.curator.CuratorModule;
 import io.druid.curator.inventory.InventoryManagerConfig;
@@ -38,17 +37,13 @@ import io.druid.timeline.DataSegment;
 import org.apache.curator.framework.CuratorFramework;
 
 import java.io.IOException;
-import java.util.Set;
 import java.util.concurrent.Executor;
 
 /**
  */
 @ManageLifecycle
-public class TwoZkServerInventoryView
-    implements FilteredServerInventoryView, AbstractServerInventoryView<Set<DataSegment>>
+public class TwoZkServerInventoryView implements FilteredServerInventoryView, AbstractServerInventoryView
 {
-  private static final EmittingLogger log = new EmittingLogger(TwoZkServerInventoryView.class);
-
   private final LifecycleLock lifecycleLock = new LifecycleLock();
   private final BatchServerInventoryView cloud1;
   private final BatchServerInventoryView cloud2;

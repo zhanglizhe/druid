@@ -113,7 +113,7 @@ public class DruidCoordinator
   private final ZkPathsConfig zkPaths;
   private final JacksonConfigManager configManager;
   private final MetadataSegmentManager metadataSegmentManager;
-  private final AbstractServerInventoryView<Object> serverInventoryView;
+  private final AbstractServerInventoryView serverInventoryView;
   private final MetadataRuleManager metadataRuleManager;
   private final CuratorFramework curator;
   private final ServiceEmitter emitter;

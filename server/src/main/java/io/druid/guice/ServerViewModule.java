@@ -40,8 +40,8 @@ public class ServerViewModule implements Module
     JsonConfigProvider.bind(binder, "druid.broker.zk", TwoZkConfig.class);
     JsonConfigProvider.bind(binder, "druid.announcer", ServerInventoryViewProvider.class);
     JsonConfigProvider.bind(binder, "druid.announcer", FilteredServerInventoryViewProvider.class);
-    binder.bind(InventoryView.class).to(ServerInventoryView.class);
-    binder.bind(ServerView.class).to(ServerInventoryView.class);
+    binder.bind(InventoryView.class).to(AbstractServerInventoryView.class);
+    binder.bind(ServerView.class).to(AbstractServerInventoryView.class);
     binder.bind(AbstractServerInventoryView.class)
           .toProvider(ServerInventoryViewProvider.class)
           .in(ManageLifecycle.class);
