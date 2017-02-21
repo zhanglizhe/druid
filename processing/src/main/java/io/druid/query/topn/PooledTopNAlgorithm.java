@@ -419,14 +419,15 @@ public class PooledTopNAlgorithm
     if (optimizeDoublePooledTopN && cursor instanceof HistoricalCursor && theAggregators.length == 1) {
       BufferAggregator aggregator = theAggregators[0];
       if (aggregator instanceof SimpleDoubleBufferAggregator) {
+        HistoricalCursor historicalCursor = (HistoricalCursor) cursor;
         FloatColumnSelector metricSelector = ((SimpleDoubleBufferAggregator) aggregator).getSelector();
-        String runtimeShape = aggregator.getBufferAggregatorType();
+        String runtimeShape = aggregator.getBufferAggregatorType() +
+                              ((Offset) historicalCursor.copyOffset()).getOffsetType();
         Class<? extends DoublePooledTopNScanner> prototypeClass = DoublePooledTopNScannerPrototype.class;
         AtomicReference<ShapeState<DoublePooledTopNScanner>> shapeStateReference = getPooledTopShapeState(
             runtimeShape,
             prototypeClass
         );
-        HistoricalCursor historicalCursor = (HistoricalCursor) cursor;
         long scannedRows = shapeStateReference.get().scanner.scanAndAggregateHistorical(
             (HistoricalDimensionSelector) params.getDimSelector(),
             (HistoricalFloatColumnSelector) metricSelector,
