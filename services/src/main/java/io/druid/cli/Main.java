@@ -45,6 +45,8 @@ public class Main
   @SuppressWarnings("unchecked")
   public static void main(String[] args)
   {
+    System.out.println("jeff.schwab custom build");
+
     final Cli.CliBuilder<Runnable> builder = Cli.builder("druid");
 
     builder.withDescription("Druid command-line runner.")
