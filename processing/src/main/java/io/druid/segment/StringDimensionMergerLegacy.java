@@ -64,7 +64,6 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
   private static final Logger log = new Logger(StringDimensionMergerLegacy.class);
 
   private VSizeIndexedWriter encodedValueWriterV8;
-  private IOPeon spatialIoPeon;
   private File dictionaryFile;
 
   public StringDimensionMergerLegacy(
@@ -131,12 +130,11 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
     RTree tree = null;
     spatialWriter = null;
     boolean hasSpatial = capabilities.hasSpatialIndexes();
-    spatialIoPeon = new TmpFileIOPeon();
     if (hasSpatial) {
       BitmapFactory bmpFactory = bitmapSerdeFactory.getBitmapFactory();
       String spatialFilename = String.format("%s.spatial", dimensionName);
       spatialWriter = new ByteBufferWriter<ImmutableRTree>(
-          spatialIoPeon, spatialFilename, new IndexedRTree.ImmutableRTreeObjectStrategy(bmpFactory)
+          ioPeon, spatialFilename, new IndexedRTree.ImmutableRTreeObjectStrategy(bmpFactory)
       );
       spatialWriter.open();
       tree = new RTree(2, new LinearGutmanSplitStrategy(0, 50, bitmapFactory), bitmapFactory);
@@ -242,7 +240,6 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
       spatialWriter.close();
       serializerUtils.writeString(spatialIndexFile, dimensionName);
       ByteStreams.copy(spatialWriter.combineStreams(), spatialIndexFile);
-      spatialIoPeon.close();
     }
   }
 }

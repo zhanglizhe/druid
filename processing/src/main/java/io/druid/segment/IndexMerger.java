@@ -60,13 +60,12 @@ import io.druid.segment.column.ValueType;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
-import io.druid.segment.data.LongSupplierSerializer;
 import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.IOPeon;
 import io.druid.segment.data.Indexed;
-import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedIterable;
 import io.druid.segment.data.ListIndexed;
+import io.druid.segment.data.LongSupplierSerializer;
 import io.druid.segment.data.TmpFileIOPeon;
 import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.IncrementalIndexAdapter;
@@ -83,7 +82,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
@@ -629,24 +627,13 @@ public class IndexMerger
     Closer closer = Closer.create();
     final Interval dataInterval;
     final File v8OutDir = new File(outDir, "v8-tmp");
-    v8OutDir.mkdirs();
-    closer.register(new Closeable()
-    {
-      @Override
-      public void close() throws IOException
-      {
-        FileUtils.deleteDirectory(v8OutDir);
-      }
-    });
-    final IOPeon ioPeon = new TmpFileIOPeon();
-    closer.register(new Closeable()
-    {
-      @Override
-      public void close() throws IOException
-      {
-        ioPeon.close();
-      }
-    });
+    FileUtils.forceMkdir(v8OutDir);
+    registerDeleteDirectory(closer, v8OutDir);
+    File tmpPeonFilesDir = new File(v8OutDir, "tmpPeonFiles");
+    FileUtils.forceMkdir(tmpPeonFilesDir);
+    registerDeleteDirectory(closer, tmpPeonFilesDir);
+    final IOPeon ioPeon = new TmpFileIOPeon(tmpPeonFilesDir, true);
+    closer.register(ioPeon);
     try {
       /*************  Main index.drd file **************/
       progress.progress();
@@ -906,6 +893,18 @@ public class IndexMerger
     finally {
       closer.close();
     }
+  }
+
+  static void registerDeleteDirectory(Closer closer, final File dir)
+  {
+    closer.register(new Closeable()
+    {
+      @Override
+      public void close() throws IOException
+      {
+        FileUtils.deleteDirectory(dir);
+      }
+    });
   }
 
   protected DimensionHandler[] makeDimensionHandlers(final List<String> mergedDimensions, final List<ColumnCapabilitiesImpl> dimCapabilities)
