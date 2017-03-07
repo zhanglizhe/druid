@@ -19,17 +19,14 @@
 
 package io.druid.segment.data;
 
-import java.io.Closeable;
+import io.druid.segment.serde.Serializer;
+
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 
-public interface IndexedIntsWriter extends Closeable
+public interface IndexedIntsWriter extends Serializer
 {
   public void open() throws IOException;
 
   public void add(Object obj) throws IOException;
-
-  public long getSerializedSize();
-
-  public void writeToChannel(WritableByteChannel channel) throws IOException;
 }

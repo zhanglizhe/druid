@@ -17,15 +17,39 @@
  * under the License.
  */
 
-package io.druid.segment;
+package io.druid.io.smoosh;
 
-import io.druid.segment.serde.Serializer;
-
-import java.io.IOException;
-
-public interface GenericColumnSerializer extends Serializer
+/**
+*/
+class Metadata
 {
-  public void open() throws IOException;
+  private final int fileNum;
+  private final int startOffset;
+  private final int endOffset;
 
-  public void serialize(Object obj) throws IOException;
+  Metadata(
+      int fileNum,
+      int startOffset,
+      int endOffset
+  )
+  {
+    this.fileNum = fileNum;
+    this.startOffset = startOffset;
+    this.endOffset = endOffset;
+  }
+
+  public int getFileNum()
+  {
+    return fileNum;
+  }
+
+  public int getStartOffset()
+  {
+    return startOffset;
+  }
+
+  public int getEndOffset()
+  {
+    return endOffset;
+  }
 }

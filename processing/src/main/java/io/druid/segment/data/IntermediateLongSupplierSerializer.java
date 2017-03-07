@@ -21,26 +21,19 @@ package io.druid.segment.data;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.google.common.io.ByteSink;
-import com.google.common.io.CountingOutputStream;
 import com.google.common.math.LongMath;
-import com.google.common.primitives.Longs;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongList;
 
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.nio.ByteOrder;
 import java.nio.channels.WritableByteChannel;
 
 public class IntermediateLongSupplierSerializer implements LongSupplierSerializer
 {
-
-  private final IOPeon ioPeon;
-  private final String filenameBase;
-  private final String tempFile;
   private final ByteOrder order;
   private final CompressedObjectStrategy.CompressionStrategy compression;
-  private CountingOutputStream tempOut = null;
+  private LongList tempOut = null;
 
   private int numInserted = 0;
 
@@ -50,23 +43,15 @@ public class IntermediateLongSupplierSerializer implements LongSupplierSerialize
 
   private LongSupplierSerializer delegate;
 
-  public IntermediateLongSupplierSerializer(
-      IOPeon ioPeon,
-      String filenameBase,
-      ByteOrder order,
-      CompressedObjectStrategy.CompressionStrategy compression
-  )
+  IntermediateLongSupplierSerializer(ByteOrder order, CompressedObjectStrategy.CompressionStrategy compression)
   {
-    this.ioPeon = ioPeon;
-    this.tempFile = filenameBase + ".temp";
-    this.filenameBase = filenameBase;
     this.order = order;
     this.compression = compression;
   }
 
   public void open() throws IOException
   {
-    tempOut = new CountingOutputStream(ioPeon.makeOutputStream(tempFile));
+    tempOut = new LongArrayList();
   }
 
   public int size()
@@ -76,7 +61,7 @@ public class IntermediateLongSupplierSerializer implements LongSupplierSerialize
 
   public void add(long value) throws IOException
   {
-    tempOut.write(Longs.toByteArray(value));
+    tempOut.add(value);
     ++numInserted;
     if (uniqueValues.size() <= CompressionFactory.MAX_TABLE_SIZE && !uniqueValues.containsKey(value)) {
       uniqueValues.put(value, uniqueValues.size());
@@ -91,6 +76,9 @@ public class IntermediateLongSupplierSerializer implements LongSupplierSerialize
 
   private void makeDelegate() throws IOException
   {
+    if (delegate != null) {
+      return;
+    }
     CompressionFactory.LongEncodingWriter writer;
     long delta;
     try {
@@ -108,44 +96,28 @@ public class IntermediateLongSupplierSerializer implements LongSupplierSerialize
     }
 
     if (compression == CompressedObjectStrategy.CompressionStrategy.NONE) {
-      delegate = new EntireLayoutLongSupplierSerializer(
-          ioPeon, filenameBase, order, writer
-      );
+      delegate = new EntireLayoutLongSupplierSerializer(writer);
     } else {
-      delegate = new BlockLayoutLongSupplierSerializer(
-          ioPeon, filenameBase, order, writer, compression
-      );
+      delegate = new BlockLayoutLongSupplierSerializer(order, writer, compression);
     }
 
-    try (DataInputStream tempIn = new DataInputStream(new BufferedInputStream(ioPeon.makeInputStream(tempFile)))) {
-      delegate.open();
-      while (tempIn.available() > 0) {
-        delegate.add(tempIn.readLong());
-      }
+    delegate.open();
+    for (int i = 0; i < tempOut.size(); i++) {
+      delegate.add(tempOut.getLong(i));
     }
   }
 
-  public void closeAndConsolidate(ByteSink consolidatedOut) throws IOException
+  @Override
+  public long getSerializedSize() throws IOException
   {
-    tempOut.close();
     makeDelegate();
-    delegate.closeAndConsolidate(consolidatedOut);
-  }
-
-  public void close() throws IOException
-  {
-    tempOut.close();
-    makeDelegate();
-    delegate.close();
-  }
-
-  public long getSerializedSize()
-  {
     return delegate.getSerializedSize();
   }
 
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  @Override
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    delegate.writeToChannel(channel);
+    makeDelegate();
+    delegate.writeTo(channel);
   }
 }

@@ -27,10 +27,8 @@ import io.druid.segment.column.ColumnConfig;
 import io.druid.segment.column.ValueType;
 import io.druid.segment.data.CompressedFloatsIndexedSupplier;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.WritableByteChannel;
 
 /**
  */
@@ -83,22 +81,7 @@ public class FloatGenericColumnPartSerde implements ColumnPartSerde
 
     public FloatGenericColumnPartSerde build()
     {
-      return new FloatGenericColumnPartSerde(
-          byteOrder, new Serializer()
-      {
-        @Override
-        public long numBytes()
-        {
-          return delegate.getSerializedSize();
-        }
-
-        @Override
-        public void write(WritableByteChannel channel) throws IOException
-        {
-          delegate.writeToChannel(channel);
-        }
-      }
-      );
+      return new FloatGenericColumnPartSerde(byteOrder, delegate);
     }
   }
 
@@ -126,22 +109,7 @@ public class FloatGenericColumnPartSerde implements ColumnPartSerde
 
     public FloatGenericColumnPartSerde build()
     {
-      return new FloatGenericColumnPartSerde(
-          byteOrder, new Serializer()
-      {
-        @Override
-        public long numBytes()
-        {
-          return delegate.getSerializedSize();
-        }
-
-        @Override
-        public void write(WritableByteChannel channel) throws IOException
-        {
-          delegate.writeToChannel(channel);
-        }
-      }
-      );
+      return new FloatGenericColumnPartSerde(byteOrder, delegate);
     }
   }
 

@@ -23,6 +23,8 @@ import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import com.metamx.common.IAE;
 import com.metamx.common.guava.CloseQuietly;
+import io.druid.io.Channels;
+import io.druid.segment.serde.Serializer;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -45,7 +47,7 @@ import java.util.Iterator;
  * bytes 10-((numElements * 4) + 10): integers representing *end* offsets of byte serialized values
  * bytes ((numElements * 4) + 10)-(numBytesUsed + 2): 4-byte integer representing length of value, followed by bytes for value
  */
-public class GenericIndexed<T> extends Indexed<T>
+public class GenericIndexed<T> extends Indexed<T> implements Serializer
 {
   private static final byte version = 0x1;
 
@@ -272,17 +274,29 @@ public class GenericIndexed<T> extends Indexed<T>
     }
   }
 
-  public long getSerializedSize()
+  @Override
+  public long getSerializedSize() throws IOException
   {
-    return theBuffer.remaining() + 2 + 4 + 4;
+    return metaSize() + theBuffer.remaining();
   }
 
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  @Override
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{version, allowReverseLookup ? (byte) 0x1 : (byte) 0x0}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(theBuffer.remaining() + 4)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(size)));
-    channel.write(theBuffer.asReadOnlyBuffer());
+    ByteBuffer meta = ByteBuffer.allocate(metaSize());
+    meta.put(version);
+    meta.put(allowReverseLookup ? (byte) 0x1 : (byte) 0x0);
+    meta.putInt(theBuffer.remaining() + 4);
+    meta.putInt(size);
+    meta.flip();
+
+    Channels.writeFully(channel, meta);
+    Channels.writeFully(channel, theBuffer.asReadOnlyBuffer());
+  }
+
+  private int metaSize()
+  {
+    return 1 + 1 + Ints.BYTES + Ints.BYTES;
   }
 
   /**

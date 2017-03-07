@@ -19,12 +19,9 @@
 
 package io.druid.segment;
 
-import com.google.common.io.FileWriteMode;
-import com.google.common.io.Files;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
 import io.druid.segment.data.FloatSupplierSerializer;
-import io.druid.segment.data.IOPeon;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,21 +31,18 @@ import java.io.IOException;
 public class FloatMetricColumnSerializer implements MetricColumnSerializer
 {
   private final String metricName;
-  private final IOPeon ioPeon;
   private final File outDir;
   private final CompressedObjectStrategy.CompressionStrategy compression;
 
   private FloatSupplierSerializer writer;
 
-  public FloatMetricColumnSerializer(
+  FloatMetricColumnSerializer(
       String metricName,
       File outDir,
-      IOPeon ioPeon,
       CompressedObjectStrategy.CompressionStrategy compression
   )
   {
     this.metricName = metricName;
-    this.ioPeon = ioPeon;
     this.outDir = outDir;
     this.compression = compression;
   }
@@ -57,7 +51,7 @@ public class FloatMetricColumnSerializer implements MetricColumnSerializer
   public void open() throws IOException
   {
     writer = CompressionFactory.getFloatSerializer(
-        ioPeon, String.format("%s_little", metricName), IndexIO.BYTE_ORDER, compression
+        IndexIO.BYTE_ORDER, compression
     );
 
     writer.open();
@@ -75,9 +69,7 @@ public class FloatMetricColumnSerializer implements MetricColumnSerializer
   {
     final File outFile = IndexIO.makeMetricFile(outDir, metricName, IndexIO.BYTE_ORDER);
     outFile.delete();
-    MetricHolder.writeFloatMetric(
-        Files.asByteSink(outFile, FileWriteMode.APPEND), metricName, writer
-    );
+    MetricHolder.writeFloatMetric(outFile, metricName, writer);
     IndexIO.checkFileSize(outFile);
 
     writer = null;

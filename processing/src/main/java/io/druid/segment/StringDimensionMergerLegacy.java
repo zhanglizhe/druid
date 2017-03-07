@@ -22,41 +22,28 @@ package io.druid.segment;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.common.io.ByteSink;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
-import com.google.common.io.Files;
-import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Ints;
 import com.metamx.collections.bitmap.BitmapFactory;
 import com.metamx.collections.bitmap.MutableBitmap;
 import com.metamx.collections.spatial.ImmutableRTree;
 import com.metamx.collections.spatial.RTree;
 import com.metamx.collections.spatial.split.LinearGutmanSplitStrategy;
-import com.metamx.common.ByteBufferUtils;
-import com.metamx.common.ISE;
 import com.metamx.common.logger.Logger;
 import io.druid.collections.CombiningIterable;
-import io.druid.common.guava.FileOutputSupplier;
 import io.druid.common.utils.SerializerUtils;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.data.ByteBufferWriter;
-import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.GenericIndexedWriter;
-import io.druid.segment.data.IOPeon;
-import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedRTree;
-import io.druid.segment.data.TmpFileIOPeon;
 import io.druid.segment.data.VSizeIndexedWriter;
 
-import java.io.Closeable;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.IntBuffer;
-import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 
 public class StringDimensionMergerLegacy extends StringDimensionMergerV9 implements DimensionMergerLegacy<int[]>
@@ -64,24 +51,22 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
   private static final Logger log = new Logger(StringDimensionMergerLegacy.class);
 
   private VSizeIndexedWriter encodedValueWriterV8;
-  private File dictionaryFile;
 
   public StringDimensionMergerLegacy(
       String dimensionName,
       IndexSpec indexSpec,
       File outDir,
-      IOPeon ioPeon,
       ColumnCapabilities capabilities,
       ProgressIndicator progress
   )
   {
-    super(dimensionName, indexSpec, outDir, ioPeon, capabilities, progress);
+    super(dimensionName, indexSpec, outDir, capabilities, progress);
   }
 
   @Override
   protected void setupEncodedValueWriter() throws IOException
   {
-    encodedValueWriterV8 = new VSizeIndexedWriter(ioPeon, dimensionName, cardinality);
+    encodedValueWriterV8 = new VSizeIndexedWriter(cardinality);
     encodedValueWriterV8.open();
   }
 
@@ -97,32 +82,10 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
   @Override
   public void writeIndexes(List<IntBuffer> segmentRowNumConversions, Closer closer) throws IOException
   {
-    final SerializerUtils serializerUtils = new SerializerUtils();
     long dimStartTime = System.currentTimeMillis();
 
-    String bmpFilename = String.format("%s.inverted", dimensionName);
-    bitmapWriter = new GenericIndexedWriter<>(
-        ioPeon,
-        bmpFilename,
-        indexSpec.getBitmapSerdeFactory().getObjectStrategy()
-    );
+    bitmapWriter = new GenericIndexedWriter<>(indexSpec.getBitmapSerdeFactory().getObjectStrategy());
     bitmapWriter.open();
-
-    final MappedByteBuffer dimValsMapped = Files.map(dictionaryFile);
-    closer.register(new Closeable()
-    {
-      @Override
-      public void close() throws IOException
-      {
-        ByteBufferUtils.unmap(dimValsMapped);
-      }
-    });
-
-    if (!dimensionName.equals(serializerUtils.readString(dimValsMapped))) {
-      throw new ISE("dimensions[%s] didn't equate!?  This is a major WTF moment.", dimensionName);
-    }
-    Indexed<String> dimVals = GenericIndexed.read(dimValsMapped, GenericIndexed.STRING_STRATEGY);
-    log.info("Starting dimension[%s] with cardinality[%,d]", dimensionName, dimVals.size());
 
     final BitmapSerdeFactory bitmapSerdeFactory = indexSpec.getBitmapSerdeFactory();
     final BitmapFactory bitmapFactory = bitmapSerdeFactory.getBitmapFactory();
@@ -132,10 +95,7 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
     boolean hasSpatial = capabilities.hasSpatialIndexes();
     if (hasSpatial) {
       BitmapFactory bmpFactory = bitmapSerdeFactory.getBitmapFactory();
-      String spatialFilename = String.format("%s.spatial", dimensionName);
-      spatialWriter = new ByteBufferWriter<ImmutableRTree>(
-          ioPeon, spatialFilename, new IndexedRTree.ImmutableRTreeObjectStrategy(bmpFactory)
-      );
+      spatialWriter = new ByteBufferWriter<>(new IndexedRTree.ImmutableRTreeObjectStrategy(bmpFactory));
       spatialWriter.open();
       tree = new RTree(2, new LinearGutmanSplitStrategy(0, 50, bitmapFactory), bitmapFactory);
     }
@@ -143,7 +103,7 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
     IndexSeeker[] dictIdSeeker = toIndexSeekers(adapters, dimConversions, dimensionName);
 
     //Iterate all dim values's dictionary id in ascending order which in line with dim values's compare result.
-    for (int dictId = 0; dictId < dimVals.size(); dictId++) {
+    for (int dictId = 0; dictId < dictionary.size(); dictId++) {
       progress.progress();
       List<Iterable<Integer>> convertedInverteds = Lists.newArrayListWithCapacity(adapters.size());
       for (int j = 0; j < adapters.size(); ++j) {
@@ -166,7 +126,7 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
           bitset.add(row);
         }
       }
-      if ((dictId == 0) && (Iterables.getFirst(dimVals, "") == null)) {
+      if ((dictId == 0) && (Iterables.getFirst(dictionary, "") == null)) {
         bitset.or(nullRowsBitmap);
       }
 
@@ -175,7 +135,7 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
       );
 
       if (hasSpatial) {
-        String dimVal = dimVals.get(dictId);
+        String dimVal = dictionary.get(dictId);
         if (dimVal != null) {
           List<String> stringCoords = Lists.newArrayList(SPLITTER.split(dimVal));
           float[] coords = new float[stringCoords.size()];
@@ -196,50 +156,44 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
   }
 
   @Override
-  public void writeValueMetadataToFile(final FileOutputSupplier valueEncodingFile) throws IOException
+  public void writeValueMetadataToFile(final File valueEncodingFile) throws IOException
   {
     final SerializerUtils serializerUtils = new SerializerUtils();
 
-    dictionaryWriter.close();
-    serializerUtils.writeString(valueEncodingFile, dimensionName);
-    ByteStreams.copy(dictionaryWriter.combineStreams(), valueEncodingFile);
-
-    // save this File reference, we will read from it later when building bitmap/spatial indexes
-    dictionaryFile = valueEncodingFile.getFile();
+    try (FileChannel out = open(valueEncodingFile)) {
+      serializerUtils.writeString(out, dimensionName);
+      dictionaryWriter.writeTo(out);
+    }
   }
 
-  @Override
-  public void writeRowValuesToFile(FileOutputSupplier rowValueFile) throws IOException
+  private static FileChannel open(File file) throws IOException
   {
-    encodedValueWriterV8.close();
-    ByteStreams.copy(encodedValueWriterV8.combineStreams(), rowValueFile);
+    return FileChannel.open(file.toPath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
   }
 
   @Override
-  public void writeIndexesToFiles(
-      final ByteSink invertedIndexFile,
-      final OutputSupplier<FileOutputStream> spatialIndexFile
-  ) throws IOException
+  public void writeRowValuesToFile(File rowValueFile) throws IOException
+  {
+    try (FileChannel out = open(rowValueFile)) {
+      encodedValueWriterV8.writeTo(out);
+    }
+  }
+
+  @Override
+  public void writeIndexesToFiles(final File invertedIndexFile, final File spatialIndexFile) throws IOException
   {
     final SerializerUtils serializerUtils = new SerializerUtils();
-    final OutputSupplier<OutputStream> invertedIndexOutputSupplier = new OutputSupplier<OutputStream>()
-    {
-      @Override
-      public OutputStream getOutput() throws IOException
-      {
-        return invertedIndexFile.openStream();
-      }
-    };
 
-    bitmapWriter.close();
-    serializerUtils.writeString(invertedIndexOutputSupplier, dimensionName);
-    ByteStreams.copy(bitmapWriter.combineStreams(), invertedIndexOutputSupplier);
-
+    try (FileChannel invertedIndexOut = open(invertedIndexFile)) {
+      serializerUtils.writeString(invertedIndexOut, dimensionName);
+      bitmapWriter.writeTo(invertedIndexOut);
+    }
 
     if (capabilities.hasSpatialIndexes()) {
-      spatialWriter.close();
-      serializerUtils.writeString(spatialIndexFile, dimensionName);
-      ByteStreams.copy(spatialWriter.combineStreams(), spatialIndexFile);
+      try (FileChannel spatialIndexOut = open(spatialIndexFile)) {
+        serializerUtils.writeString(spatialIndexOut, dimensionName);
+        spatialWriter.writeTo(spatialIndexOut);
+      }
     }
   }
 }

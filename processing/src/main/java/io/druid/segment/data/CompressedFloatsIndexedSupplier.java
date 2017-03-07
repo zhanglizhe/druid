@@ -20,15 +20,16 @@
 package io.druid.segment.data;
 
 import com.google.common.base.Supplier;
-import com.google.common.primitives.Ints;
 import com.metamx.common.IAE;
+import io.druid.io.Channels;
+import io.druid.segment.serde.Serializer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.WritableByteChannel;
 
-public class CompressedFloatsIndexedSupplier implements Supplier<IndexedFloats>
+public class CompressedFloatsIndexedSupplier implements Supplier<IndexedFloats>, Serializer
 {
   public static final byte LZF_VERSION = 0x1;
   public static final byte version = 0x2;
@@ -65,18 +66,29 @@ public class CompressedFloatsIndexedSupplier implements Supplier<IndexedFloats>
     return supplier.get();
   }
 
-  public long getSerializedSize()
+  @Override
+  public long getSerializedSize() throws IOException
   {
-    return buffer.remaining() + 1 + 4 + 4 + 1;
+    return metaSize() + (long) buffer.remaining();
   }
 
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  @Override
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{version}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(totalSize)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(sizePer)));
-    channel.write(ByteBuffer.wrap(new byte[]{compression.getId()}));
-    channel.write(buffer.asReadOnlyBuffer());
+    ByteBuffer meta = ByteBuffer.allocate(metaSize());
+    meta.put(version);
+    meta.putInt(totalSize);
+    meta.putInt(sizePer);
+    meta.put(compression.getId());
+    meta.flip();
+
+    Channels.writeFully(channel, meta);
+    Channels.writeFully(channel, buffer.asReadOnlyBuffer());
+  }
+
+  private int metaSize()
+  {
+    return 1 + 4 + 4 + 1;
   }
 
   public static CompressedFloatsIndexedSupplier fromByteBuffer(ByteBuffer buffer, ByteOrder order)

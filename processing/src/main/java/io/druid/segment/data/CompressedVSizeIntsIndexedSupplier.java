@@ -27,6 +27,7 @@ import com.metamx.common.IAE;
 import com.metamx.common.guava.CloseQuietly;
 import io.druid.collections.ResourceHolder;
 import io.druid.collections.StupidResourceHolder;
+import io.druid.io.Channels;
 import io.druid.segment.CompressedPools;
 
 import java.io.IOException;
@@ -119,24 +120,34 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
     }
   }
 
+  @Override
+  public long getSerializedSize() throws IOException
+  {
+    return metaSize() + baseBuffers.getSerializedSize();
+  }
 
-  public long getSerializedSize()
+  @Override
+  public void writeTo(WritableByteChannel channel) throws IOException
+  {
+    ByteBuffer meta = ByteBuffer.allocate(metaSize());
+    meta.put(VERSION);
+    meta.put((byte) numBytes);
+    meta.putInt(totalSize);
+    meta.putInt(sizePer);
+    meta.put(compression.getId());
+    meta.flip();
+
+    Channels.writeFully(channel, meta);
+    baseBuffers.writeTo(channel);
+  }
+
+  private int metaSize()
   {
     return 1 +             // version
            1 +             // numBytes
            Ints.BYTES + // totalSize
            Ints.BYTES + // sizePer
-           1 +             // compression id
-           baseBuffers.getSerializedSize(); // data
-  }
-
-  public void writeToChannel(WritableByteChannel channel) throws IOException
-  {
-    channel.write(ByteBuffer.wrap(new byte[]{VERSION, (byte) numBytes}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(totalSize)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(sizePer)));
-    channel.write(ByteBuffer.wrap(new byte[]{compression.getId()}));
-    baseBuffers.writeToChannel(channel);
+           1;              // compression id
   }
 
   /**

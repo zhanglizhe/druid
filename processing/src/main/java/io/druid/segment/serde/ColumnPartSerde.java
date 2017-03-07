@@ -24,9 +24,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.druid.segment.column.ColumnBuilder;
 import io.druid.segment.column.ColumnConfig;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
 
 /**
  */
@@ -42,13 +40,6 @@ public interface ColumnPartSerde
   public Serializer getSerializer();
 
   public Deserializer getDeserializer();
-
-  public interface Serializer
-  {
-    public long numBytes();
-
-    public void write(WritableByteChannel channel) throws IOException;
-  }
 
   public interface Deserializer
   {

@@ -20,6 +20,7 @@
 package io.druid.segment;
 
 import com.metamx.common.IAE;
+import io.druid.io.Channels;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressedVSizeIntsIndexedSupplier;
 import io.druid.segment.data.IndexedInts;
@@ -54,7 +55,7 @@ public class CompressedVSizeIndexedSupplier implements WritableSupplier<IndexedM
   //values - indexed integers representing actual values in each row
   private final CompressedVSizeIntsIndexedSupplier valueSupplier;
 
-  CompressedVSizeIndexedSupplier(
+  private CompressedVSizeIndexedSupplier(
       CompressedVSizeIntsIndexedSupplier offsetSupplier,
       CompressedVSizeIntsIndexedSupplier valueSupplier
   )
@@ -63,16 +64,18 @@ public class CompressedVSizeIndexedSupplier implements WritableSupplier<IndexedM
     this.valueSupplier = valueSupplier;
   }
 
-  public long getSerializedSize()
+  @Override
+  public long getSerializedSize() throws IOException
   {
     return 1 + offsetSupplier.getSerializedSize() + valueSupplier.getSerializedSize();
   }
 
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  @Override
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{version}));
-    offsetSupplier.writeToChannel(channel);
-    valueSupplier.writeToChannel(channel);
+    Channels.writeFully(channel, ByteBuffer.wrap(new byte[]{version}));
+    offsetSupplier.writeTo(channel);
+    valueSupplier.writeTo(channel);
   }
 
   public static CompressedVSizeIndexedSupplier fromByteBuffer(ByteBuffer buffer, ByteOrder order)

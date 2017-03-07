@@ -19,17 +19,15 @@
 
 package io.druid.segment.data;
 
-import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Ints;
 import io.druid.collections.ResourceHolder;
 import io.druid.collections.StupidResourceHolder;
+import io.druid.io.Channels;
 import io.druid.segment.IndexIO;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
 /**
@@ -40,14 +38,12 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
   private static final byte VERSION = CompressedVSizeIntsIndexedSupplier.VERSION;
 
   public static CompressedVSizeIntsIndexedWriter create(
-      final IOPeon ioPeon,
-      final String filenameBase,
       final int maxValue,
       final CompressedObjectStrategy.CompressionStrategy compression
   )
   {
     return new CompressedVSizeIntsIndexedWriter(
-        ioPeon, filenameBase, maxValue,
+        maxValue,
         CompressedVSizeIntsIndexedSupplier.maxIntsInBufferForValue(maxValue),
         IndexIO.BYTE_ORDER, compression
     );
@@ -63,9 +59,7 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
   private ByteBuffer endBuffer;
   private int numInserted;
 
-  public CompressedVSizeIntsIndexedWriter(
-      final IOPeon ioPeon,
-      final String filenameBase,
+  CompressedVSizeIntsIndexedWriter(
       final int maxValue,
       final int chunkFactor,
       final ByteOrder byteOrder,
@@ -78,7 +72,7 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
     this.byteOrder = byteOrder;
     this.compression = compression;
     this.flattener = new GenericIndexedWriter<>(
-        ioPeon, filenameBase, CompressedByteBufferObjectStrategy.getBufferForOrder(byteOrder, compression, chunkBytes)
+        CompressedByteBufferObjectStrategy.getBufferForOrder(byteOrder, compression, chunkBytes)
     );
     this.intBuffer = ByteBuffer.allocate(Ints.BYTES).order(byteOrder);
     this.endBuffer = ByteBuffer.allocate(chunkBytes).order(byteOrder);
@@ -111,41 +105,45 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
   }
 
   @Override
-  public void close() throws IOException
+  public long getSerializedSize() throws IOException
   {
-    try {
-      if (numInserted > 0) {
-        endBuffer.limit(endBuffer.position());
-        endBuffer.rewind();
-        flattener.write(StupidResourceHolder.create(endBuffer));
-      }
-      endBuffer = null;
-    }
-    finally {
-      flattener.close();
-    }
+    writeEndBuffer();
+    return metaSize() + flattener.getSerializedSize();
   }
 
   @Override
-  public long getSerializedSize()
+  public void writeTo(WritableByteChannel channel) throws IOException
+  {
+    writeEndBuffer();
+
+    ByteBuffer meta = ByteBuffer.allocate(metaSize());
+    meta.put(VERSION);
+    meta.put((byte) numBytes);
+    meta.putInt(numInserted);
+    meta.putInt(chunkFactor);
+    meta.put(compression.getId());
+    meta.flip();
+
+    Channels.writeFully(channel, meta);
+    flattener.writeTo(channel);
+  }
+
+  private void writeEndBuffer() throws IOException
+  {
+    if (endBuffer != null && numInserted > 0) {
+      endBuffer.limit(endBuffer.position());
+      endBuffer.rewind();
+      flattener.write(StupidResourceHolder.create(endBuffer));
+      endBuffer = null;
+    }
+  }
+
+  private int metaSize()
   {
     return 1 +             // version
            1 +             // numBytes
            Ints.BYTES +    // numInserted
            Ints.BYTES +    // chunkFactor
-           1 +             // compression id
-           flattener.getSerializedSize();
-  }
-
-  @Override
-  public void writeToChannel(WritableByteChannel channel) throws IOException
-  {
-    channel.write(ByteBuffer.wrap(new byte[]{VERSION, (byte) numBytes}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(numInserted)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(chunkFactor)));
-    channel.write(ByteBuffer.wrap(new byte[]{compression.getId()}));
-    try (final ReadableByteChannel from = Channels.newChannel(flattener.combineStreams().getInput())) {
-      ByteStreams.copy(from, channel);
-    }
+           1;              // compression id
   }
 }

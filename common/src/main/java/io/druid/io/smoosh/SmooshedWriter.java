@@ -17,15 +17,16 @@
  * under the License.
  */
 
-package io.druid.segment;
+package io.druid.io.smoosh;
 
-import io.druid.segment.serde.Serializer;
-
+import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.channels.GatheringByteChannel;
 
-public interface GenericColumnSerializer extends Serializer
+/**
+ */
+public interface SmooshedWriter extends Closeable, GatheringByteChannel
 {
-  public void open() throws IOException;
-
-  public void serialize(Object obj) throws IOException;
+  public int write(InputStream in) throws IOException;
 }

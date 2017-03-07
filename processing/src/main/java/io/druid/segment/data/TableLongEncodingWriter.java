@@ -23,9 +23,9 @@ import com.google.common.collect.BiMap;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import com.metamx.common.IAE;
+import io.druid.io.OutputBytes;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 public class TableLongEncodingWriter implements CompressionFactory.LongEncodingWriter
@@ -51,7 +51,7 @@ public class TableLongEncodingWriter implements CompressionFactory.LongEncodingW
   }
 
   @Override
-  public void setOutputStream(OutputStream output)
+  public void setOutputStream(OutputBytes output)
   {
     serializer = VSizeLongSerde.getSerializer(bitsPerValue, output);
   }
@@ -71,16 +71,22 @@ public class TableLongEncodingWriter implements CompressionFactory.LongEncodingW
   }
 
   @Override
-  public void putMeta(OutputStream metaOut, CompressedObjectStrategy.CompressionStrategy strategy) throws IOException
+  public void putMeta(ByteBuffer metaOut, CompressedObjectStrategy.CompressionStrategy strategy) throws IOException
   {
-    metaOut.write(CompressionFactory.setEncodingFlag(strategy.getId()));
-    metaOut.write(CompressionFactory.LongEncodingFormat.TABLE.getId());
-    metaOut.write(CompressionFactory.TABLE_ENCODING_VERSION);
-    metaOut.write(Ints.toByteArray(table.size()));
+    metaOut.put(CompressionFactory.setEncodingFlag(strategy.getId()));
+    metaOut.put(CompressionFactory.LongEncodingFormat.TABLE.getId());
+    metaOut.put(CompressionFactory.TABLE_ENCODING_VERSION);
+    metaOut.putInt(table.size());
     BiMap<Integer, Long> inverse = table.inverse();
     for (int i = 0; i < table.size(); i++) {
-      metaOut.write(Longs.toByteArray(inverse.get(i)));
+      metaOut.putLong(inverse.get(i));
     }
+  }
+
+  @Override
+  public int metaSize()
+  {
+    return 1 + 1 + 1 + Ints.BYTES + table.size() * Longs.BYTES;
   }
 
   @Override

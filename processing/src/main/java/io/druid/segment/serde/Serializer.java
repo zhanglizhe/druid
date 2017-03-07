@@ -17,15 +17,13 @@
  * under the License.
  */
 
-package io.druid.segment;
-
-import io.druid.segment.serde.Serializer;
+package io.druid.segment.serde;
 
 import java.io.IOException;
+import java.nio.channels.WritableByteChannel;
 
-public interface GenericColumnSerializer extends Serializer
+public interface Serializer
 {
-  public void open() throws IOException;
-
-  public void serialize(Object obj) throws IOException;
+  long getSerializedSize() throws IOException;
+  void writeTo(WritableByteChannel channel) throws IOException;
 }

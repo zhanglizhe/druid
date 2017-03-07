@@ -107,7 +107,7 @@ public class CompressedFloatsSerdeTest
 
   public void testWithValues(float[] values) throws Exception
   {
-    FloatSupplierSerializer serializer = CompressionFactory.getFloatSerializer(new IOPeonForTesting(), "test", order, compressionStrategy
+    FloatSupplierSerializer serializer = CompressionFactory.getFloatSerializer(order, compressionStrategy
     );
     serializer.open();
 
@@ -117,16 +117,7 @@ public class CompressedFloatsSerdeTest
     Assert.assertEquals(values.length, serializer.size());
 
     final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    serializer.closeAndConsolidate(
-        new ByteSink()
-        {
-          @Override
-          public OutputStream openStream() throws IOException
-          {
-            return baos;
-          }
-        }
-    );
+    serializer.writeTo(Channels.newChannel(baos));
     Assert.assertEquals(baos.size(), serializer.getSerializedSize());
     CompressedFloatsIndexedSupplier supplier = CompressedFloatsIndexedSupplier
         .fromByteBuffer(ByteBuffer.wrap(baos.toByteArray()), order);
@@ -178,7 +169,7 @@ public class CompressedFloatsSerdeTest
   private void testSupplierSerde(CompressedFloatsIndexedSupplier supplier, float[] vals) throws IOException
   {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    supplier.writeToChannel(Channels.newChannel(baos));
+    supplier.writeTo(Channels.newChannel(baos));
 
     final byte[] bytes = baos.toByteArray();
     Assert.assertEquals(supplier.getSerializedSize(), bytes.length);

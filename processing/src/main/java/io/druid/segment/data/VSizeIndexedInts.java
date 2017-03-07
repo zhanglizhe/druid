@@ -22,6 +22,7 @@ package io.druid.segment.data;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.metamx.common.IAE;
+import io.druid.io.Channels;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -31,7 +32,7 @@ import java.util.List;
 
 /**
  */
-public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeIndexedInts>
+public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeIndexedInts>, WritableSupplier<IndexedInts>
 {
   public static final byte VERSION = 0x0;
 
@@ -171,10 +172,9 @@ public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeInd
     return numBytes;
   }
 
-  public long getSerializedSize()
+  public long getSerializedSize() throws IOException
   {
-    // version, numBytes, size, remaining
-    return 1 + 1 + 4 + buffer.remaining();
+    return metaSize() + buffer.remaining();
   }
 
   @Override
@@ -183,11 +183,29 @@ public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeInd
     return new IndexedIntsIterator(this);
   }
 
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  @Override
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{VERSION, (byte) numBytes}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(buffer.remaining())));
-    channel.write(buffer.asReadOnlyBuffer());
+    ByteBuffer meta = ByteBuffer.allocate(metaSize());
+    meta.put(VERSION);
+    meta.put((byte) numBytes);
+    meta.putInt(buffer.remaining());
+    meta.flip();
+
+    Channels.writeFully(channel, meta);
+    Channels.writeFully(channel, buffer.asReadOnlyBuffer());
+  }
+
+  private int metaSize()
+  {
+    // version, numBytes, size
+    return 1 + 1 + Ints.BYTES;
+  }
+
+  @Override
+  public IndexedInts get()
+  {
+    return this;
   }
 
   public static VSizeIndexedInts readFromByteBuffer(ByteBuffer buffer)
@@ -220,35 +238,5 @@ public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeInd
   public void close() throws IOException
   {
 
-  }
-
-  public WritableSupplier<IndexedInts> asWritableSupplier() {
-    return new VSizeIndexedIntsSupplier(this);
-  }
-
-  public static class VSizeIndexedIntsSupplier implements WritableSupplier<IndexedInts> {
-    final VSizeIndexedInts delegate;
-
-    public VSizeIndexedIntsSupplier(VSizeIndexedInts delegate) {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public long getSerializedSize()
-    {
-      return delegate.getSerializedSize();
-    }
-
-    @Override
-    public void writeToChannel(WritableByteChannel channel) throws IOException
-    {
-      delegate.writeToChannel(channel);
-    }
-
-    @Override
-    public IndexedInts get()
-    {
-      return delegate;
-    }
   }
 }

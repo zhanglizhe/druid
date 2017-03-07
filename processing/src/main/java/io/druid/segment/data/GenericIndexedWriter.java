@@ -19,55 +19,41 @@
 
 package io.druid.segment.data;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
-import com.google.common.io.ByteSource;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.CountingOutputStream;
-import com.google.common.io.InputSupplier;
 import com.google.common.primitives.Ints;
+import io.druid.io.Channels;
+import io.druid.io.OutputBytes;
+import io.druid.segment.serde.Serializer;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
+import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.Arrays;
 
 /**
  * Streams arrays of objects out in the binary format described by GenericIndexed
  */
-public class GenericIndexedWriter<T> implements Closeable
+public class GenericIndexedWriter<T> implements Serializer
 {
-  private final IOPeon ioPeon;
-  private final String filenameBase;
   private final ObjectStrategy<T> strategy;
 
   private boolean objectsSorted = true;
   private T prevObject = null;
 
-  private CountingOutputStream headerOut = null;
-  private CountingOutputStream valuesOut = null;
-  int numWritten = 0;
+  private OutputBytes headerOut = null;
+  private OutputBytes valuesOut = null;
+  private int numWritten = 0;
 
   public GenericIndexedWriter(
-      IOPeon ioPeon,
-      String filenameBase,
       ObjectStrategy<T> strategy
   )
   {
-    this.ioPeon = ioPeon;
-    this.filenameBase = filenameBase;
     this.strategy = strategy;
   }
 
   public void open() throws IOException
   {
-    headerOut = new CountingOutputStream(ioPeon.makeOutputStream(makeFilename("header")));
-    valuesOut = new CountingOutputStream(ioPeon.makeOutputStream(makeFilename("values")));
+    headerOut = new OutputBytes();
+    valuesOut = new OutputBytes();
   }
 
   public void write(T objectToWrite) throws IOException
@@ -79,90 +65,53 @@ public class GenericIndexedWriter<T> implements Closeable
     byte[] bytesToWrite = strategy.toBytes(objectToWrite);
 
     ++numWritten;
-    valuesOut.write(Ints.toByteArray(bytesToWrite.length));
+    valuesOut.writeInt(bytesToWrite.length);
     valuesOut.write(bytesToWrite);
 
-    headerOut.write(Ints.toByteArray((int) valuesOut.getCount()));
+    headerOut.writeInt(Ints.checkedCast(valuesOut.size()));
 
     prevObject = objectToWrite;
   }
 
-  private String makeFilename(String suffix)
+  @Override
+  public long getSerializedSize() throws IOException
   {
-    return String.format("%s.%s", filenameBase, suffix);
+    return metaSize() + headerOut.size() + valuesOut.size();
   }
 
   @Override
-  public void close() throws IOException
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    headerOut.close();
-    valuesOut.close();
-
-    final long numBytesWritten = headerOut.getCount() + valuesOut.getCount();
+    final long numBytesWritten = headerOut.size() + valuesOut.size();
 
     Preconditions.checkState(
-        headerOut.getCount() == (numWritten * 4),
+        headerOut.size() == (numWritten * 4),
         "numWritten[%s] number of rows should have [%s] bytes written to headerOut, had[%s]",
         numWritten,
         numWritten * 4,
-        headerOut.getCount()
+        headerOut.size()
     );
     Preconditions.checkState(
         numBytesWritten < Integer.MAX_VALUE, "Wrote[%s] bytes, which is too many.", numBytesWritten
     );
 
-    OutputStream metaOut = ioPeon.makeOutputStream(makeFilename("meta"));
+    int metaSize = metaSize(); // numElements
+    ByteBuffer meta = ByteBuffer.allocate(metaSize);
+    meta.put((byte) 0x1);
+    meta.put((byte) (objectsSorted ? 0x1 : 0x0));
+    meta.putInt(Ints.checkedCast(numBytesWritten + 4));
+    meta.putInt(numWritten);
+    meta.flip();
 
-    try {
-      metaOut.write(0x1);
-      metaOut.write(objectsSorted ? 0x1 : 0x0);
-      metaOut.write(Ints.toByteArray((int) numBytesWritten + 4));
-      metaOut.write(Ints.toByteArray(numWritten));
-    }
-    finally {
-      metaOut.close();
-    }
+    Channels.writeFully(channel, meta);
+    headerOut.writeTo(channel);
+    valuesOut.writeTo(channel);
   }
 
-  public long getSerializedSize()
+  private int metaSize()
   {
-    return 2 +                    // version and sorted flag
-           Ints.BYTES +           // numBytesWritten
-           Ints.BYTES +           // numElements
-           headerOut.getCount() + // header length
-           valuesOut.getCount();  // value length
-  }
-
-  public InputSupplier<InputStream> combineStreams()
-  {
-    // ByteSource.concat is only available in guava 15 and higher
-    // This is guava 14 compatible
-    return ByteStreams.join(
-        Iterables.transform(
-            Arrays.asList("meta", "header", "values"),
-            new Function<String, InputSupplier<InputStream>>()
-            {
-              @Override
-              public InputSupplier<InputStream> apply(final String input)
-              {
-                return new InputSupplier<InputStream>()
-                {
-                  @Override
-                  public InputStream getInput() throws IOException
-                  {
-                    return ioPeon.makeInputStream(makeFilename(input));
-                  }
-                };
-              }
-            }
-        )
-    );
-  }
-
-  public void writeToChannel(WritableByteChannel channel) throws IOException
-  {
-    try (final ReadableByteChannel from = Channels.newChannel(combineStreams().getInput())) {
-      ByteStreams.copy(from, channel);
-    }
+    return 2 + // version and sorted flag
+           Ints.BYTES + // numBytesWritten
+           Ints.BYTES; // numWritten
   }
 }

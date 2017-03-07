@@ -25,7 +25,6 @@ import com.metamx.common.logger.Logger;
 import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.DictionaryEncodedColumn;
-import io.druid.segment.data.IOPeon;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedInts;
 
@@ -200,24 +199,22 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
   public DimensionMergerV9 makeMerger(
       IndexSpec indexSpec,
       File outDir,
-      IOPeon ioPeon,
       ColumnCapabilities capabilities,
       ProgressIndicator progress
   )
   {
-    return new StringDimensionMergerV9(dimensionName, indexSpec, outDir, ioPeon, capabilities, progress);
+    return new StringDimensionMergerV9(dimensionName, indexSpec, outDir, capabilities, progress);
   }
 
   @Override
   public DimensionMergerLegacy makeLegacyMerger(
       IndexSpec indexSpec,
       File outDir,
-      IOPeon ioPeon,
       ColumnCapabilities capabilities,
       ProgressIndicator progress
   )
   {
-    return new StringDimensionMergerLegacy(dimensionName, indexSpec, outDir, ioPeon, capabilities, progress);
+    return new StringDimensionMergerLegacy(dimensionName, indexSpec, outDir, capabilities, progress);
   }
 
   public static final Function<Object, String> STRING_TRANSFORMER = new Function<Object, String>()

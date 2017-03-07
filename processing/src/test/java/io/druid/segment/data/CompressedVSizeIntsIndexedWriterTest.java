@@ -105,7 +105,7 @@ public class CompressedVSizeIntsIndexedWriterTest
   private void checkSerializedSizeAndData(int chunkSize) throws Exception
   {
     CompressedVSizeIntsIndexedWriter writer = new CompressedVSizeIntsIndexedWriter(
-        ioPeon, "test", vals.length > 0 ? Ints.max(vals) : 0, chunkSize, byteOrder, compressionStrategy
+        vals.length > 0 ? Ints.max(vals) : 0, chunkSize, byteOrder, compressionStrategy
     );
     CompressedVSizeIntsIndexedSupplier supplierFromList = CompressedVSizeIntsIndexedSupplier.fromList(
         Ints.asList(vals), vals.length > 0 ? Ints.max(vals) : 0, chunkSize, byteOrder, compressionStrategy
@@ -114,10 +114,9 @@ public class CompressedVSizeIntsIndexedWriterTest
     for (int val : vals) {
       writer.add(val);
     }
-    writer.close();
     long writtenLength = writer.getSerializedSize();
     final WritableByteChannel outputChannel = Channels.newChannel(ioPeon.makeOutputStream("output"));
-    writer.writeToChannel(outputChannel);
+    writer.writeTo(outputChannel);
     outputChannel.close();
 
     assertEquals(writtenLength, supplierFromList.getSerializedSize());

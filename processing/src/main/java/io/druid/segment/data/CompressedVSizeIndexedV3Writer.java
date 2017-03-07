@@ -17,11 +17,10 @@
  * under the License.
  */
 
-/**
- * Streams array of integers out in the binary format described by CompressedVSizeIndexedV3Supplier
- */
+
 package io.druid.segment.data;
 
+import io.druid.io.Channels;
 import io.druid.segment.CompressedVSizeIndexedV3Supplier;
 import io.druid.segment.IndexIO;
 
@@ -31,6 +30,9 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Streams array of integers out in the binary format described by CompressedVSizeIndexedV3Supplier
+ */
 public class CompressedVSizeIndexedV3Writer extends MultiValueIndexedIntsWriter
 {
   private static final byte VERSION = CompressedVSizeIndexedV3Supplier.VERSION;
@@ -38,23 +40,17 @@ public class CompressedVSizeIndexedV3Writer extends MultiValueIndexedIntsWriter
   private static final List<Integer> EMPTY_LIST = new ArrayList<>();
 
   public static CompressedVSizeIndexedV3Writer create(
-      final IOPeon ioPeon,
-      final String filenameBase,
       final int maxValue,
       final CompressedObjectStrategy.CompressionStrategy compression
   )
   {
     return new CompressedVSizeIndexedV3Writer(
         new CompressedIntsIndexedWriter(
-            ioPeon,
-            String.format("%s.offsets", filenameBase),
             CompressedIntsIndexedSupplier.MAX_INTS_IN_BUFFER,
             IndexIO.BYTE_ORDER,
             compression
         ),
         new CompressedVSizeIntsIndexedWriter(
-            ioPeon,
-            String.format("%s.values", filenameBase),
             maxValue,
             CompressedVSizeIntsIndexedSupplier.maxIntsInBufferForValue(maxValue),
             IndexIO.BYTE_ORDER,
@@ -66,8 +62,9 @@ public class CompressedVSizeIndexedV3Writer extends MultiValueIndexedIntsWriter
   private final CompressedIntsIndexedWriter offsetWriter;
   private final CompressedVSizeIntsIndexedWriter valueWriter;
   private int offset;
+  private boolean lastOffsetWritten = false;
 
-  public CompressedVSizeIndexedV3Writer(
+  CompressedVSizeIndexedV3Writer(
       CompressedIntsIndexedWriter offsetWriter,
       CompressedVSizeIntsIndexedWriter valueWriter
   )
@@ -98,30 +95,26 @@ public class CompressedVSizeIndexedV3Writer extends MultiValueIndexedIntsWriter
   }
 
   @Override
-  public void close() throws IOException
+  public long getSerializedSize() throws IOException
   {
-    try {
+    writeLastOffset();
+    return 1 + offsetWriter.getSerializedSize() + valueWriter.getSerializedSize();
+  }
+
+  @Override
+  public void writeTo(WritableByteChannel channel) throws IOException
+  {
+    writeLastOffset();
+    Channels.writeFully(channel, ByteBuffer.wrap(new byte[]{VERSION}));
+    offsetWriter.writeTo(channel);
+    valueWriter.writeTo(channel);
+  }
+
+  private void writeLastOffset() throws IOException
+  {
+    if (!lastOffsetWritten) {
       offsetWriter.add(offset);
+      lastOffsetWritten = true;
     }
-    finally {
-      offsetWriter.close();
-      valueWriter.close();
-    }
-  }
-
-  @Override
-  public long getSerializedSize()
-  {
-    return 1 +   // version
-           offsetWriter.getSerializedSize() +
-           valueWriter.getSerializedSize();
-  }
-
-  @Override
-  public void writeToChannel(WritableByteChannel channel) throws IOException
-  {
-    channel.write(ByteBuffer.wrap(new byte[]{VERSION}));
-    offsetWriter.writeToChannel(channel);
-    valueWriter.writeToChannel(channel);
   }
 }

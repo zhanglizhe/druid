@@ -21,35 +21,22 @@ package io.druid.segment.serde;
 
 import io.druid.segment.GenericColumnSerializer;
 import io.druid.segment.data.GenericIndexedWriter;
-import io.druid.segment.data.IOPeon;
 
 import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 
 public class ComplexColumnSerializer implements GenericColumnSerializer
 {
-  public static ComplexColumnSerializer create(
-      IOPeon ioPeon,
-      String filenameBase,
-      ComplexMetricSerde serde
-  )
+  public static ComplexColumnSerializer create(ComplexMetricSerde serde)
   {
-    return new ComplexColumnSerializer(ioPeon, filenameBase, serde);
+    return new ComplexColumnSerializer(serde);
   }
 
-  private final IOPeon ioPeon;
-  private final String filenameBase;
   private final ComplexMetricSerde serde;
   private GenericIndexedWriter writer;
 
-  public ComplexColumnSerializer(
-      IOPeon ioPeon,
-      String filenameBase,
-      ComplexMetricSerde serde
-  )
+  private ComplexColumnSerializer(ComplexMetricSerde serde)
   {
-    this.ioPeon = ioPeon;
-    this.filenameBase = filenameBase;
     this.serde = serde;
   }
 
@@ -57,9 +44,7 @@ public class ComplexColumnSerializer implements GenericColumnSerializer
   @Override
   public void open() throws IOException
   {
-    writer = new GenericIndexedWriter(
-        ioPeon, String.format("%s.complex_column", filenameBase), serde.getObjectStrategy()
-    );
+    writer = new GenericIndexedWriter(serde.getObjectStrategy());
     writer.open();
   }
 
@@ -71,20 +56,14 @@ public class ComplexColumnSerializer implements GenericColumnSerializer
   }
 
   @Override
-  public void close() throws IOException
-  {
-    writer.close();
-  }
-
-  @Override
-  public long getSerializedSize()
+  public long getSerializedSize() throws IOException
   {
     return writer.getSerializedSize();
   }
 
   @Override
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    writer.writeToChannel(channel);
+    writer.writeTo(channel);
   }
 }

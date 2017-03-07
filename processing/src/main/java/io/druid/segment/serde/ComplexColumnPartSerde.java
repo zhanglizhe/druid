@@ -25,9 +25,7 @@ import io.druid.segment.column.ColumnBuilder;
 import io.druid.segment.column.ColumnConfig;
 import io.druid.segment.data.GenericIndexed;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
 
 /**
  */
@@ -82,22 +80,7 @@ public class ComplexColumnPartSerde implements ColumnPartSerde
 
     public ComplexColumnPartSerde build()
     {
-      return new ComplexColumnPartSerde(
-          typeName, new Serializer()
-      {
-        @Override
-        public long numBytes()
-        {
-          return delegate.getSerializedSize();
-        }
-
-        @Override
-        public void write(WritableByteChannel channel) throws IOException
-        {
-          delegate.writeToChannel(channel);
-        }
-      }
-      );
+      return new ComplexColumnPartSerde(typeName, delegate);
     }
   }
 
@@ -125,22 +108,7 @@ public class ComplexColumnPartSerde implements ColumnPartSerde
 
     public ComplexColumnPartSerde build()
     {
-      return new ComplexColumnPartSerde(
-          typeName, new Serializer()
-      {
-        @Override
-        public long numBytes()
-        {
-          return delegate.getSerializedSize();
-        }
-
-        @Override
-        public void write(WritableByteChannel channel) throws IOException
-        {
-          delegate.writeToChannel(channel);
-        }
-      }
-      );
+      return new ComplexColumnPartSerde(typeName, delegate);
     }
   }
 

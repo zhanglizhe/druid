@@ -26,6 +26,7 @@ import com.google.common.primitives.Ints;
 import com.metamx.collections.bitmap.ImmutableBitmap;
 import com.metamx.collections.spatial.ImmutableRTree;
 import com.metamx.common.IAE;
+import io.druid.io.Channels;
 import io.druid.segment.CompressedVSizeIndexedSupplier;
 import io.druid.segment.CompressedVSizeIndexedV3Supplier;
 import io.druid.segment.column.ColumnBuilder;
@@ -203,7 +204,7 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
           new Serializer()
           {
             @Override
-            public long numBytes()
+            public long getSerializedSize() throws IOException
             {
               long size = 1 + // version
                           (version.compareTo(VERSION.COMPRESSED) >= 0
@@ -225,23 +226,23 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
             }
 
             @Override
-            public void write(WritableByteChannel channel) throws IOException
+            public void writeTo(WritableByteChannel channel) throws IOException
             {
-              channel.write(ByteBuffer.wrap(new byte[]{version.asByte()}));
+              Channels.writeFully(channel, ByteBuffer.wrap(new byte[]{version.asByte()}));
               if (version.compareTo(VERSION.COMPRESSED) >= 0) {
                 channel.write(ByteBuffer.wrap(Ints.toByteArray(flags)));
               }
               if (dictionaryWriter != null) {
-                dictionaryWriter.writeToChannel(channel);
+                dictionaryWriter.writeTo(channel);
               }
               if (valueWriter != null) {
-                valueWriter.writeToChannel(channel);
+                valueWriter.writeTo(channel);
               }
               if (bitmapIndexWriter != null) {
-                bitmapIndexWriter.writeToChannel(channel);
+                bitmapIndexWriter.writeTo(channel);
               }
               if (spatialIndexWriter != null) {
-                spatialIndexWriter.writeToChannel(channel);
+                spatialIndexWriter.writeTo(channel);
               }
             }
           }
@@ -304,7 +305,7 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
     {
       Preconditions.checkState(multiValuedColumn == null, "Cannot set both singleValuedColumn and multiValuedColumn");
       this.version = VERSION.UNCOMPRESSED_SINGLE_VALUE;
-      this.singleValuedColumn = singleValuedColumn.asWritableSupplier();
+      this.singleValuedColumn = singleValuedColumn;
       return this;
     }
 
@@ -321,7 +322,7 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
       Preconditions.checkState(singleValuedColumn == null, "Cannot set both multiValuedColumn and singleValuedColumn");
       this.version = VERSION.UNCOMPRESSED_MULTI_VALUE;
       this.flags |= Feature.MULTI_VALUE.getMask();
-      this.multiValuedColumn = multiValuedColumn.asWritableSupplier();
+      this.multiValuedColumn = multiValuedColumn;
       return this;
     }
 
@@ -348,7 +349,7 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
           new Serializer()
           {
             @Override
-            public long numBytes()
+            public long getSerializedSize() throws IOException
             {
               long size = 1 + // version
                           (version.compareTo(VERSION.COMPRESSED) >= 0 ? Ints.BYTES : 0);// flag if version >= compressed
@@ -369,29 +370,29 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
             }
 
             @Override
-            public void write(WritableByteChannel channel) throws IOException
+            public void writeTo(WritableByteChannel channel) throws IOException
             {
-              channel.write(ByteBuffer.wrap(new byte[]{version.asByte()}));
+              Channels.writeFully(channel, ByteBuffer.wrap(new byte[]{version.asByte()}));
               if (version.compareTo(VERSION.COMPRESSED) >= 0) {
-                channel.write(ByteBuffer.wrap(Ints.toByteArray(flags)));
+                Channels.writeFully(channel, ByteBuffer.wrap(Ints.toByteArray(flags)));
               }
 
               if (dictionary != null) {
-                dictionary.writeToChannel(channel);
+                dictionary.writeTo(channel);
               }
 
               if (Feature.MULTI_VALUE.isSet(flags)) {
                 if (multiValuedColumn != null) {
-                  multiValuedColumn.writeToChannel(channel);
+                  multiValuedColumn.writeTo(channel);
                 }
               } else {
                 if (singleValuedColumn != null) {
-                  singleValuedColumn.writeToChannel(channel);
+                  singleValuedColumn.writeTo(channel);
                 }
               }
 
               if (bitmaps != null) {
-                bitmaps.writeToChannel(channel);
+                bitmaps.writeTo(channel);
               }
 
               if (spatialIndex != null) {
@@ -483,7 +484,7 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
       {
         switch (version) {
           case UNCOMPRESSED_SINGLE_VALUE:
-            return VSizeIndexedInts.readFromByteBuffer(buffer).asWritableSupplier();
+            return VSizeIndexedInts.readFromByteBuffer(buffer);
           case COMPRESSED:
             return CompressedVSizeIntsIndexedSupplier.fromByteBuffer(buffer, byteOrder);
         }
@@ -496,7 +497,7 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
       {
         switch (version) {
           case UNCOMPRESSED_MULTI_VALUE:
-            return VSizeIndexed.readFromByteBuffer(buffer).asWritableSupplier();
+            return VSizeIndexed.readFromByteBuffer(buffer);
           case COMPRESSED:
             if (Feature.MULTI_VALUE.isSet(flags)) {
               return CompressedVSizeIndexedSupplier.fromByteBuffer(buffer, byteOrder);

@@ -20,7 +20,6 @@
 package io.druid.segment.data;
 
 import com.google.common.base.Supplier;
-import com.google.common.io.ByteSink;
 import com.google.common.primitives.Longs;
 import com.metamx.common.guava.CloseQuietly;
 import org.junit.Assert;
@@ -30,10 +29,10 @@ import org.junit.runners.Parameterized;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -128,7 +127,7 @@ public class CompressedLongsSerdeTest
 
   public void testValues(long[] values) throws Exception
   {
-    LongSupplierSerializer serializer = CompressionFactory.getLongSerializer(new IOPeonForTesting(), "test", order,
+    LongSupplierSerializer serializer = CompressionFactory.getLongSerializer(order,
                                                                              encodingStrategy, compressionStrategy
     );
     serializer.open();
@@ -139,16 +138,7 @@ public class CompressedLongsSerdeTest
     Assert.assertEquals(values.length, serializer.size());
 
     final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    serializer.closeAndConsolidate(
-        new ByteSink()
-        {
-          @Override
-          public OutputStream openStream() throws IOException
-          {
-            return baos;
-          }
-        }
-    );
+    serializer.writeTo(Channels.newChannel(baos));
     Assert.assertEquals(baos.size(), serializer.getSerializedSize());
     CompressedLongsIndexedSupplier supplier = CompressedLongsIndexedSupplier
         .fromByteBuffer(ByteBuffer.wrap(baos.toByteArray()), order);
@@ -200,7 +190,7 @@ public class CompressedLongsSerdeTest
   private void testSupplierSerde(CompressedLongsIndexedSupplier supplier, long[] vals) throws IOException
   {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    supplier.writeToChannel(Channels.newChannel(baos));
+    supplier.writeTo(Channels.newChannel(baos));
 
     final byte[] bytes = baos.toByteArray();
     Assert.assertEquals(supplier.getSerializedSize(), bytes.length);

@@ -20,31 +20,32 @@
 package io.druid.segment;
 
 import com.google.common.io.ByteSink;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.InputSupplier;
 import com.google.common.io.OutputSupplier;
 import com.metamx.common.IAE;
 import com.metamx.common.ISE;
 import io.druid.common.utils.SerializerUtils;
+import io.druid.io.Channels;
 import io.druid.segment.data.CompressedFloatsIndexedSupplier;
 import io.druid.segment.data.CompressedLongsIndexedSupplier;
 import io.druid.segment.data.FloatSupplierSerializer;
-import io.druid.segment.data.LongSupplierSerializer;
 import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.GenericIndexedWriter;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedFloats;
 import io.druid.segment.data.IndexedLongs;
+import io.druid.segment.data.LongSupplierSerializer;
 import io.druid.segment.data.ObjectStrategy;
 import io.druid.segment.serde.ComplexMetricSerde;
 import io.druid.segment.serde.ComplexMetrics;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
+import java.nio.file.StandardOpenOption;
 
 /**
  */
@@ -67,40 +68,41 @@ public class MetricHolder
     return retVal;
   }
 
-  public static void writeComplexMetric(
-      OutputSupplier<? extends OutputStream> outSupplier, String name, String typeName, GenericIndexedWriter column
-  ) throws IOException
+  public static void writeComplexMetric(File file, String name, String typeName, GenericIndexedWriter column)
+      throws IOException
   {
-    try (OutputStream out = outSupplier.getOutput()) {
-      out.write(version);
+    try (FileChannel out = FileChannel.open(file.toPath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+      writeVersion(out);
       serializerUtils.writeString(out, name);
       serializerUtils.writeString(out, typeName);
 
-      final InputSupplier<InputStream> supplier = column.combineStreams();
-      try (InputStream in = supplier.getInput()) {
-        ByteStreams.copy(in, out);
-      }
+      column.writeTo(out);
     }
   }
 
-  public static void writeFloatMetric(
-      final ByteSink outSupplier, String name, FloatSupplierSerializer column
-  ) throws IOException
+  static void writeFloatMetric(File outFile, String name, FloatSupplierSerializer column) throws IOException
   {
-    outSupplier.write(version);
-    serializerUtils.writeString(toOutputSupplier(outSupplier), name);
-    serializerUtils.writeString(toOutputSupplier(outSupplier), "float");
-    column.closeAndConsolidate(outSupplier);
+    try (FileChannel out = FileChannel.open(outFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+      writeVersion(out);
+      serializerUtils.writeString(out, name);
+      serializerUtils.writeString(out, "float");
+      column.writeTo(out);
+    }
   }
 
-  public static void writeLongMetric(
-      ByteSink outSupplier, String name, LongSupplierSerializer column
-  ) throws IOException
+  public static void writeLongMetric(File outFile, String name, LongSupplierSerializer column) throws IOException
   {
-    outSupplier.write(version);
-    serializerUtils.writeString(toOutputSupplier(outSupplier), name);
-    serializerUtils.writeString(toOutputSupplier(outSupplier), "long");
-    column.closeAndConsolidate(outSupplier);
+    try (FileChannel out = FileChannel.open(outFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
+      writeVersion(out);
+      serializerUtils.writeString(out, name);
+      serializerUtils.writeString(out, "long");
+      column.writeTo(out);
+    }
+  }
+
+  private static void writeVersion(FileChannel out) throws IOException
+  {
+    Channels.writeFully(out, ByteBuffer.wrap(version));
   }
 
   public static void writeToChannel(MetricHolder holder, WritableByteChannel out) throws IOException
@@ -111,11 +113,11 @@ public class MetricHolder
 
     switch (holder.type) {
       case FLOAT:
-        holder.floatType.writeToChannel(out);
+        holder.floatType.writeTo(out);
         break;
       case COMPLEX:
         if (holder.complexType instanceof GenericIndexed) {
-          ((GenericIndexed) holder.complexType).writeToChannel(out);
+          ((GenericIndexed) holder.complexType).writeTo(out);
         } else {
           throw new IAE("Cannot serialize out MetricHolder for complex type that is not a GenericIndexed");
         }

@@ -22,8 +22,10 @@ package io.druid.common.utils;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Ints;
+import com.google.common.primitives.Longs;
 import com.metamx.common.StringUtils;
 import io.druid.collections.IntList;
+import io.druid.io.Channels;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,10 +58,10 @@ public class SerializerUtils
   {
     byte[] nameBytes = name.getBytes(UTF8);
     writeInt(out, nameBytes.length);
-    out.write(ByteBuffer.wrap(nameBytes));
+    Channels.writeFully(out, ByteBuffer.wrap(nameBytes));
   }
 
-  public String readString(InputStream in) throws IOException
+  String readString(InputStream in) throws IOException
   {
     final int length = readInt(in);
     byte[] stringBytes = new byte[length];
@@ -80,12 +82,12 @@ public class SerializerUtils
     return bytes;
   }
 
-  public void writeStrings(OutputStream out, String[] names) throws IOException
+  void writeStrings(OutputStream out, String[] names) throws IOException
   {
     writeStrings(out, Arrays.asList(names));
   }
 
-  public void writeStrings(OutputStream out, List<String> names) throws IOException
+  private void writeStrings(OutputStream out, List<String> names) throws IOException
   {
     writeInt(out, names.size());
 
@@ -94,7 +96,7 @@ public class SerializerUtils
     }
   }
 
-  public String[] readStrings(InputStream in) throws IOException
+  String[] readStrings(InputStream in) throws IOException
   {
     int length = readInt(in);
 
@@ -107,7 +109,7 @@ public class SerializerUtils
     return retVal;
   }
 
-  public String[] readStrings(ByteBuffer in) throws IOException
+  String[] readStrings(ByteBuffer in) throws IOException
   {
     int length = in.getInt();
 
@@ -120,42 +122,38 @@ public class SerializerUtils
     return retVal;
   }
 
-  public void writeInt(OutputStream out, int intValue) throws IOException
+  private void writeInt(OutputStream out, int intValue) throws IOException
   {
-    byte[] outBytes = new byte[4];
-
-    ByteBuffer.wrap(outBytes).putInt(intValue);
-
-    out.write(outBytes);
+    out.write(Ints.toByteArray(intValue));
   }
 
-  public void writeInt(WritableByteChannel out, int intValue) throws IOException
+  private void writeInt(WritableByteChannel out, int intValue) throws IOException
   {
     final ByteBuffer buffer = ByteBuffer.allocate(4);
     buffer.putInt(intValue);
     buffer.flip();
-    out.write(buffer);
+    Channels.writeFully(out, buffer);
   }
 
-  public int readInt(InputStream in) throws IOException
+  private int readInt(InputStream in) throws IOException
   {
     byte[] intBytes = new byte[4];
 
     ByteStreams.readFully(in, intBytes);
 
-    return ByteBuffer.wrap(intBytes).getInt();
+    return Ints.fromByteArray(intBytes);
   }
 
-  public void writeInts(OutputStream out, int[] ints) throws IOException
+  void writeInts(OutputStream out, int[] ints) throws IOException
   {
     writeInt(out, ints.length);
 
-    for (int i = 0; i < ints.length; i++) {
-      writeInt(out, ints[i]);
+    for (int value : ints) {
+      writeInt(out, value);
     }
   }
 
-  public void writeInts(OutputStream out, IntList ints) throws IOException
+  void writeInts(OutputStream out, IntList ints) throws IOException
   {
     writeInt(out, ints.length());
 
@@ -164,7 +162,7 @@ public class SerializerUtils
     }
   }
 
-  public int[] readInts(InputStream in) throws IOException
+  int[] readInts(InputStream in) throws IOException
   {
     int size = readInt(in);
 
@@ -176,13 +174,9 @@ public class SerializerUtils
     return retVal;
   }
 
-  public void writeLong(OutputStream out, long longValue) throws IOException
+  private void writeLong(OutputStream out, long longValue) throws IOException
   {
-    byte[] outBytes = new byte[8];
-
-    ByteBuffer.wrap(outBytes).putLong(longValue);
-
-    out.write(outBytes);
+    out.write(Longs.toByteArray(longValue));
   }
 
   public void writeLong(WritableByteChannel out, long longValue) throws IOException
@@ -190,28 +184,28 @@ public class SerializerUtils
     final ByteBuffer buffer = ByteBuffer.allocate(8);
     buffer.putLong(longValue);
     buffer.flip();
-    out.write(buffer);
+    Channels.writeFully(out, buffer);
   }
 
-  public long readLong(InputStream in) throws IOException
+  long readLong(InputStream in) throws IOException
   {
     byte[] longBytes = new byte[8];
 
     ByteStreams.readFully(in, longBytes);
 
-    return ByteBuffer.wrap(longBytes).getLong();
+    return Longs.fromByteArray(longBytes);
   }
 
-  public void writeLongs(OutputStream out, long[] longs) throws IOException
+  void writeLongs(OutputStream out, long[] longs) throws IOException
   {
     writeInt(out, longs.length);
 
-    for (int i = 0; i < longs.length; i++) {
-      writeLong(out, longs[i]);
+    for (long value : longs) {
+      writeLong(out, value);
     }
   }
 
-  public long[] readLongs(InputStream in) throws IOException
+  long[] readLongs(InputStream in) throws IOException
   {
     int size = readInt(in);
 
@@ -223,42 +217,38 @@ public class SerializerUtils
     return retVal;
   }
 
-  public void writeFloat(OutputStream out, float intValue) throws IOException
+  private void writeFloat(OutputStream out, float floatValue) throws IOException
   {
-    byte[] outBytes = new byte[4];
-
-    ByteBuffer.wrap(outBytes).putFloat(intValue);
-
-    out.write(outBytes);
+    out.write(Ints.toByteArray(Float.floatToRawIntBits(floatValue)));
   }
 
-  public void writeFloat(WritableByteChannel out, float floatValue) throws IOException
+  void writeFloat(WritableByteChannel out, float floatValue) throws IOException
   {
     final ByteBuffer buffer = ByteBuffer.allocate(4);
     buffer.putFloat(floatValue);
     buffer.flip();
-    out.write(buffer);
+    Channels.writeFully(out, buffer);
   }
 
-  public float readFloat(InputStream in) throws IOException
+  float readFloat(InputStream in) throws IOException
   {
     byte[] floatBytes = new byte[4];
 
     ByteStreams.readFully(in, floatBytes);
 
-    return ByteBuffer.wrap(floatBytes).getFloat();
+    return Float.intBitsToFloat(Ints.fromByteArray(floatBytes));
   }
 
-  public void writeFloats(OutputStream out, float[] floats) throws IOException
+  void writeFloats(OutputStream out, float[] floats) throws IOException
   {
     writeInt(out, floats.length);
 
-    for (int i = 0; i < floats.length; i++) {
-      writeFloat(out, floats[i]);
+    for (float value : floats) {
+      writeFloat(out, value);
     }
   }
 
-  public float[] readFloats(InputStream in) throws IOException
+  float[] readFloats(InputStream in) throws IOException
   {
     int size = readInt(in);
 

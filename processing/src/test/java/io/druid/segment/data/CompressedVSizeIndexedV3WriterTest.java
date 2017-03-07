@@ -109,10 +109,10 @@ public class CompressedVSizeIndexedV3WriterTest
   {
     int maxValue = vals.size() > 0 ? getMaxValue(vals) : 0;
     CompressedIntsIndexedWriter offsetWriter = new CompressedIntsIndexedWriter(
-        ioPeon, "offset", offsetChunkFactor, byteOrder, compressionStrategy
+        offsetChunkFactor, byteOrder, compressionStrategy
     );
     CompressedVSizeIntsIndexedWriter valueWriter = new CompressedVSizeIntsIndexedWriter(
-        ioPeon, "value", maxValue, valueChunkFactor, byteOrder, compressionStrategy
+        maxValue, valueChunkFactor, byteOrder, compressionStrategy
     );
     CompressedVSizeIndexedV3Writer writer = new CompressedVSizeIndexedV3Writer(offsetWriter, valueWriter);
     CompressedVSizeIndexedV3Supplier supplierFromIterable = CompressedVSizeIndexedV3Supplier.fromIterable(
@@ -132,10 +132,9 @@ public class CompressedVSizeIndexedV3WriterTest
     for (int[] val : vals) {
       writer.add(val);
     }
-    writer.close();
     long writtenLength = writer.getSerializedSize();
     final WritableByteChannel outputChannel = Channels.newChannel(ioPeon.makeOutputStream("output"));
-    writer.writeToChannel(outputChannel);
+    writer.writeTo(outputChannel);
     outputChannel.close();
 
     assertEquals(writtenLength, supplierFromIterable.getSerializedSize());

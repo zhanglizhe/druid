@@ -22,6 +22,7 @@ package io.druid.segment.data;
 import com.google.common.primitives.Ints;
 import com.metamx.common.IAE;
 import com.metamx.common.ISE;
+import io.druid.io.Channels;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -32,6 +33,7 @@ import java.util.Iterator;
 /**
  */
 public class VSizeIndexed extends IndexedMultivalue<IndexedInts>
+    implements WritableSupplier<IndexedMultivalue<IndexedInts>>
 {
   private static final byte version = 0x1;
 
@@ -147,17 +149,35 @@ public class VSizeIndexed extends IndexedMultivalue<IndexedInts>
     throw new UnsupportedOperationException("Reverse lookup not allowed.");
   }
 
-  public int getSerializedSize()
+  @Override
+  public long getSerializedSize() throws IOException
   {
-    return theBuffer.remaining() + 4 + 4 + 2;
+    return metaSize() + (long) theBuffer.remaining();
   }
 
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  @Override
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{version, (byte) numBytes}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(theBuffer.remaining() + 4)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(size)));
-    channel.write(theBuffer.asReadOnlyBuffer());
+    ByteBuffer meta = ByteBuffer.allocate(metaSize());
+    meta.put(version);
+    meta.put((byte) numBytes);
+    meta.putInt(theBuffer.remaining() + 4);
+    meta.putInt(size);
+    meta.flip();
+
+    Channels.writeFully(channel, meta);
+    Channels.writeFully(channel, theBuffer.asReadOnlyBuffer());
+  }
+
+  private int metaSize()
+  {
+    return 1 + 1 + Ints.BYTES + Ints.BYTES;
+  }
+
+  @Override
+  public IndexedMultivalue<IndexedInts> get()
+  {
+    return this;
   }
 
   public static VSizeIndexed readFromByteBuffer(ByteBuffer buffer)
@@ -187,35 +207,5 @@ public class VSizeIndexed extends IndexedMultivalue<IndexedInts>
   public void close() throws IOException
   {
     // no-op
-  }
-
-  public WritableSupplier<IndexedMultivalue<IndexedInts>> asWritableSupplier() {
-    return new VSizeIndexedSupplier(this);
-  }
-
-  public static class VSizeIndexedSupplier implements WritableSupplier<IndexedMultivalue<IndexedInts>> {
-    final VSizeIndexed delegate;
-
-    public VSizeIndexedSupplier(VSizeIndexed delegate) {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public long getSerializedSize()
-    {
-      return delegate.getSerializedSize();
-    }
-
-    @Override
-    public void writeToChannel(WritableByteChannel channel) throws IOException
-    {
-      delegate.writeToChannel(channel);
-    }
-
-    @Override
-    public IndexedMultivalue<IndexedInts> get()
-    {
-      return delegate;
-    }
   }
 }

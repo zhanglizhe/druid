@@ -22,7 +22,6 @@ package io.druid.segment;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
 import io.druid.segment.data.LongSupplierSerializer;
-import io.druid.segment.data.IOPeon;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
@@ -31,32 +30,24 @@ import java.nio.channels.WritableByteChannel;
 public class LongColumnSerializer implements GenericColumnSerializer
 {
   public static LongColumnSerializer create(
-      IOPeon ioPeon,
-      String filenameBase,
       CompressedObjectStrategy.CompressionStrategy compression,
       CompressionFactory.LongEncodingStrategy encoding
   )
   {
-    return new LongColumnSerializer(ioPeon, filenameBase, IndexIO.BYTE_ORDER, compression, encoding);
+    return new LongColumnSerializer(IndexIO.BYTE_ORDER, compression, encoding);
   }
 
-  private final IOPeon ioPeon;
-  private final String filenameBase;
   private final ByteOrder byteOrder;
   private final CompressedObjectStrategy.CompressionStrategy compression;
   private final CompressionFactory.LongEncodingStrategy encoding;
   private LongSupplierSerializer writer;
 
-  public LongColumnSerializer(
-      IOPeon ioPeon,
-      String filenameBase,
+  private LongColumnSerializer(
       ByteOrder byteOrder,
       CompressedObjectStrategy.CompressionStrategy compression,
       CompressionFactory.LongEncodingStrategy encoding
   )
   {
-    this.ioPeon = ioPeon;
-    this.filenameBase = filenameBase;
     this.byteOrder = byteOrder;
     this.compression = compression;
     this.encoding = encoding;
@@ -65,13 +56,7 @@ public class LongColumnSerializer implements GenericColumnSerializer
   @Override
   public void open() throws IOException
   {
-    writer = CompressionFactory.getLongSerializer(
-        ioPeon,
-        String.format("%s.long_column", filenameBase),
-        byteOrder,
-        encoding,
-        compression
-    );
+    writer = CompressionFactory.getLongSerializer(byteOrder, encoding, compression);
     writer.open();
   }
 
@@ -83,21 +68,14 @@ public class LongColumnSerializer implements GenericColumnSerializer
   }
 
   @Override
-  public void close() throws IOException
-  {
-    writer.close();
-  }
-
-  @Override
-  public long getSerializedSize()
+  public long getSerializedSize() throws IOException
   {
     return writer.getSerializedSize();
   }
 
   @Override
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    writer.writeToChannel(channel);
+    writer.writeTo(channel);
   }
-
 }

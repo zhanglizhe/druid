@@ -25,23 +25,16 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.common.io.Files;
 import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
-import com.metamx.collections.bitmap.BitmapFactory;
-import com.metamx.collections.bitmap.ImmutableBitmap;
-import com.metamx.collections.bitmap.MutableBitmap;
-import com.metamx.collections.spatial.ImmutableRTree;
-import com.metamx.collections.spatial.RTree;
-import com.metamx.collections.spatial.split.LinearGutmanSplitStrategy;
-import com.metamx.common.ByteBufferUtils;
 import com.metamx.common.ISE;
 import com.metamx.common.io.smoosh.FileSmoosher;
 import com.metamx.common.io.smoosh.SmooshedWriter;
 import com.metamx.common.logger.Logger;
 import io.druid.common.utils.JodaUtils;
+import io.druid.io.Channels;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
@@ -51,8 +44,6 @@ import io.druid.segment.column.ValueType;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
 import io.druid.segment.data.GenericIndexed;
-import io.druid.segment.data.IOPeon;
-import io.druid.segment.data.TmpFileIOPeon;
 import io.druid.segment.serde.ComplexColumnPartSerde;
 import io.druid.segment.serde.ComplexColumnSerializer;
 import io.druid.segment.serde.ComplexMetricSerde;
@@ -64,7 +55,6 @@ import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
 import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -139,17 +129,9 @@ public class IndexMergerV9 extends IndexMerger
     FileUtils.forceMkdir(v9TmpDir);
     registerDeleteDirectory(closer, v9TmpDir);
     log.info("Start making v9 index files, outDir:%s", outDir);
-    File tmpPeonFilesDir = new File(v9TmpDir, "tmpPeonFiles");
-    FileUtils.forceMkdir(tmpPeonFilesDir);
-    registerDeleteDirectory(closer, tmpPeonFilesDir);
-    final IOPeon ioPeon = new TmpFileIOPeon(tmpPeonFilesDir, false);
-    closer.register(ioPeon);
     try {
       long startTime = System.currentTimeMillis();
-      ByteStreams.write(
-          Ints.toByteArray(IndexIO.V9_VERSION),
-          Files.newOutputStreamSupplier(new File(outDir, "version.bin"))
-      );
+      Files.asByteSink(new File(outDir, "version.bin")).write(Ints.toByteArray(IndexIO.V9_VERSION));
       log.info("Completed version.bin in %,d millis.", System.currentTimeMillis() - startTime);
 
       progress.progress();
@@ -161,18 +143,13 @@ public class IndexMergerV9 extends IndexMerger
       final DimensionHandler[] handlers = makeDimensionHandlers(mergedDimensions, dimCapabilities);
       final List<DimensionMerger> mergers = new ArrayList<>();
       for (int i = 0; i < mergedDimensions.size(); i++) {
-        mergers.add(handlers[i].makeMerger(indexSpec, v9TmpDir, ioPeon, dimCapabilities.get(i), progress));
+        mergers.add(handlers[i].makeMerger(indexSpec, v9TmpDir, dimCapabilities.get(i), progress));
       }
 
       /************* Setup Dim Conversions **************/
       progress.progress();
       startTime = System.currentTimeMillis();
-      final ArrayList<Map<String, IntBuffer>> dimConversions = Lists.newArrayListWithCapacity(adapters.size());
-      final ArrayList<Boolean> dimensionSkipFlag = Lists.newArrayListWithCapacity(mergedDimensions.size());
-      final ArrayList<Boolean> convertMissingDimsFlags = Lists.newArrayListWithCapacity(mergedDimensions.size());
-      writeDimValueAndSetupDimConversion(
-          adapters, progress, mergedDimensions, mergers
-      );
+      writeDimValueAndSetupDimConversion(adapters, progress, mergedDimensions, mergers);
       log.info("Completed dim conversions in %,d millis.", System.currentTimeMillis() - startTime);
 
       /************* Walk through data sets, merge them, and write merged columns *************/
@@ -186,15 +163,13 @@ public class IndexMergerV9 extends IndexMerger
           handlers,
           mergers
       );
-      final LongColumnSerializer timeWriter = setupTimeWriter(ioPeon, indexSpec);
+      final LongColumnSerializer timeWriter = setupTimeWriter(indexSpec);
       final ArrayList<GenericColumnSerializer> metWriters = setupMetricsWriters(
-          ioPeon, mergedMetrics, metricsValueTypes, metricTypeNames, indexSpec
+          mergedMetrics, metricsValueTypes, metricTypeNames, indexSpec
       );
       final List<IntBuffer> rowNumConversions = Lists.newArrayListWithCapacity(adapters.size());
 
-      mergeIndexesAndWriteColumns(
-          adapters, progress, theRows, timeWriter, metWriters, rowNumConversions, mergers
-      );
+      mergeIndexesAndWriteColumns(adapters, progress, theRows, timeWriter, metWriters, rowNumConversions, mergers);
 
       /************ Create Inverted Indexes and Finalize Build Columns *************/
       final String section = "build inverted index and columns";
@@ -216,9 +191,7 @@ public class IndexMergerV9 extends IndexMerger
 
       /************* Make index.drd & metadata.drd files **************/
       progress.progress();
-      makeIndexBinary(
-          v9Smoosher, adapters, outDir, mergedDimensions, mergedMetrics, progress, indexSpec, mergers
-      );
+      makeIndexBinary(v9Smoosher, adapters, outDir, mergedDimensions, mergedMetrics, progress, indexSpec, mergers);
       makeMetadataBinary(v9Smoosher, progress, segmentMetadata);
 
       v9Smoosher.close();
@@ -283,8 +256,8 @@ public class IndexMergerV9 extends IndexMerger
                           + serializerUtils.getSerializedStringByteSize(bitmapSerdeFactoryType);
 
     final SmooshedWriter writer = v9Smoosher.addWithSmooshedWriter("index.drd", numBytes);
-    cols.writeToChannel(writer);
-    dims.writeToChannel(writer);
+    cols.writeTo(writer);
+    dims.writeTo(writer);
 
     DateTime minTime = new DateTime(JodaUtils.MAX_INSTANT);
     DateTime maxTime = new DateTime(JodaUtils.MIN_INSTANT);
@@ -298,9 +271,7 @@ public class IndexMergerV9 extends IndexMerger
     serializerUtils.writeLong(writer, dataInterval.getStartMillis());
     serializerUtils.writeLong(writer, dataInterval.getEndMillis());
 
-    serializerUtils.writeString(
-        writer, bitmapSerdeFactoryType
-    );
+    serializerUtils.writeString(writer, bitmapSerdeFactoryType);
     writer.close();
 
     IndexIO.checkFileSize(new File(outDir, "index.drd"));
@@ -326,7 +297,6 @@ public class IndexMergerV9 extends IndexMerger
       String metric = mergedMetrics.get(i);
       long metricStartTime = System.currentTimeMillis();
       GenericColumnSerializer writer = metWriters.get(i);
-      writer.close();
 
       final ColumnDescriptor.Builder builder = ColumnDescriptor.builder();
       ValueType type = metricsValueTypes.get(metric);
@@ -378,8 +348,6 @@ public class IndexMergerV9 extends IndexMerger
     progress.startSection(section);
     long startTime = System.currentTimeMillis();
 
-    timeWriter.close();
-
     final ColumnDescriptor serdeficator = ColumnDescriptor
         .builder()
         .setValueType(ValueType.LONG)
@@ -405,15 +373,11 @@ public class IndexMergerV9 extends IndexMerger
     serializerUtils.writeString(baos, mapper.writeValueAsString(serdeficator));
     byte[] specBytes = baos.toByteArray();
 
-    final SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
-        columnName, serdeficator.numBytes() + specBytes.length
-    );
-    try {
-      channel.write(ByteBuffer.wrap(specBytes));
-      serdeficator.write(channel);
-    }
-    finally {
-      channel.close();
+    try (SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
+        columnName, serdeficator.getSerializedSize() + specBytes.length
+    )) {
+      Channels.writeFully(channel, ByteBuffer.wrap(specBytes));
+      serdeficator.writeTo(channel);
     }
   }
 
@@ -479,10 +443,10 @@ public class IndexMergerV9 extends IndexMerger
     progress.stopSection(section);
   }
 
-  private LongColumnSerializer setupTimeWriter(final IOPeon ioPeon, final IndexSpec indexSpec) throws IOException
+  private LongColumnSerializer setupTimeWriter(final IndexSpec indexSpec) throws IOException
   {
     LongColumnSerializer timeWriter = LongColumnSerializer.create(
-        ioPeon, "little_end_time", CompressedObjectStrategy.DEFAULT_COMPRESSION_STRATEGY,
+        CompressedObjectStrategy.DEFAULT_COMPRESSION_STRATEGY,
         indexSpec.getLongEncoding()
     );
     // we will close this writer after we added all the timestamps
@@ -491,7 +455,6 @@ public class IndexMergerV9 extends IndexMerger
   }
 
   private ArrayList<GenericColumnSerializer> setupMetricsWriters(
-      final IOPeon ioPeon,
       final List<String> mergedMetrics,
       final Map<String, ValueType> metricsValueTypes,
       final Map<String, String> metricTypeNames,
@@ -506,10 +469,10 @@ public class IndexMergerV9 extends IndexMerger
       GenericColumnSerializer writer;
       switch (type) {
         case LONG:
-          writer = LongColumnSerializer.create(ioPeon, metric, metCompression, longEncoding);
+          writer = LongColumnSerializer.create(metCompression, longEncoding);
           break;
         case FLOAT:
-          writer = FloatColumnSerializer.create(ioPeon, metric, metCompression);
+          writer = FloatColumnSerializer.create(metCompression);
           break;
         case COMPLEX:
           final String typeName = metricTypeNames.get(metric);
@@ -517,7 +480,7 @@ public class IndexMergerV9 extends IndexMerger
           if (serde == null) {
             throw new ISE("Unknown type[%s]", typeName);
           }
-          writer = ComplexColumnSerializer.create(ioPeon, metric, serde);
+          writer = ComplexColumnSerializer.create(serde);
           break;
         default:
           throw new ISE("Unknown type[%s]", type);

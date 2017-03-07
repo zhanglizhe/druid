@@ -22,7 +22,6 @@ package io.druid.segment;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
 import io.druid.segment.data.FloatSupplierSerializer;
-import io.druid.segment.data.IOPeon;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
@@ -30,30 +29,17 @@ import java.nio.channels.WritableByteChannel;
 
 public class FloatColumnSerializer implements GenericColumnSerializer
 {
-  public static FloatColumnSerializer create(
-      IOPeon ioPeon,
-      String filenameBase,
-      CompressedObjectStrategy.CompressionStrategy compression
-  )
+  public static FloatColumnSerializer create(CompressedObjectStrategy.CompressionStrategy compression)
   {
-    return new FloatColumnSerializer(ioPeon, filenameBase, IndexIO.BYTE_ORDER, compression);
+    return new FloatColumnSerializer(IndexIO.BYTE_ORDER, compression);
   }
 
-  private final IOPeon ioPeon;
-  private final String filenameBase;
   private final ByteOrder byteOrder;
   private final CompressedObjectStrategy.CompressionStrategy compression;
   private FloatSupplierSerializer writer;
 
-  public FloatColumnSerializer(
-      IOPeon ioPeon,
-      String filenameBase,
-      ByteOrder byteOrder,
-      CompressedObjectStrategy.CompressionStrategy compression
-  )
+  private FloatColumnSerializer(ByteOrder byteOrder, CompressedObjectStrategy.CompressionStrategy compression)
   {
-    this.ioPeon = ioPeon;
-    this.filenameBase = filenameBase;
     this.byteOrder = byteOrder;
     this.compression = compression;
   }
@@ -61,12 +47,7 @@ public class FloatColumnSerializer implements GenericColumnSerializer
   @Override
   public void open() throws IOException
   {
-    writer = CompressionFactory.getFloatSerializer(
-        ioPeon,
-        String.format("%s.float_column", filenameBase),
-        byteOrder,
-        compression
-    );
+    writer = CompressionFactory.getFloatSerializer(byteOrder, compression);
     writer.open();
   }
 
@@ -78,21 +59,14 @@ public class FloatColumnSerializer implements GenericColumnSerializer
   }
 
   @Override
-  public void close() throws IOException
-  {
-    writer.close();
-  }
-
-  @Override
-  public long getSerializedSize()
+  public long getSerializedSize() throws IOException
   {
     return writer.getSerializedSize();
   }
 
   @Override
-  public void writeToChannel(WritableByteChannel channel) throws IOException
+  public void writeTo(WritableByteChannel channel) throws IOException
   {
-    writer.writeToChannel(channel);
+    writer.writeTo(channel);
   }
-
 }

@@ -125,7 +125,7 @@ public class GenericIndexedTest
   {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     final WritableByteChannel channel = Channels.newChannel(baos);
-    indexed.writeToChannel(channel);
+    indexed.writeTo(channel);
     channel.close();
 
     final ByteBuffer byteBuffer = ByteBuffer.wrap(baos.toByteArray());

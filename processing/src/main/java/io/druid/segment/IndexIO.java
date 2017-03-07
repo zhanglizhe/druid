@@ -67,7 +67,6 @@ import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedIterable;
-import io.druid.segment.data.IndexedLongs;
 import io.druid.segment.data.IndexedMultivalue;
 import io.druid.segment.data.IndexedRTree;
 import io.druid.segment.data.VSizeIndexed;
@@ -89,7 +88,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.AbstractList;
@@ -690,10 +688,10 @@ public class IndexIO
             byte[] specBytes = baos.toByteArray();
 
             final SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
-                dimension, serdeficator.numBytes() + specBytes.length
+                dimension, serdeficator.getSerializedSize() + specBytes.length
             );
             channel.write(ByteBuffer.wrap(specBytes));
-            serdeficator.write(channel);
+            serdeficator.writeTo(channel);
             channel.close();
           } else if (filename.startsWith("met_") || filename.startsWith("numeric_dim_")) {
             // NOTE: identifying numeric dimensions by using a different filename pattern is meant to allow the
@@ -752,10 +750,10 @@ public class IndexIO
             byte[] specBytes = baos.toByteArray();
 
             final SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
-                metric, serdeficator.numBytes() + specBytes.length
+                metric, serdeficator.getSerializedSize() + specBytes.length
             );
             channel.write(ByteBuffer.wrap(specBytes));
-            serdeficator.write(channel);
+            serdeficator.writeTo(channel);
             channel.close();
           } else if (String.format("time_%s.drd", BYTE_ORDER).equals(filename)) {
             CompressedLongsIndexedSupplier timestamps = CompressedLongsIndexedSupplier.fromByteBuffer(
@@ -777,10 +775,10 @@ public class IndexIO
             byte[] specBytes = baos.toByteArray();
 
             final SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
-                "__time", serdeficator.numBytes() + specBytes.length
+                "__time", serdeficator.getSerializedSize() + specBytes.length
             );
             channel.write(ByteBuffer.wrap(specBytes));
-            serdeficator.write(channel);
+            serdeficator.writeTo(channel);
             channel.close();
           } else {
             skippedFiles.add(filename);
@@ -825,8 +823,8 @@ public class IndexIO
         final long numBytes = cols.getSerializedSize() + dims9.getSerializedSize() + 16
                               + serializerUtils.getSerializedStringByteSize(segmentBitmapSerdeFactoryString);
         final SmooshedWriter writer = v9Smoosher.addWithSmooshedWriter("index.drd", numBytes);
-        cols.writeToChannel(writer);
-        dims9.writeToChannel(writer);
+        cols.writeTo(writer);
+        dims9.writeTo(writer);
         serializerUtils.writeLong(writer, dataInterval.getStartMillis());
         serializerUtils.writeLong(writer, dataInterval.getEndMillis());
         serializerUtils.writeString(writer, segmentBitmapSerdeFactoryString);
