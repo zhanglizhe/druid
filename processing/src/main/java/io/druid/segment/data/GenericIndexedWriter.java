@@ -95,8 +95,7 @@ public class GenericIndexedWriter<T> implements Serializer
         numBytesWritten < Integer.MAX_VALUE, "Wrote[%s] bytes, which is too many.", numBytesWritten
     );
 
-    int metaSize = metaSize(); // numElements
-    ByteBuffer meta = ByteBuffer.allocate(metaSize);
+    ByteBuffer meta = ByteBuffer.allocate(metaSize());
     meta.put((byte) 0x1);
     meta.put((byte) (objectsSorted ? 0x1 : 0x0));
     meta.putInt(Ints.checkedCast(numBytesWritten + 4));

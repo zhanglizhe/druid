@@ -87,10 +87,12 @@ public final class OutputBytes extends OutputStream implements WritableByteChann
   {
     if (headBuffer.remaining() >= Ints.BYTES) {
       headBuffer.putInt(v);
+      size += Ints.BYTES;
     } else {
       ensureCapacity(Ints.BYTES);
       if (headBuffer.remaining() >= Ints.BYTES) {
         headBuffer.putInt(v);
+        size += Ints.BYTES;
       } else {
         write(v);
         write(v >> 8);
@@ -98,7 +100,6 @@ public final class OutputBytes extends OutputStream implements WritableByteChann
         write(v >> 24);
       }
     }
-    size += Ints.BYTES;
   }
 
   @Override
@@ -124,10 +125,11 @@ public final class OutputBytes extends OutputStream implements WritableByteChann
       headBuffer.put(b, off, len);
     } else {
       headBuffer.put(b, off, headRemaining);
+      int bytesLeft = len - headRemaining;
       off += headRemaining;
-      for (; off < len; off += BUFFER_SIZE) {
+      for (; bytesLeft > 0; bytesLeft -= BUFFER_SIZE, off += BUFFER_SIZE) {
         nextHead();
-        headBuffer.put(b, off, Math.min(BUFFER_SIZE, len - off));
+        headBuffer.put(b, off, Math.min(BUFFER_SIZE, bytesLeft));
       }
     }
     size += len;

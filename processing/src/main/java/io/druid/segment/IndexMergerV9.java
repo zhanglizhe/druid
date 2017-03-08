@@ -374,7 +374,7 @@ public class IndexMergerV9 extends IndexMerger
     byte[] specBytes = baos.toByteArray();
 
     try (SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
-        columnName, serdeficator.getSerializedSize() + specBytes.length
+        columnName, specBytes.length + serdeficator.getSerializedSize()
     )) {
       Channels.writeFully(channel, ByteBuffer.wrap(specBytes));
       serdeficator.writeTo(channel);

@@ -19,6 +19,7 @@
 
 package io.druid.segment;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.metamx.common.IAE;
 import io.druid.segment.data.CompressedIntsIndexedSupplier;
 import io.druid.segment.data.CompressedObjectStrategy;
@@ -76,7 +77,7 @@ public class CompressedVSizeIndexedV3Supplier implements WritableSupplier<Indexe
     throw new IAE("Unknown version[%s]", versionFromBuffer);
   }
 
-  // for test
+  @VisibleForTesting
   public static CompressedVSizeIndexedV3Supplier fromIterable(
       Iterable<IndexedInts> objectsIterable,
       int offsetChunkFactor,
