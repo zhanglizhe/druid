@@ -21,7 +21,7 @@ package io.druid.segment;
 
 import com.google.common.base.Function;
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
+import com.google.common.base.Strings;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
@@ -76,6 +76,8 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
   protected String dimensionName;
   protected GenericIndexedWriter<String> dictionaryWriter;
   protected List<String> dictionary;
+  protected String firstDictionaryValue;
+  protected int dictionarySize;
   protected GenericIndexedWriter<ImmutableBitmap> bitmapWriter;
   protected ByteBufferWriter<ImmutableRTree> spatialWriter;
   protected ArrayList<IntBuffer> dimConversions;
@@ -152,7 +154,12 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     }
 
     dictionaryWriter = new GenericIndexedWriter<>(GenericIndexed.STRING_STRATEGY);
-    dictionary = new ArrayList<>();
+    boolean hasSpatial = capabilities.hasSpatialIndexes();
+    if (hasSpatial) {
+      dictionary = new ArrayList<>();
+    }
+    firstDictionaryValue = null;
+    dictionarySize = 0;
     dictionaryWriter.open();
 
     cardinality = 0;
@@ -162,7 +169,14 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
       while (iterator.hasNext()) {
         String value = iterator.next();
         dictionaryWriter.write(value);
-        dictionary.add(value);
+        value = Strings.emptyToNull(value);
+        if (dictionarySize == 0) {
+          firstDictionaryValue = value;
+        }
+        if (hasSpatial) {
+          dictionary.add(value);
+        }
+        dictionarySize++;
       }
 
       for (int i = 0; i < adapters.size(); i++) {
@@ -174,7 +188,14 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     } else if (numMergeIndex == 1) {
       for (String value : dimValueLookup) {
         dictionaryWriter.write(value);
-        dictionary.add(value);
+        value = Strings.emptyToNull(value);
+        if (dictionarySize == 0) {
+          firstDictionaryValue = value;
+        }
+        if (hasSpatial) {
+          dictionary.add(value);
+        }
+        dictionarySize++;
       }
       cardinality = dimValueLookup.size();
     }
@@ -274,7 +295,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     IndexSeeker[] dictIdSeeker = toIndexSeekers(adapters, dimConversions, dimensionName);
 
     //Iterate all dim values's dictionary id in ascending order which in line with dim values's compare result.
-    for (int dictId = 0; dictId < dictionary.size(); dictId++) {
+    for (int dictId = 0; dictId < dictionarySize; dictId++) {
       progress.progress();
       List<Iterable<Integer>> convertedInverteds = Lists.newArrayListWithCapacity(adapters.size());
       for (int j = 0; j < adapters.size(); ++j) {
@@ -299,7 +320,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
       }
 
       ImmutableBitmap bitmapToWrite = bitmapSerdeFactory.getBitmapFactory().makeImmutableBitmap(bitset);
-      if ((dictId == 0) && (Iterables.getFirst(dictionary, "") == null)) {
+      if ((dictId == 0) && firstDictionaryValue == null) {
         bitmapToWrite = bmpFactory.makeImmutableBitmap(nullRowsBitmap).union(bitmapToWrite);
       }
       bitmapWriter.write(bitmapToWrite);
@@ -325,7 +346,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     log.info(
         "Completed dim[%s] inverted with cardinality[%,d] in %,d millis.",
         dimensionName,
-        dictionary.size(),
+        dictionarySize,
         System.currentTimeMillis() - dimStartTime
     );
   }

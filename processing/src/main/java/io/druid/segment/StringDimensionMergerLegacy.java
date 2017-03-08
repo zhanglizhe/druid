@@ -103,7 +103,7 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
     IndexSeeker[] dictIdSeeker = toIndexSeekers(adapters, dimConversions, dimensionName);
 
     //Iterate all dim values's dictionary id in ascending order which in line with dim values's compare result.
-    for (int dictId = 0; dictId < dictionary.size(); dictId++) {
+    for (int dictId = 0; dictId < dictionarySize; dictId++) {
       progress.progress();
       List<Iterable<Integer>> convertedInverteds = Lists.newArrayListWithCapacity(adapters.size());
       for (int j = 0; j < adapters.size(); ++j) {
@@ -126,7 +126,7 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
           bitset.add(row);
         }
       }
-      if ((dictId == 0) && (Iterables.getFirst(dictionary, "") == null)) {
+      if (dictId == 0 && firstDictionaryValue == null) {
         bitset.or(nullRowsBitmap);
       }
 
