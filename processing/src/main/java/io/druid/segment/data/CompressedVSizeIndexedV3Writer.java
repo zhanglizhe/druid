@@ -23,6 +23,8 @@ package io.druid.segment.data;
 import io.druid.io.Channels;
 import io.druid.segment.CompressedVSizeIndexedV3Supplier;
 import io.druid.segment.IndexIO;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntLists;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,8 +38,6 @@ import java.util.List;
 public class CompressedVSizeIndexedV3Writer extends MultiValueIndexedIntsWriter
 {
   private static final byte VERSION = CompressedVSizeIndexedV3Supplier.VERSION;
-
-  private static final List<Integer> EMPTY_LIST = new ArrayList<>();
 
   public static CompressedVSizeIndexedV3Writer create(
       final int maxValue,
@@ -82,14 +82,14 @@ public class CompressedVSizeIndexedV3Writer extends MultiValueIndexedIntsWriter
   }
 
   @Override
-  protected void addValues(List<Integer> vals) throws IOException
+  protected void addValues(IntList vals) throws IOException
   {
     if (vals == null) {
-      vals = EMPTY_LIST;
+      vals = IntLists.EMPTY_LIST;
     }
     offsetWriter.add(offset);
-    for (Integer val : vals) {
-      valueWriter.add(val);
+    for (int i = 0; i < vals.size(); i++) {
+      valueWriter.add(vals.getInt(i));
     }
     offset += vals.size();
   }

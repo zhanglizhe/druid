@@ -33,6 +33,8 @@ import io.druid.segment.data.ByteBufferWriter;
 import io.druid.segment.data.GenericIndexedWriter;
 import io.druid.segment.data.IndexedRTree;
 import io.druid.segment.data.VSizeIndexedWriter;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.io.File;
 import java.io.IOException;
@@ -68,9 +70,7 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
   @Override
   protected void processMergedRowHelper(int[] vals) throws IOException
   {
-    List<Integer> listToWrite = (vals == null)
-                                ? null
-                                : Ints.asList(vals);
+    IntList listToWrite = (vals == null) ? null : IntArrayList.wrap(vals);
     encodedValueWriterV8.add(listToWrite);
   }
 

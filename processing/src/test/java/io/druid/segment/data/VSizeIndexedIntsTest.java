@@ -19,6 +19,8 @@
 
 package io.druid.segment.data;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -70,7 +72,7 @@ public class VSizeIndexedIntsTest
   public void testGetBytesNoPaddingfromList() throws Exception
   {
     final int[] array = {1, 2, 4, 5, 6, 8, 9, 10};
-    List<Integer> list = Ints.asList(array);
+    IntList list = IntArrayList.wrap(array);
     int maxValue = Ints.max(array);
     VSizeIndexedInts ints = VSizeIndexedInts.fromList(list, maxValue);
     byte[] bytes1 = ints.getBytesNoPadding();

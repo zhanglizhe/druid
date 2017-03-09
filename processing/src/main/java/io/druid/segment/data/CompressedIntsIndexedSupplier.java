@@ -28,7 +28,9 @@ import io.druid.collections.ResourceHolder;
 import io.druid.collections.StupidResourceHolder;
 import io.druid.io.Channels;
 import io.druid.segment.CompressedPools;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -219,7 +221,7 @@ public class CompressedIntsIndexedSupplier implements WritableSupplier<IndexedIn
   }
 
   public static CompressedIntsIndexedSupplier fromList(
-      final List<Integer> list , final int chunkFactor, final ByteOrder byteOrder, CompressedObjectStrategy.CompressionStrategy compression
+      final IntArrayList list , final int chunkFactor, final ByteOrder byteOrder, CompressedObjectStrategy.CompressionStrategy compression
   )
   {
     Preconditions.checkArgument(
@@ -248,18 +250,9 @@ public class CompressedIntsIndexedSupplier implements WritableSupplier<IndexedIn
                   @Override
                   public ResourceHolder<IntBuffer> next()
                   {
-                    IntBuffer retVal = IntBuffer.allocate(chunkFactor);
-
-                    if (chunkFactor > list.size() - position) {
-                      retVal.limit(list.size() - position);
-                    }
-                    final List<Integer> ints = list.subList(position, position + retVal.remaining());
-                    for(int value : ints) {
-                      retVal.put(value);
-                    }
-                    retVal.rewind();
-                    position += retVal.remaining();
-
+                    int blockSize = Math.min(list.size() - position, chunkFactor);
+                    IntBuffer retVal = IntBuffer.wrap(list.elements(), position, blockSize);
+                    position += blockSize;
                     return StupidResourceHolder.create(retVal);
                   }
 

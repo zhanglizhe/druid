@@ -67,6 +67,9 @@ import io.druid.segment.serde.ComplexMetricColumnSerializer;
 import io.druid.segment.serde.ComplexMetricSerde;
 import io.druid.segment.serde.ComplexMetrics;
 import io.druid.segment.serde.Serializer;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.ints.IntSortedSet;
 import org.apache.commons.io.FileUtils;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
@@ -751,10 +754,12 @@ public class IndexMerger
           mergers.get(i).processMergedRow(dims[i]);
         }
 
-        for (Map.Entry<Integer, TreeSet<Integer>> comprisedRow : theRow.getComprisedRows().entrySet()) {
-          final IntBuffer conversionBuffer = rowNumConversions.get(comprisedRow.getKey());
+        for (Int2ObjectMap.Entry<IntSortedSet> comprisedRow : theRow.getComprisedRows().int2ObjectEntrySet()) {
+          final IntBuffer conversionBuffer = rowNumConversions.get(comprisedRow.getIntKey());
 
-          for (Integer rowNum : comprisedRow.getValue()) {
+          IntSortedSet rowNums = comprisedRow.getValue();
+          for (IntIterator it = rowNums.iterator(); it.hasNext();) {
+            int rowNum = it.nextInt();
             while (conversionBuffer.position() < rowNum) {
               conversionBuffer.put(INVALID_ROW);
             }
@@ -1263,9 +1268,11 @@ public class IndexMerger
       );
 
       for (Rowboat rowboat : Arrays.asList(lhs, rhs)) {
-        for (Map.Entry<Integer, TreeSet<Integer>> entry : rowboat.getComprisedRows().entrySet()) {
-          for (Integer rowNum : entry.getValue()) {
-            retVal.addRow(entry.getKey(), rowNum);
+        for (Int2ObjectMap.Entry<IntSortedSet> entry : rowboat.getComprisedRows().int2ObjectEntrySet()) {
+          IntSortedSet rowNums = entry.getValue();
+          for (IntIterator it = rowNums.iterator(); it.hasNext(); ) {
+            int rowNum = it.nextInt();
+            retVal.addRow(entry.getIntKey(), rowNum);
           }
         }
       }

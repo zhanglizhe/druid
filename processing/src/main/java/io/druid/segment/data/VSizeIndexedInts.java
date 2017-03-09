@@ -23,7 +23,10 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.metamx.common.IAE;
 import io.druid.io.Channels;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntLists;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -43,18 +46,18 @@ public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeInd
 
   public static VSizeIndexedInts fromArray(int[] array, int maxValue)
   {
-    return fromList(Ints.asList(array), maxValue);
+    return fromList(IntArrayList.wrap(array), maxValue);
   }
 
   public static VSizeIndexedInts empty()
   {
-    return fromList(Lists.<Integer>newArrayList(), 0);
+    return fromList(IntLists.EMPTY_LIST, 0);
   }
 
   /**
    * provide for performance reason.
    */
-  public static byte[] getBytesNoPaddingfromList(List<Integer> list, int maxValue)
+  public static byte[] getBytesNoPaddingfromList(IntList list, int maxValue)
   {
     int numBytes = getNumBytesForMax(maxValue);
 
@@ -64,7 +67,7 @@ public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeInd
     return buffer.array();
   }
 
-  public static VSizeIndexedInts fromList(List<Integer> list, int maxValue)
+  public static VSizeIndexedInts fromList(IntList list, int maxValue)
   {
     int numBytes = getNumBytesForMax(maxValue);
 
@@ -74,10 +77,10 @@ public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeInd
     return new VSizeIndexedInts(buffer.asReadOnlyBuffer(), numBytes);
   }
 
-  private static void writeToBuffer(ByteBuffer buffer, List<Integer> list, int numBytes, int maxValue)
+  private static void writeToBuffer(ByteBuffer buffer, IntList list, int numBytes, int maxValue)
   {
-    int i = 0;
-    for (Integer val : list) {
+    for (int i = 0; i < list.size(); i++) {
+      int val = list.getInt(i);
       if (val < 0) {
         throw new IAE("integer values must be positive, got[%d], i[%d]", val, i);
       }
@@ -85,9 +88,9 @@ public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeInd
         throw new IAE("val[%d] > maxValue[%d], please don't lie about maxValue.  i[%d]", val, maxValue, i);
       }
 
-      byte[] intAsBytes = Ints.toByteArray(val);
-      buffer.put(intAsBytes, intAsBytes.length - numBytes, numBytes);
-      ++i;
+      for (int shift = 24, byteIndex = 0; byteIndex < numBytes; byteIndex++, shift -= 8) {
+        buffer.put((byte) (val >> shift));
+      }
     }
     buffer.position(0);
   }

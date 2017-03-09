@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 import io.druid.io.Channels;
 import io.druid.io.OutputBytes;
+import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -56,12 +57,7 @@ public class VSizeIndexedWriter extends MultiValueIndexedIntsWriter
   }
 
   @Override
-  protected void addValues(List<Integer> val) throws IOException
-  {
-    write(val);
-  }
-
-  public void write(List<Integer> ints) throws IOException
+  protected void addValues(IntList ints) throws IOException
   {
     byte[] bytesToWrite = ints == null ? EMPTY_ARRAY : VSizeIndexedInts.getBytesNoPaddingfromList(ints, maxId);
 
