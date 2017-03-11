@@ -56,11 +56,12 @@ import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.ColumnCapabilitiesImpl;
 import io.druid.segment.column.ValueType;
+import io.druid.segment.data.ArrayBasedIndexedInts;
 import io.druid.segment.data.IndexedInts;
-import io.druid.segment.data.ListBasedIndexedInts;
 import io.druid.segment.serde.ComplexMetricExtractor;
 import io.druid.segment.serde.ComplexMetricSerde;
 import io.druid.segment.serde.ComplexMetrics;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 
@@ -248,13 +249,14 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
           public IndexedInts getRow()
           {
             final List<String> dimensionValues = in.get().getDimension(dimension);
-            final ArrayList<Integer> vals = Lists.newArrayList();
+            int[] vals = IntArrays.EMPTY_ARRAY;
             if (dimensionValues != null) {
+              vals = new int[dimensionValues.size()];
               for (int i = 0; i < dimensionValues.size(); ++i) {
-                vals.add(i);
+                vals[i] = i;
               }
             }
-            return new ListBasedIndexedInts(vals);
+            return ArrayBasedIndexedInts.of(vals);
           }
 
           @Override

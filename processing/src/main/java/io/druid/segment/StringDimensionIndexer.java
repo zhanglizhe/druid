@@ -31,20 +31,17 @@ import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.DruidPredicateFactory;
 import io.druid.query.filter.ValueMatcher;
+import io.druid.segment.data.ArrayBasedIndexedInts;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedIterable;
-import io.druid.segment.data.ListBasedIndexedInts;
 import io.druid.segment.filter.BooleanValueMatcher;
 import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.IncrementalIndexStorageAdapter;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.ints.IntLists;
+import it.unimi.dsi.fastutil.ints.IntArrays;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -355,23 +352,23 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
         }
 
         int nullId = getEncodedValue(null, false);
-        IntList valsTmp = null;
+        int[] vals = IntArrays.EMPTY_ARRAY;
+        int valsSize = 0;
         if ((indices == null || indices.length == 0) && nullId > -1) {
           if (nullId < maxId) {
-            valsTmp = IntLists.singleton(nullId);
+            vals = new int[nullId];
+            valsSize = 1;
           }
         } else if (indices != null && indices.length > 0) {
-          valsTmp = new IntArrayList(indices.length);
-          for (int i = 0; i < indices.length; i++) {
-            int id = indices[i];
+          vals = new int[indices.length];
+          for (int id : indices) {
             if (id < maxId) {
-              valsTmp.add(id);
+              vals[valsSize++] = id;
             }
           }
         }
 
-        final List<Integer> vals = valsTmp == null ? Collections.EMPTY_LIST : valsTmp;
-        return new ListBasedIndexedInts(vals);
+        return ArrayBasedIndexedInts.of(vals, valsSize);
       }
 
       @Override

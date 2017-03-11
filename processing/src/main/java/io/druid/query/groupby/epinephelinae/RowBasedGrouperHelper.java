@@ -50,7 +50,6 @@ import io.druid.segment.ObjectColumnSelector;
 import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.data.IndexedInts;
-import io.druid.segment.data.ListBasedIndexedInts;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterators;
 import org.joda.time.DateTime;

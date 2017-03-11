@@ -20,11 +20,9 @@
 package io.druid.query.dimension;
 
 import io.druid.segment.DimensionSelector;
+import io.druid.segment.data.ArrayBasedIndexedInts;
 import io.druid.segment.data.IndexedInts;
-import io.druid.segment.data.ListBasedIndexedInts;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 public class ForwardingDimensionSelector<DimensionSelectorType extends DimensionSelector> implements DimensionSelector
@@ -53,15 +51,16 @@ public class ForwardingDimensionSelector<DimensionSelectorType extends Dimension
 
   protected IndexedInts forward(IndexedInts baseRow)
   {
-    List<Integer> result = new ArrayList<>(baseRow.size());
+    int[] result = new int[baseRow.size()];
+    int resultSize = 0;
 
     for (int value : baseRow) {
       if (forwardMapping.containsKey(value)) {
-        result.add(forwardMapping.get(value));
+        result[resultSize++] = forwardMapping.get(value);
       }
     }
 
-    return new ListBasedIndexedInts(result);
+    return ArrayBasedIndexedInts.of(result, resultSize);
   }
 
   @Override
