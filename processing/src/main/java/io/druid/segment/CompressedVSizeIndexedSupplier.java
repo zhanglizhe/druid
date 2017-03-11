@@ -21,8 +21,8 @@ package io.druid.segment;
 
 import com.metamx.common.IAE;
 import io.druid.io.Channels;
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressedVSizeIntsIndexedSupplier;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedIntsIterator;
 import io.druid.segment.data.IndexedIterable;
@@ -101,7 +101,7 @@ public class CompressedVSizeIndexedSupplier implements WritableSupplier<IndexedM
       Iterable<IndexedInts> objectsIterable,
       int maxValue,
       final ByteOrder byteOrder,
-      CompressedObjectStrategy.CompressionStrategy compression
+      CompressionStrategy compression
   )
   {
     Iterator<IndexedInts> objects = objectsIterable.iterator();

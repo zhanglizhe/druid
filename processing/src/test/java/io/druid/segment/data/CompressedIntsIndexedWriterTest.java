@@ -22,7 +22,6 @@ package io.druid.segment.data;
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.primitives.Ints;
 import com.metamx.common.guava.CloseQuietly;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.commons.io.IOUtils;
@@ -50,7 +49,7 @@ public class CompressedIntsIndexedWriterTest
   public static Iterable<Object[]> compressionStrategiesAndByteOrders()
   {
     Set<List<Object>> combinations = Sets.cartesianProduct(
-        Sets.newHashSet(CompressedObjectStrategy.CompressionStrategy.noNoneValues()),
+        Sets.newHashSet(CompressionStrategy.noNoneValues()),
         Sets.newHashSet(ByteOrder.BIG_ENDIAN, ByteOrder.LITTLE_ENDIAN)
     );
 
@@ -70,13 +69,13 @@ public class CompressedIntsIndexedWriterTest
   private static final int[] CHUNK_FACTORS = new int[]{1, 2, 100, CompressedIntsIndexedSupplier.MAX_INTS_IN_BUFFER};
 
   private final IOPeon ioPeon = new TmpFileIOPeon();
-  private final CompressedObjectStrategy.CompressionStrategy compressionStrategy;
+  private final CompressionStrategy compressionStrategy;
   private final ByteOrder byteOrder;
   private final Random rand = new Random(0);
   private int[] vals;
 
   public CompressedIntsIndexedWriterTest(
-      CompressedObjectStrategy.CompressionStrategy compressionStrategy,
+      CompressionStrategy compressionStrategy,
       ByteOrder byteOrder
   )
   {

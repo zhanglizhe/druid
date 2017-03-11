@@ -21,39 +21,27 @@ package io.druid.segment.data;
 
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
-import io.druid.collections.ResourceHolder;
-import io.druid.collections.StupidResourceHolder;
 import io.druid.io.Channels;
 import io.druid.segment.CompressedPools;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.nio.channels.WritableByteChannel;
 
 public class BlockLayoutFloatSupplierSerializer implements FloatSupplierSerializer
 {
-  private final int sizePer;
-  private final GenericIndexedWriter<ResourceHolder<FloatBuffer>> flattener;
-  private final CompressedObjectStrategy.CompressionStrategy compression;
+  private final GenericIndexedWriter<ByteBuffer> flattener;
+  private final CompressionStrategy compression;
 
   private int numInserted = 0;
-  private FloatBuffer endBuffer;
+  private ByteBuffer endBuffer;
 
-  BlockLayoutFloatSupplierSerializer(
-      ByteOrder order,
-      CompressedObjectStrategy.CompressionStrategy compression
-  )
+  BlockLayoutFloatSupplierSerializer(ByteOrder byteOrder, CompressionStrategy compression)
   {
-    this.sizePer = CompressedPools.BUFFER_SIZE / Floats.BYTES;
-    this.flattener = new GenericIndexedWriter<>(
-        CompressedFloatBufferObjectStrategy.getBufferForOrder(order, compression, sizePer)
-    );
+    this.flattener = GenericIndexedWriter.ofCompressedByteBuffers(compression, CompressedPools.BUFFER_SIZE);
     this.compression = compression;
-
-    endBuffer = FloatBuffer.allocate(sizePer);
-    endBuffer.mark();
+    this.endBuffer = compression.getCompressor().allocateInBuffer(CompressedPools.BUFFER_SIZE).order(byteOrder);
   }
 
   @Override
@@ -73,12 +61,11 @@ public class BlockLayoutFloatSupplierSerializer implements FloatSupplierSerializ
   {
     if (!endBuffer.hasRemaining()) {
       endBuffer.rewind();
-      flattener.write(StupidResourceHolder.create(endBuffer));
-      endBuffer = FloatBuffer.allocate(sizePer);
-      endBuffer.mark();
+      flattener.write(endBuffer);
+      endBuffer.clear();
     }
 
-    endBuffer.put(value);
+    endBuffer.putFloat(value);
     ++numInserted;
   }
 
@@ -97,7 +84,7 @@ public class BlockLayoutFloatSupplierSerializer implements FloatSupplierSerializ
     ByteBuffer meta = ByteBuffer.allocate(metaSize());
     meta.put(CompressedFloatsIndexedSupplier.version);
     meta.putInt(numInserted);
-    meta.putInt(sizePer);
+    meta.putInt(CompressedPools.BUFFER_SIZE / Floats.BYTES);
     meta.put(compression.getId());
     meta.flip();
 
@@ -108,9 +95,8 @@ public class BlockLayoutFloatSupplierSerializer implements FloatSupplierSerializ
   private void writeEndBuffer() throws IOException
   {
     if (endBuffer != null && numInserted > 0) {
-      endBuffer.limit(endBuffer.position());
-      endBuffer.rewind();
-      flattener.write(StupidResourceHolder.create(endBuffer));
+      endBuffer.flip();
+      flattener.write(endBuffer);
       endBuffer = null;
     }
   }

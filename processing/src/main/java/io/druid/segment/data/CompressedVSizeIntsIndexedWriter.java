@@ -20,8 +20,6 @@
 package io.druid.segment.data;
 
 import com.google.common.primitives.Ints;
-import io.druid.collections.ResourceHolder;
-import io.druid.collections.StupidResourceHolder;
 import io.druid.io.Channels;
 import io.druid.segment.IndexIO;
 
@@ -39,7 +37,7 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
 
   public static CompressedVSizeIntsIndexedWriter create(
       final int maxValue,
-      final CompressedObjectStrategy.CompressionStrategy compression
+      final CompressionStrategy compression
   )
   {
     return new CompressedVSizeIntsIndexedWriter(
@@ -52,9 +50,9 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
   private final int numBytes;
   private final int chunkFactor;
   private final int chunkBytes;
-  private final ByteOrder byteOrder;
-  private final CompressedObjectStrategy.CompressionStrategy compression;
-  private final GenericIndexedWriter<ResourceHolder<ByteBuffer>> flattener;
+  private final boolean isBigEndian;
+  private final CompressionStrategy compression;
+  private final GenericIndexedWriter<ByteBuffer> flattener;
   private final ByteBuffer intBuffer;
   private ByteBuffer endBuffer;
   private int numInserted;
@@ -63,19 +61,17 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
       final int maxValue,
       final int chunkFactor,
       final ByteOrder byteOrder,
-      final CompressedObjectStrategy.CompressionStrategy compression
+      final CompressionStrategy compression
   )
   {
     this.numBytes = VSizeIndexedInts.getNumBytesForMax(maxValue);
     this.chunkFactor = chunkFactor;
     this.chunkBytes = chunkFactor * numBytes + CompressedVSizeIntsIndexedSupplier.bufferPadding(numBytes);
-    this.byteOrder = byteOrder;
+    this.isBigEndian = byteOrder.equals(ByteOrder.BIG_ENDIAN);
     this.compression = compression;
-    this.flattener = new GenericIndexedWriter<>(
-        CompressedByteBufferObjectStrategy.getBufferForOrder(byteOrder, compression, chunkBytes)
-    );
+    this.flattener = GenericIndexedWriter.ofCompressedByteBuffers(compression, chunkBytes);
     this.intBuffer = ByteBuffer.allocate(Ints.BYTES).order(byteOrder);
-    this.endBuffer = ByteBuffer.allocate(chunkBytes).order(byteOrder);
+    this.endBuffer = compression.getCompressor().allocateInBuffer(chunkFactor).order(byteOrder);
     this.endBuffer.limit(numBytes * chunkFactor);
     this.numInserted = 0;
   }
@@ -91,12 +87,12 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
   {
     if (!endBuffer.hasRemaining()) {
       endBuffer.rewind();
-      flattener.write(StupidResourceHolder.create(endBuffer));
-      endBuffer = ByteBuffer.allocate(chunkBytes).order(byteOrder);
+      flattener.write(endBuffer);
+      endBuffer.clear();
       endBuffer.limit(numBytes * chunkFactor);
     }
     intBuffer.putInt(0, val);
-    if (byteOrder.equals(ByteOrder.BIG_ENDIAN)) {
+    if (isBigEndian) {
       endBuffer.put(intBuffer.array(), Ints.BYTES - numBytes, numBytes);
     } else {
       endBuffer.put(intBuffer.array(), 0, numBytes);
@@ -131,9 +127,8 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
   private void writeEndBuffer() throws IOException
   {
     if (endBuffer != null && numInserted > 0) {
-      endBuffer.limit(endBuffer.position());
-      endBuffer.rewind();
-      flattener.write(StupidResourceHolder.create(endBuffer));
+      endBuffer.flip();
+      flattener.write(endBuffer);
       endBuffer = null;
     }
   }

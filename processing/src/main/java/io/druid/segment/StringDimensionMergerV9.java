@@ -36,9 +36,9 @@ import io.druid.segment.column.ColumnDescriptor;
 import io.druid.segment.column.ValueType;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.data.ByteBufferWriter;
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressedVSizeIndexedV3Writer;
 import io.druid.segment.data.CompressedVSizeIntsIndexedWriter;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.GenericIndexedWriter;
 import io.druid.segment.data.Indexed;
@@ -209,14 +209,14 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
 
   protected void setupEncodedValueWriter() throws IOException
   {
-    final CompressedObjectStrategy.CompressionStrategy compressionStrategy = indexSpec.getDimensionCompression();
+    final CompressionStrategy compressionStrategy = indexSpec.getDimensionCompression();
 
     if (capabilities.hasMultipleValues()) {
-      encodedValueWriter = (compressionStrategy != CompressedObjectStrategy.CompressionStrategy.UNCOMPRESSED)
+      encodedValueWriter = (compressionStrategy != CompressionStrategy.UNCOMPRESSED)
                            ? CompressedVSizeIndexedV3Writer.create(cardinality, compressionStrategy)
                            : new VSizeIndexedWriter(cardinality);
     } else {
-      encodedValueWriter = (compressionStrategy != CompressedObjectStrategy.CompressionStrategy.UNCOMPRESSED)
+      encodedValueWriter = (compressionStrategy != CompressionStrategy.UNCOMPRESSED)
                            ? CompressedVSizeIntsIndexedWriter.create(cardinality, compressionStrategy)
                            : new VSizeIndexedIntsWriter(cardinality);
     }
@@ -386,7 +386,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
   {
     // Now write everything
     boolean hasMultiValue = capabilities.hasMultipleValues();
-    final CompressedObjectStrategy.CompressionStrategy compressionStrategy = indexSpec.getDimensionCompression();
+    final CompressionStrategy compressionStrategy = indexSpec.getDimensionCompression();
     final BitmapSerdeFactory bitmapSerdeFactory = indexSpec.getBitmapSerdeFactory();
 
     final ColumnDescriptor.Builder builder = ColumnDescriptor.builder();
@@ -398,7 +398,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
         .withValue(
             encodedValueWriter,
             hasMultiValue,
-            compressionStrategy != CompressedObjectStrategy.CompressionStrategy.UNCOMPRESSED
+            compressionStrategy != CompressionStrategy.UNCOMPRESSED
         )
         .withBitmapSerdeFactory(bitmapSerdeFactory)
         .withBitmapIndex(bitmapWriter)

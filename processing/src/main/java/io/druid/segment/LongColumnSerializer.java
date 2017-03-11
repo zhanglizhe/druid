@@ -19,8 +19,8 @@
 
 package io.druid.segment;
 
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.LongSupplierSerializer;
 
 import java.io.IOException;
@@ -30,7 +30,7 @@ import java.nio.channels.WritableByteChannel;
 public class LongColumnSerializer implements GenericColumnSerializer
 {
   public static LongColumnSerializer create(
-      CompressedObjectStrategy.CompressionStrategy compression,
+      CompressionStrategy compression,
       CompressionFactory.LongEncodingStrategy encoding
   )
   {
@@ -38,13 +38,13 @@ public class LongColumnSerializer implements GenericColumnSerializer
   }
 
   private final ByteOrder byteOrder;
-  private final CompressedObjectStrategy.CompressionStrategy compression;
+  private final CompressionStrategy compression;
   private final CompressionFactory.LongEncodingStrategy encoding;
   private LongSupplierSerializer writer;
 
   private LongColumnSerializer(
       ByteOrder byteOrder,
-      CompressedObjectStrategy.CompressionStrategy compression,
+      CompressionStrategy compression,
       CompressionFactory.LongEncodingStrategy encoding
   )
   {

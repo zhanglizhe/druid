@@ -20,8 +20,6 @@
 package io.druid.segment.data;
 
 import com.google.common.primitives.Ints;
-import io.druid.collections.ResourceHolder;
-import io.druid.collections.StupidResourceHolder;
 import io.druid.io.Channels;
 import io.druid.segment.CompressedPools;
 
@@ -34,26 +32,24 @@ public class BlockLayoutLongSupplierSerializer implements LongSupplierSerializer
 {
   private final int sizePer;
   private final CompressionFactory.LongEncodingWriter writer;
-  private final GenericIndexedWriter<ResourceHolder<ByteBuffer>> flattener;
-  private final CompressedObjectStrategy.CompressionStrategy compression;
+  private final GenericIndexedWriter<ByteBuffer> flattener;
+  private final ByteOrder byteOrder;
+  private final CompressionStrategy compression;
   private int numInserted = 0;
+  private int numInsertedForNextFlush = 0;
 
   private ByteBuffer endBuffer = null;
 
   BlockLayoutLongSupplierSerializer(
-      ByteOrder order,
+      ByteOrder byteOrder,
       CompressionFactory.LongEncodingWriter writer,
-      CompressedObjectStrategy.CompressionStrategy compression
+      CompressionStrategy compression
   )
   {
     this.sizePer = writer.getBlockSize(CompressedPools.BUFFER_SIZE);
-    this.flattener = new GenericIndexedWriter<>(
-        VSizeCompressedObjectStrategy.getBufferForOrder(
-            order,
-            compression,
-            writer.getNumBytes(sizePer)
-        )
-    );
+    int bufferSize = writer.getNumBytes(sizePer);
+    this.flattener = GenericIndexedWriter.ofCompressedByteBuffers(compression, bufferSize);
+    this.byteOrder = byteOrder;
     this.writer = writer;
     this.compression = compression;
   }
@@ -73,15 +69,18 @@ public class BlockLayoutLongSupplierSerializer implements LongSupplierSerializer
   @Override
   public void add(long value) throws IOException
   {
-    if (numInserted % sizePer == 0) {
+    if (numInserted == numInsertedForNextFlush) {
+      numInsertedForNextFlush += sizePer;
       if (endBuffer != null) {
         writer.flush();
         endBuffer.limit(endBuffer.position());
         endBuffer.rewind();
-        flattener.write(StupidResourceHolder.create(endBuffer));
+        flattener.write(endBuffer);
+        endBuffer.clear();
+      } else {
+        endBuffer = compression.getCompressor().allocateInBuffer(writer.getNumBytes(sizePer)).order(byteOrder);
+        writer.setBuffer(endBuffer);
       }
-      endBuffer = ByteBuffer.allocate(writer.getNumBytes(sizePer));
-      writer.setBuffer(endBuffer);
     }
 
     writer.write(value);
@@ -117,7 +116,7 @@ public class BlockLayoutLongSupplierSerializer implements LongSupplierSerializer
       writer.flush();
       endBuffer.limit(endBuffer.position());
       endBuffer.rewind();
-      flattener.write(StupidResourceHolder.create(endBuffer));
+      flattener.write(endBuffer);
       endBuffer = null;
     }
   }

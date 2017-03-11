@@ -61,8 +61,8 @@ import io.druid.segment.data.BitmapSerde;
 import io.druid.segment.data.BitmapSerdeFactory;
 import io.druid.segment.data.ByteBufferSerializer;
 import io.druid.segment.data.CompressedLongsIndexedSupplier;
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressedVSizeIntsIndexedSupplier;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedInts;
@@ -643,7 +643,7 @@ public class IndexIO
               builder.setHasMultipleValues(true);
             }
 
-            final CompressedObjectStrategy.CompressionStrategy compressionStrategy = indexSpec.getDimensionCompression();
+            final CompressionStrategy compressionStrategy = indexSpec.getDimensionCompression();
 
             final DictionaryEncodedColumnPartSerde.LegacySerializerBuilder columnPartBuilder = DictionaryEncodedColumnPartSerde
                 .legacySerializerBuilder()
@@ -654,7 +654,7 @@ public class IndexIO
                 .withByteOrder(BYTE_ORDER);
 
             if (singleValCol != null) {
-              if (compressionStrategy != CompressedObjectStrategy.CompressionStrategy.UNCOMPRESSED) {
+              if (compressionStrategy != CompressionStrategy.UNCOMPRESSED) {
                 columnPartBuilder.withSingleValuedColumn(
                     CompressedVSizeIntsIndexedSupplier.fromList(
                         singleValCol,
@@ -667,7 +667,7 @@ public class IndexIO
               } else {
                 columnPartBuilder.withSingleValuedColumn(VSizeIndexedInts.fromList(singleValCol, dictionary.size()));
               }
-            } else if (compressionStrategy != CompressedObjectStrategy.CompressionStrategy.UNCOMPRESSED) {
+            } else if (compressionStrategy != CompressionStrategy.UNCOMPRESSED) {
               columnPartBuilder.withMultiValuedColumn(
                   CompressedVSizeIndexedSupplier.fromIterable(
                       multiValCol,

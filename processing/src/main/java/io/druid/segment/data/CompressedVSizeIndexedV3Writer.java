@@ -29,8 +29,6 @@ import it.unimi.dsi.fastutil.ints.IntLists;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Streams array of integers out in the binary format described by CompressedVSizeIndexedV3Supplier
@@ -41,7 +39,7 @@ public class CompressedVSizeIndexedV3Writer extends MultiValueIndexedIntsWriter
 
   public static CompressedVSizeIndexedV3Writer create(
       final int maxValue,
-      final CompressedObjectStrategy.CompressionStrategy compression
+      final CompressionStrategy compression
   )
   {
     return new CompressedVSizeIndexedV3Writer(

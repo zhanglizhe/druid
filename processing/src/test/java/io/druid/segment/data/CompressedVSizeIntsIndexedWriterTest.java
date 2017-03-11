@@ -50,7 +50,7 @@ public class CompressedVSizeIntsIndexedWriterTest
   public static Iterable<Object[]> compressionStrategiesAndByteOrders()
   {
     Set<List<Object>> combinations = Sets.cartesianProduct(
-        Sets.newHashSet(CompressedObjectStrategy.CompressionStrategy.noNoneValues()),
+        Sets.newHashSet(CompressionStrategy.noNoneValues()),
         Sets.newHashSet(ByteOrder.BIG_ENDIAN, ByteOrder.LITTLE_ENDIAN)
     );
 
@@ -69,13 +69,13 @@ public class CompressedVSizeIntsIndexedWriterTest
   private static final int[] MAX_VALUES = new int[]{0xFF, 0xFFFF, 0xFFFFFF, 0x0FFFFFFF};
 
   private final IOPeon ioPeon = new TmpFileIOPeon();
-  private final CompressedObjectStrategy.CompressionStrategy compressionStrategy;
+  private final CompressionStrategy compressionStrategy;
   private final ByteOrder byteOrder;
   private final Random rand = new Random(0);
   private int[] vals;
 
   public CompressedVSizeIntsIndexedWriterTest(
-      CompressedObjectStrategy.CompressionStrategy compressionStrategy,
+      CompressionStrategy compressionStrategy,
       ByteOrder byteOrder
   )
   {

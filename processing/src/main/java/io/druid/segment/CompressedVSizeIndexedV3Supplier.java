@@ -22,8 +22,8 @@ package io.druid.segment;
 import com.google.common.annotations.VisibleForTesting;
 import com.metamx.common.IAE;
 import io.druid.segment.data.CompressedIntsIndexedSupplier;
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressedVSizeIntsIndexedSupplier;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedMultivalue;
 import io.druid.segment.data.WritableSupplier;
@@ -82,7 +82,7 @@ public class CompressedVSizeIndexedV3Supplier implements WritableSupplier<Indexe
       int offsetChunkFactor,
       int maxValue,
       final ByteOrder byteOrder,
-      CompressedObjectStrategy.CompressionStrategy compression
+      CompressionStrategy compression
   )
   {
     Iterator<IndexedInts> objects = objectsIterable.iterator();

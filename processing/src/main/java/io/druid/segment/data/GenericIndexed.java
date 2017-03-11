@@ -23,13 +23,15 @@ import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import com.metamx.common.IAE;
 import com.metamx.common.guava.CloseQuietly;
+import io.druid.collections.ResourceHolder;
 import io.druid.io.Channels;
+import io.druid.io.OutputBytes;
 import io.druid.segment.serde.Serializer;
 
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.WritableByteChannel;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -58,22 +60,45 @@ public class GenericIndexed<T> extends Indexed<T> implements Serializer
     return fromIterable(Arrays.asList(objects), strategy);
   }
 
+  static GenericIndexed<ResourceHolder<ByteBuffer>> ofCompressedByteBuffers(
+      Iterable<ByteBuffer> buffers,
+      CompressionStrategy compression,
+      int bufferSize,
+      ByteOrder order
+  )
+  {
+    return fromIterable(
+        buffers,
+        GenericIndexedWriter.compressedByteBuffersWriteObjectStrategy(compression, bufferSize),
+        false,
+        new DecompressingByteBufferObjectStrategy(order, compression, bufferSize)
+    );
+  }
+
   public static <T> GenericIndexed<T> fromIterable(Iterable<T> objectsIterable, ObjectStrategy<T> strategy)
+  {
+    return fromIterable(objectsIterable, strategy, true, strategy);
+  }
+
+  private static <T, U> GenericIndexed<U> fromIterable(
+      Iterable<T> objectsIterable,
+      ObjectStrategy<T> strategy,
+      boolean allowReverseLookup,
+      ObjectStrategy<U> resultObjectStrategy
+  )
   {
     Iterator<T> objects = objectsIterable.iterator();
     if (!objects.hasNext()) {
       final ByteBuffer buffer = ByteBuffer.allocate(4).putInt(0);
       buffer.flip();
-      return new GenericIndexed<T>(buffer, strategy, true);
+      return new GenericIndexed<>(buffer, resultObjectStrategy, allowReverseLookup);
     }
 
-    boolean allowReverseLookup = true;
     int count = 0;
 
-    ByteArrayOutputStream headerBytes = new ByteArrayOutputStream();
-    ByteArrayOutputStream valueBytes = new ByteArrayOutputStream();
+    OutputBytes headerOut = new OutputBytes();
+    OutputBytes valuesOut = new OutputBytes();
     try {
-      int offset = 0;
       T prevVal = null;
       do {
         count++;
@@ -82,11 +107,10 @@ public class GenericIndexed<T> extends Indexed<T> implements Serializer
           allowReverseLookup = false;
         }
 
-        final byte[] bytes = strategy.toBytes(next);
-        offset += 4 + bytes.length;
-        headerBytes.write(Ints.toByteArray(offset));
-        valueBytes.write(Ints.toByteArray(bytes.length));
-        valueBytes.write(bytes);
+        // for compatibility with the format, but this field is unused
+        valuesOut.writeInt(0);
+        strategy.writeTo(next, valuesOut);
+        headerOut.write(Ints.checkedCast(valuesOut.size()));
 
         if (prevVal instanceof Closeable) {
           CloseQuietly.close((Closeable) prevVal);
@@ -102,13 +126,13 @@ public class GenericIndexed<T> extends Indexed<T> implements Serializer
       throw new RuntimeException(e);
     }
 
-    ByteBuffer theBuffer = ByteBuffer.allocate(Ints.BYTES + headerBytes.size() + valueBytes.size());
+    ByteBuffer theBuffer = ByteBuffer.allocate(Ints.checkedCast(Ints.BYTES + headerOut.size() + valuesOut.size()));
     theBuffer.put(Ints.toByteArray(count));
-    theBuffer.put(headerBytes.toByteArray());
-    theBuffer.put(valueBytes.toByteArray());
+    headerOut.writeTo(theBuffer);
+    valuesOut.writeTo(theBuffer);
     theBuffer.flip();
 
-    return new GenericIndexed<T>(theBuffer.asReadOnlyBuffer(), strategy, allowReverseLookup);
+    return new GenericIndexed<>(theBuffer.asReadOnlyBuffer(), resultObjectStrategy, allowReverseLookup);
   }
 
   @Override

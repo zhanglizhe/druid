@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class CompressedIntsIndexedSupplierTest extends CompressionStrategyTest
 {
-  public CompressedIntsIndexedSupplierTest(CompressedObjectStrategy.CompressionStrategy compressionStrategy)
+  public CompressedIntsIndexedSupplierTest(CompressionStrategy compressionStrategy)
   {
     super(compressionStrategy);
   }

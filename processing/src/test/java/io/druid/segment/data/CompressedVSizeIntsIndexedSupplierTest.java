@@ -54,14 +54,14 @@ public class CompressedVSizeIntsIndexedSupplierTest extends CompressionStrategyT
   @Parameterized.Parameters(name = "{index}: compression={0}, byteOrder={1}")
   public static Iterable<Object[]> compressionStrategies()
   {
-    final Iterable<CompressedObjectStrategy.CompressionStrategy> compressionStrategies = Iterables.transform(
+    final Iterable<CompressionStrategy> compressionStrategies = Iterables.transform(
         CompressionStrategyTest.compressionStrategies(),
-        new Function<Object[], CompressedObjectStrategy.CompressionStrategy>()
+        new Function<Object[], CompressionStrategy>()
         {
           @Override
-          public CompressedObjectStrategy.CompressionStrategy apply(Object[] input)
+          public CompressionStrategy apply(Object[] input)
           {
-            return (CompressedObjectStrategy.CompressionStrategy) input[0];
+            return (CompressionStrategy) input[0];
           }
         }
     );
@@ -85,7 +85,7 @@ public class CompressedVSizeIntsIndexedSupplierTest extends CompressionStrategyT
 
   private static final int[] MAX_VALUES = new int[] { 0xFF, 0xFFFF, 0xFFFFFF, 0x0FFFFFFF };
 
-  public CompressedVSizeIntsIndexedSupplierTest(CompressedObjectStrategy.CompressionStrategy compressionStrategy, ByteOrder byteOrder)
+  public CompressedVSizeIntsIndexedSupplierTest(CompressionStrategy compressionStrategy, ByteOrder byteOrder)
   {
     super(compressionStrategy);
     this.byteOrder = byteOrder;

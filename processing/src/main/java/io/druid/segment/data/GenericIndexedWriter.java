@@ -34,6 +34,64 @@ import java.nio.channels.WritableByteChannel;
  */
 public class GenericIndexedWriter<T> implements Serializer
 {
+  static GenericIndexedWriter<ByteBuffer> ofCompressedByteBuffers(
+      final CompressionStrategy compressionStrategy,
+      final int bufferSize
+  )
+  {
+    GenericIndexedWriter<ByteBuffer> writer = new GenericIndexedWriter<>(
+        compressedByteBuffersWriteObjectStrategy(compressionStrategy, bufferSize)
+    );
+    writer.objectsSorted = false;
+    return writer;
+  }
+
+  static ObjectStrategy<ByteBuffer> compressedByteBuffersWriteObjectStrategy(
+      final CompressionStrategy compressionStrategy,
+      final int bufferSize
+  )
+  {
+    return new ObjectStrategy<ByteBuffer>()
+    {
+      private final CompressionStrategy.Compressor compressor = compressionStrategy.getCompressor();
+      private final ByteBuffer compressedDataBuffer = compressor.allocateOutBuffer(bufferSize);
+
+      @Override
+      public Class<ByteBuffer> getClazz()
+      {
+        return ByteBuffer.class;
+      }
+
+      @Override
+      public ByteBuffer fromByteBuffer(ByteBuffer buffer, int numBytes)
+      {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public byte[] toBytes(ByteBuffer val)
+      {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public void writeTo(ByteBuffer val, OutputBytes out) throws IOException
+      {
+        compressedDataBuffer.clear();
+        int valPos = val.position();
+        out.write(compressor.compress(val, compressedDataBuffer));
+        val.position(valPos);
+      }
+
+      @Override
+      public int compare(ByteBuffer o1, ByteBuffer o2)
+      {
+        throw new UnsupportedOperationException();
+      }
+    };
+  }
+
+
   private final ObjectStrategy<T> strategy;
 
   private boolean objectsSorted = true;
@@ -43,9 +101,7 @@ public class GenericIndexedWriter<T> implements Serializer
   private OutputBytes valuesOut = null;
   private int numWritten = 0;
 
-  public GenericIndexedWriter(
-      ObjectStrategy<T> strategy
-  )
+  public GenericIndexedWriter(ObjectStrategy<T> strategy)
   {
     this.strategy = strategy;
   }
@@ -62,15 +118,15 @@ public class GenericIndexedWriter<T> implements Serializer
       objectsSorted = false;
     }
 
-    byte[] bytesToWrite = strategy.toBytes(objectToWrite);
-
     ++numWritten;
-    valuesOut.writeInt(bytesToWrite.length);
-    valuesOut.write(bytesToWrite);
+    valuesOut.writeInt(0);
+    strategy.writeTo(objectToWrite, valuesOut);
 
     headerOut.writeInt(Ints.checkedCast(valuesOut.size()));
 
-    prevObject = objectToWrite;
+    if (objectsSorted) {
+      prevObject = objectToWrite;
+    }
   }
 
   @Override

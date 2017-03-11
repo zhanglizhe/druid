@@ -28,7 +28,6 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.List;
 
 /**
  * Streams arrays of objects out in the binary format described by VSizeIndexed
@@ -36,9 +35,46 @@ import java.util.List;
 public class VSizeIndexedWriter extends MultiValueIndexedIntsWriter
 {
   private static final byte VERSION = 0x1;
-  private static final byte[] EMPTY_ARRAY = new byte[]{};
+
+  private enum WriteInt
+  {
+    ONE_BYTE {
+      @Override
+      void write(OutputBytes out, int v)
+      {
+        out.write(v);
+      }
+    },
+    TWO_BYTES {
+      @Override
+      void write(OutputBytes out, int v)
+      {
+        out.write(v >> 8);
+        out.write(v);
+      }
+    },
+    THREE_BYTES {
+      @Override
+      void write(OutputBytes out, int v)
+      {
+        out.write(v >> 16);
+        out.write(v >> 8);
+        out.write(v);
+      }
+    },
+    FOUR_BYTES {
+      @Override
+      void write(OutputBytes out, int v)
+      {
+        out.writeInt(v);
+      }
+    };
+
+    abstract void write(OutputBytes out, int v);
+  }
 
   private final int maxId;
+  private final WriteInt writeInt;
 
   private OutputBytes headerOut = null;
   private OutputBytes valuesOut = null;
@@ -48,6 +84,7 @@ public class VSizeIndexedWriter extends MultiValueIndexedIntsWriter
   public VSizeIndexedWriter(int maxId)
   {
     this.maxId = maxId;
+    this.writeInt = WriteInt.values()[VSizeIndexedInts.getNumBytesForMax(maxId) - 1];
   }
 
   public void open() throws IOException
@@ -59,12 +96,13 @@ public class VSizeIndexedWriter extends MultiValueIndexedIntsWriter
   @Override
   protected void addValues(IntList ints) throws IOException
   {
-    byte[] bytesToWrite = ints == null ? EMPTY_ARRAY : VSizeIndexedInts.getBytesNoPaddingfromList(ints, maxId);
-
-    valuesOut.write(bytesToWrite);
-
+    if (ints != null) {
+      for (int i = 0; i < ints.size(); i++) {
+        Preconditions.checkState(i >= 0 && i <= maxId);
+        writeInt.write(valuesOut, ints.getInt(i));
+      }
+    }
     headerOut.writeInt(Ints.checkedCast(valuesOut.size()));
-
     ++numWritten;
   }
 

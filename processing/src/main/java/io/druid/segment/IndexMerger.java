@@ -54,8 +54,8 @@ import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.ColumnCapabilitiesImpl;
 import io.druid.segment.column.ValueType;
 import io.druid.segment.data.BitmapSerdeFactory;
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedIterable;
@@ -92,7 +92,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.PriorityQueue;
 import java.util.Set;
-import java.util.TreeSet;
 
 /**
  */
@@ -695,13 +694,13 @@ public class IndexMerger
 
       LongSupplierSerializer timeWriter = CompressionFactory.getLongSerializer(
           IndexIO.BYTE_ORDER, indexSpec.getLongEncoding(),
-          CompressedObjectStrategy.DEFAULT_COMPRESSION_STRATEGY
+          CompressionStrategy.DEFAULT_COMPRESSION_STRATEGY
       );
 
       timeWriter.open();
 
       ArrayList<MetricColumnSerializer> metWriters = Lists.newArrayListWithCapacity(mergedMetrics.size());
-      final CompressedObjectStrategy.CompressionStrategy metCompression = indexSpec.getMetricCompression();
+      final CompressionStrategy metCompression = indexSpec.getMetricCompression();
       final CompressionFactory.LongEncodingStrategy longEncoding = indexSpec.getLongEncoding();
       for (String metric : mergedMetrics) {
         ValueType type = valueTypes.get(metric);

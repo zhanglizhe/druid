@@ -41,8 +41,8 @@ import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.ColumnCapabilitiesImpl;
 import io.druid.segment.column.ColumnDescriptor;
 import io.druid.segment.column.ValueType;
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.serde.ComplexColumnPartSerde;
 import io.druid.segment.serde.ComplexColumnSerializer;
@@ -450,7 +450,7 @@ public class IndexMergerV9 extends IndexMerger
   private LongColumnSerializer setupTimeWriter(final IndexSpec indexSpec) throws IOException
   {
     LongColumnSerializer timeWriter = LongColumnSerializer.create(
-        CompressedObjectStrategy.DEFAULT_COMPRESSION_STRATEGY,
+        CompressionStrategy.DEFAULT_COMPRESSION_STRATEGY,
         indexSpec.getLongEncoding()
     );
     // we will close this writer after we added all the timestamps
@@ -466,7 +466,7 @@ public class IndexMergerV9 extends IndexMerger
   ) throws IOException
   {
     ArrayList<GenericColumnSerializer> metWriters = Lists.newArrayListWithCapacity(mergedMetrics.size());
-    final CompressedObjectStrategy.CompressionStrategy metCompression = indexSpec.getMetricCompression();
+    final CompressionStrategy metCompression = indexSpec.getMetricCompression();
     final CompressionFactory.LongEncodingStrategy longEncoding = indexSpec.getLongEncoding();
     for (String metric : mergedMetrics) {
       ValueType type = metricsValueTypes.get(metric);

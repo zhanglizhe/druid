@@ -32,7 +32,7 @@ import java.nio.ByteOrder;
 import java.util.Map;
 
 /**
- * Compression of metrics is done by using a combination of {@link io.druid.segment.data.CompressedObjectStrategy.CompressionStrategy}
+ * Compression of metrics is done by using a combination of {@link CompressionStrategy}
  * and Encoding(such as {@link LongEncodingStrategy} for type Long). CompressionStrategy is unaware of the data type
  * and is based on byte operations. It must compress and decompress in block of bytes. Encoding refers to compression
  * method relies on data format, so a different set of Encodings exist for each data type.
@@ -238,7 +238,7 @@ public class CompressionFactory
      * Output the header values of the associating encoding format to the given outputStream. The header also include
      * bytes for compression strategy and encoding format(optional) as described above in Compression Storage Format.
      */
-    void putMeta(ByteBuffer metaOut, CompressedObjectStrategy.CompressionStrategy strategy) throws IOException;
+    void putMeta(ByteBuffer metaOut, CompressionStrategy strategy) throws IOException;
 
     int metaSize();
 
@@ -267,10 +267,10 @@ public class CompressionFactory
   public static Supplier<IndexedLongs> getLongSupplier(
       int totalSize, int sizePer, ByteBuffer fromBuffer, ByteOrder order,
       LongEncodingFormat encodingFormat,
-      CompressedObjectStrategy.CompressionStrategy strategy
+      CompressionStrategy strategy
   )
   {
-    if (strategy == CompressedObjectStrategy.CompressionStrategy.NONE) {
+    if (strategy == CompressionStrategy.NONE) {
       return new EntireLayoutIndexedLongSupplier(totalSize, encodingFormat.getReader(fromBuffer, order));
     } else {
       return new BlockLayoutIndexedLongSupplier(totalSize, sizePer, fromBuffer, order,
@@ -282,13 +282,13 @@ public class CompressionFactory
   public static LongSupplierSerializer getLongSerializer(
       ByteOrder order,
       LongEncodingStrategy encodingStrategy,
-      CompressedObjectStrategy.CompressionStrategy compressionStrategy
+      CompressionStrategy compressionStrategy
   )
   {
     if (encodingStrategy == LongEncodingStrategy.AUTO) {
       return new IntermediateLongSupplierSerializer(order, compressionStrategy);
     } else if (encodingStrategy == LongEncodingStrategy.LONGS){
-      if (compressionStrategy == CompressedObjectStrategy.CompressionStrategy.NONE) {
+      if (compressionStrategy == CompressionStrategy.NONE) {
         return new EntireLayoutLongSupplierSerializer(new LongsLongEncodingWriter(order));
       } else{
         return new BlockLayoutLongSupplierSerializer(order, new LongsLongEncodingWriter(order), compressionStrategy);
@@ -302,10 +302,10 @@ public class CompressionFactory
 
   public static Supplier<IndexedFloats> getFloatSupplier(
       int totalSize, int sizePer, ByteBuffer fromBuffer, ByteOrder order,
-      CompressedObjectStrategy.CompressionStrategy strategy
+      CompressionStrategy strategy
   )
   {
-    if (strategy == CompressedObjectStrategy.CompressionStrategy.NONE) {
+    if (strategy == CompressionStrategy.NONE) {
       return new EntireLayoutIndexedFloatSupplier(totalSize, fromBuffer, order);
     } else {
       return new BlockLayoutIndexedFloatSupplier(totalSize, sizePer, fromBuffer, order, strategy);
@@ -314,10 +314,10 @@ public class CompressionFactory
 
   public static FloatSupplierSerializer getFloatSerializer(
       ByteOrder order,
-      CompressedObjectStrategy.CompressionStrategy compressionStrategy
+      CompressionStrategy compressionStrategy
   )
   {
-    if (compressionStrategy == CompressedObjectStrategy.CompressionStrategy.NONE) {
+    if (compressionStrategy == CompressionStrategy.NONE) {
       return new EntireLayoutFloatSupplierSerializer(order);
     } else{
       return new BlockLayoutFloatSupplierSerializer(order, compressionStrategy);

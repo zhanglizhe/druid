@@ -19,8 +19,8 @@
 
 package io.druid.segment;
 
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.FloatSupplierSerializer;
 
 import java.io.IOException;
@@ -29,16 +29,16 @@ import java.nio.channels.WritableByteChannel;
 
 public class FloatColumnSerializer implements GenericColumnSerializer
 {
-  public static FloatColumnSerializer create(CompressedObjectStrategy.CompressionStrategy compression)
+  public static FloatColumnSerializer create(CompressionStrategy compression)
   {
     return new FloatColumnSerializer(IndexIO.BYTE_ORDER, compression);
   }
 
   private final ByteOrder byteOrder;
-  private final CompressedObjectStrategy.CompressionStrategy compression;
+  private final CompressionStrategy compression;
   private FloatSupplierSerializer writer;
 
-  private FloatColumnSerializer(ByteOrder byteOrder, CompressedObjectStrategy.CompressionStrategy compression)
+  private FloatColumnSerializer(ByteOrder byteOrder, CompressionStrategy compression)
   {
     this.byteOrder = byteOrder;
     this.compression = compression;

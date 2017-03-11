@@ -36,10 +36,10 @@ public class BlockLayoutIndexedFloatSupplier implements Supplier<IndexedFloats>
 
   public BlockLayoutIndexedFloatSupplier(
       int totalSize, int sizePer, ByteBuffer fromBuffer, ByteOrder order,
-      CompressedObjectStrategy.CompressionStrategy strategy
+      CompressionStrategy strategy
   )
   {
-    baseFloatBuffers = GenericIndexed.read(fromBuffer, VSizeCompressedObjectStrategy.getBufferForOrder(
+    baseFloatBuffers = GenericIndexed.read(fromBuffer, new DecompressingByteBufferObjectStrategy(
         order, strategy, sizePer * Floats.BYTES
     ));
     this.totalSize = totalSize;
