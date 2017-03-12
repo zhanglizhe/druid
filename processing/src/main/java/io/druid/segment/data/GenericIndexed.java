@@ -110,7 +110,7 @@ public class GenericIndexed<T> extends Indexed<T> implements Serializer
         // for compatibility with the format, but this field is unused
         valuesOut.writeInt(0);
         strategy.writeTo(next, valuesOut);
-        headerOut.write(Ints.checkedCast(valuesOut.size()));
+        headerOut.writeInt(Ints.checkedCast(valuesOut.size()));
 
         if (prevVal instanceof Closeable) {
           CloseQuietly.close((Closeable) prevVal);
@@ -127,7 +127,7 @@ public class GenericIndexed<T> extends Indexed<T> implements Serializer
     }
 
     ByteBuffer theBuffer = ByteBuffer.allocate(Ints.checkedCast(Ints.BYTES + headerOut.size() + valuesOut.size()));
-    theBuffer.put(Ints.toByteArray(count));
+    theBuffer.putInt(count);
     headerOut.writeTo(theBuffer);
     valuesOut.writeTo(theBuffer);
     theBuffer.flip();

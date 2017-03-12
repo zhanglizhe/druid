@@ -356,7 +356,7 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
         int valsSize = 0;
         if ((indices == null || indices.length == 0) && nullId > -1) {
           if (nullId < maxId) {
-            vals = new int[nullId];
+            vals = new int[] {nullId};
             valsSize = 1;
           }
         } else if (indices != null && indices.length > 0) {

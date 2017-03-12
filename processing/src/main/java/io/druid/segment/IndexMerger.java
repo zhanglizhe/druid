@@ -49,6 +49,7 @@ import io.druid.collections.CombiningIterable;
 import io.druid.common.guava.GuavaUtils;
 import io.druid.common.utils.JodaUtils;
 import io.druid.common.utils.SerializerUtils;
+import io.druid.io.Channels;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.ColumnCapabilitiesImpl;
@@ -635,7 +636,7 @@ public class IndexMerger
 
       try (FileOutputStream fileOutputStream = new FileOutputStream(indexFile);
            FileChannel channel = fileOutputStream.getChannel()) {
-        channel.write(ByteBuffer.wrap(new byte[]{IndexIO.V8_VERSION}));
+        Channels.writeFully(channel, ByteBuffer.wrap(new byte[]{IndexIO.V8_VERSION}));
 
         GenericIndexed.fromIterable(mergedDimensions, GenericIndexed.STRING_STRATEGY).writeTo(channel);
         GenericIndexed.fromIterable(mergedMetrics, GenericIndexed.STRING_STRATEGY).writeTo(channel);

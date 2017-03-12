@@ -73,8 +73,7 @@ public class BlockLayoutLongSupplierSerializer implements LongSupplierSerializer
       numInsertedForNextFlush += sizePer;
       if (endBuffer != null) {
         writer.flush();
-        endBuffer.limit(endBuffer.position());
-        endBuffer.rewind();
+        endBuffer.flip();
         flattener.write(endBuffer);
         endBuffer.clear();
       } else {
@@ -114,8 +113,7 @@ public class BlockLayoutLongSupplierSerializer implements LongSupplierSerializer
   {
     if (endBuffer != null && numInserted > 0) {
       writer.flush();
-      endBuffer.limit(endBuffer.position());
-      endBuffer.rewind();
+      endBuffer.flip();
       flattener.write(endBuffer);
       endBuffer = null;
     }
