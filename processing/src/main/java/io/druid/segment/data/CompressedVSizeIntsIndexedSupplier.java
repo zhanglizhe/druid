@@ -166,7 +166,6 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
       final int numBytes = buffer.get();
       final int totalSize = buffer.getInt();
       final int sizePer = buffer.getInt();
-      final int chunkBytes = sizePer * numBytes + bufferPadding(numBytes);
 
       final CompressionStrategy compression = CompressionStrategy.forId(buffer.get());
 
@@ -174,7 +173,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
           totalSize,
           sizePer,
           numBytes,
-          GenericIndexed.read(buffer, new DecompressingByteBufferObjectStrategy(order, compression, chunkBytes)),
+          GenericIndexed.read(buffer, new DecompressingByteBufferObjectStrategy(order, compression)),
           compression
       );
 
@@ -188,7 +187,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
       final int maxValue,
       final int chunkFactor,
       final ByteOrder byteOrder,
-      CompressionStrategy compression
+      final CompressionStrategy compression
   )
   {
     final int numBytes = VSizeIndexedInts.getNumBytesForMax(maxValue);
@@ -213,8 +212,9 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
                 return new Iterator<ByteBuffer>()
                 {
                   int position = 0;
-                  private final ByteBuffer retVal = ByteBuffer.allocate(chunkBytes).order(byteOrder);
-                  private final boolean isBigEndian = byteOrder == ByteOrder.BIG_ENDIAN;
+                  private final ByteBuffer retVal =
+                      compression.getCompressor().allocateInBuffer(chunkBytes).order(byteOrder);
+                  private final boolean isBigEndian = byteOrder.equals(ByteOrder.BIG_ENDIAN);
                   private final ByteBuffer helperBuf = ByteBuffer.allocate(Ints.BYTES).order(byteOrder);
 
                   @Override

@@ -20,7 +20,6 @@
 package io.druid.segment.data;
 
 import com.google.common.base.Supplier;
-import com.google.common.primitives.Floats;
 import com.metamx.common.guava.CloseQuietly;
 import io.druid.collections.ResourceHolder;
 
@@ -34,14 +33,15 @@ public class BlockLayoutIndexedFloatSupplier implements Supplier<IndexedFloats>
   private final int totalSize;
   private final int sizePer;
 
-  public BlockLayoutIndexedFloatSupplier(
-      int totalSize, int sizePer, ByteBuffer fromBuffer, ByteOrder order,
+  BlockLayoutIndexedFloatSupplier(
+      int totalSize,
+      int sizePer,
+      ByteBuffer fromBuffer,
+      ByteOrder order,
       CompressionStrategy strategy
   )
   {
-    baseFloatBuffers = GenericIndexed.read(fromBuffer, new DecompressingByteBufferObjectStrategy(
-        order, strategy, sizePer * Floats.BYTES
-    ));
+    baseFloatBuffers = GenericIndexed.read(fromBuffer, new DecompressingByteBufferObjectStrategy(order, strategy));
     this.totalSize = totalSize;
     this.sizePer = sizePer;
   }
