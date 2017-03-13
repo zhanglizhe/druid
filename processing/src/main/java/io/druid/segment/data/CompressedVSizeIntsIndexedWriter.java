@@ -69,9 +69,9 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
     this.chunkBytes = chunkFactor * numBytes + CompressedVSizeIntsIndexedSupplier.bufferPadding(numBytes);
     this.isBigEndian = byteOrder.equals(ByteOrder.BIG_ENDIAN);
     this.compression = compression;
-    this.flattener = GenericIndexedWriter.ofCompressedByteBuffers(compression, chunkFactor * chunkBytes);
+    this.flattener = GenericIndexedWriter.ofCompressedByteBuffers(compression, chunkBytes);
     this.intBuffer = ByteBuffer.allocate(Ints.BYTES).order(byteOrder);
-    this.endBuffer = compression.getCompressor().allocateInBuffer(chunkFactor * chunkBytes).order(byteOrder);
+    this.endBuffer = compression.getCompressor().allocateInBuffer(chunkBytes).order(byteOrder);
     this.endBuffer.limit(numBytes * chunkFactor);
     this.numInserted = 0;
   }
