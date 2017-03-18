@@ -17,45 +17,23 @@
  * under the License.
  */
 
-package io.druid.indexing.overlord.autoscaling;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import org.joda.time.DateTime;
-import org.joda.time.Period;
+package io.druid.indexing.common.task;
 
-/**
- */
-public class ResourceManagementSchedulerConfig
+import com.google.common.base.Preconditions;
+
+import javax.annotation.Nullable;
+import java.util.Map;
+
+public class TaskLabels
 {
-  @JsonProperty
-  private boolean doAutoscale = false;
+  public static final String TASK_LABEL_FIELD = "label";
 
-  @JsonProperty
-  private Period provisionPeriod = new Period("PT1M");
-
-  @JsonProperty
-  private Period terminatePeriod = new Period("PT5M");
-
-  @JsonProperty
-  private DateTime originTime = new DateTime("2012-01-01T00:55:00.000Z");
-
-  public boolean isDoAutoscale()
-  {
-    return doAutoscale;
-  }
-
-  public Period getProvisionPeriod()
-  {
-    return provisionPeriod;
-  }
-
-  public Period getTerminatePeriod()
-  {
-    return terminatePeriod;
-  }
-
-  public DateTime getOriginTime()
-  {
-    return originTime;
+  @Nullable
+  public static String getTaskLabel(Task task) {
+    Preconditions.checkNotNull(task, "task");
+    Map<String, Object> context = task.getContext();
+    Object taskLabel = (context != null) ? context.get(TASK_LABEL_FIELD) : null;
+    return taskLabel == null ? null : (String) taskLabel;
   }
 }

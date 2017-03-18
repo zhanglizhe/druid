@@ -37,6 +37,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteSource;
+import com.google.common.io.Closer;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -61,10 +62,11 @@ import io.druid.curator.cache.PathChildrenCacheFactory;
 import io.druid.indexing.common.TaskLocation;
 import io.druid.indexing.common.TaskStatus;
 import io.druid.indexing.common.task.Task;
-import io.druid.indexing.overlord.autoscaling.ResourceManagementStrategy;
+import io.druid.indexing.overlord.autoscaling.ProvisioningService;
+import io.druid.indexing.overlord.autoscaling.ProvisioningStrategy;
 import io.druid.indexing.overlord.autoscaling.ScalingStats;
 import io.druid.indexing.overlord.config.RemoteTaskRunnerConfig;
-import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
+import io.druid.indexing.overlord.setup.BaseWorkerBehaviorConfig;
 import io.druid.indexing.overlord.setup.WorkerSelectStrategy;
 import io.druid.indexing.worker.TaskAnnouncement;
 import io.druid.indexing.worker.Worker;
@@ -130,10 +132,11 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
   private final Duration shutdownTimeout;
   private final IndexerZkConfig indexerZkConfig;
   private final CuratorFramework cf;
-  private final PathChildrenCacheFactory pathChildrenCacheFactory;
+  private final PathChildrenCacheFactory workerStatusPathChildrenCacheFactory;
+  private final ExecutorService workerStatusPathChildrenCacheExecutor;
   private final PathChildrenCache workerPathCache;
   private final HttpClient httpClient;
-  private final Supplier<WorkerBehaviorConfig> workerConfigRef;
+  private final Supplier<BaseWorkerBehaviorConfig> workerConfigRef;
 
   // all workers that exist in ZK
   private final ConcurrentMap<String, ZkWorker> zkWorkers = new ConcurrentHashMap<>();
@@ -167,18 +170,19 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
   private final ListeningScheduledExecutorService cleanupExec;
 
   private final ConcurrentMap<String, ScheduledFuture> removedWorkerCleanups = new ConcurrentHashMap<>();
-  private final ResourceManagementStrategy<WorkerTaskRunner> resourceManagement;
+  private final ProvisioningStrategy<WorkerTaskRunner> provisioningStrategy;
+  private ProvisioningService provisioningService;
 
   public RemoteTaskRunner(
       ObjectMapper jsonMapper,
       RemoteTaskRunnerConfig config,
       IndexerZkConfig indexerZkConfig,
       CuratorFramework cf,
-      PathChildrenCacheFactory pathChildrenCacheFactory,
+      PathChildrenCacheFactory.Builder pathChildrenCacheFactory,
       HttpClient httpClient,
-      Supplier<WorkerBehaviorConfig> workerConfigRef,
+      Supplier<BaseWorkerBehaviorConfig> workerConfigRef,
       ScheduledExecutorService cleanupExec,
-      ResourceManagementStrategy<WorkerTaskRunner> resourceManagement
+      ProvisioningStrategy<WorkerTaskRunner> provisioningStrategy
   )
   {
     this.jsonMapper = jsonMapper;
@@ -186,12 +190,16 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
     this.shutdownTimeout = config.getTaskShutdownLinkTimeout().toStandardDuration(); // Fail fast
     this.indexerZkConfig = indexerZkConfig;
     this.cf = cf;
-    this.pathChildrenCacheFactory = pathChildrenCacheFactory;
-    this.workerPathCache = pathChildrenCacheFactory.make(cf, indexerZkConfig.getAnnouncementsPath());
+    this.workerPathCache = pathChildrenCacheFactory.build().make(cf, indexerZkConfig.getAnnouncementsPath());
+    this.workerStatusPathChildrenCacheExecutor = PathChildrenCacheFactory.Builder.createDefaultExecutor();
+    this.workerStatusPathChildrenCacheFactory = pathChildrenCacheFactory
+        .withExecutorService(workerStatusPathChildrenCacheExecutor)
+        .withShutdownExecutorOnClose(false)
+        .build();
     this.httpClient = httpClient;
     this.workerConfigRef = workerConfigRef;
     this.cleanupExec = MoreExecutors.listeningDecorator(cleanupExec);
-    this.resourceManagement = resourceManagement;
+    this.provisioningStrategy = provisioningStrategy;
     this.runPendingTasksExec = Execs.multiThreaded(
         config.getPendingTasksRunnerNumThreads(),
         "rtr-pending-tasks-runner-%d"
@@ -309,7 +317,7 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
           waitingForMonitor.wait();
         }
       }
-      resourceManagement.startManagement(this);
+      provisioningService = provisioningStrategy.makeProvisioningService(this);
       started = true;
     }
     catch (Exception e) {
@@ -327,12 +335,19 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
       }
       started = false;
 
-      resourceManagement.stopManagement();
+      provisioningService.close();
 
+      Closer closer = Closer.create();
       for (ZkWorker zkWorker : zkWorkers.values()) {
-        zkWorker.close();
+        closer.register(zkWorker);
       }
-      workerPathCache.close();
+      closer.register(workerPathCache);
+      try {
+        closer.close();
+      }
+      finally {
+        workerStatusPathChildrenCacheExecutor.shutdown();
+      }
 
       if (runPendingTasksExec != null) {
         runPendingTasksExec.shutdown();
@@ -425,7 +440,7 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
   @Override
   public Optional<ScalingStats> getScalingStats()
   {
-    return Optional.fromNullable(resourceManagement.getStats());
+    return Optional.fromNullable(provisioningService.getStats());
   }
 
   public ZkWorker findWorkerRunningTask(String taskId)
@@ -711,11 +726,11 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
       return true;
     } else {
       // Nothing running this task, announce it in ZK for a worker to run it
-      WorkerBehaviorConfig workerConfig = workerConfigRef.get();
+      BaseWorkerBehaviorConfig workerConfig = workerConfigRef.get();
       WorkerSelectStrategy strategy;
       if (workerConfig == null || workerConfig.getSelectStrategy() == null) {
         log.warn("No worker selections strategy set. Using default.");
-        strategy = WorkerBehaviorConfig.DEFAULT_STRATEGY;
+        strategy = BaseWorkerBehaviorConfig.DEFAULT_STRATEGY;
       } else {
         strategy = workerConfig.getSelectStrategy();
       }
@@ -880,7 +895,7 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
       cancelWorkerCleanup(worker.getHost());
 
       final String workerStatusPath = JOINER.join(indexerZkConfig.getStatusPath(), worker.getHost());
-      final PathChildrenCache statusCache = pathChildrenCacheFactory.make(cf, workerStatusPath);
+      final PathChildrenCache statusCache = workerStatusPathChildrenCacheFactory.make(cf, workerStatusPath);
       final SettableFuture<ZkWorker> retVal = SettableFuture.create();
       final ZkWorker zkWorker = new ZkWorker(
           worker,
@@ -1179,7 +1194,7 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
           throw Throwables.propagate(e);
         }
       }
-      return ImmutableList.copyOf(getWorkerFromZK(lazyWorkers.values()));
+      return getWorkerFromZK(lazyWorkers.values());
     }
   }
 
@@ -1208,7 +1223,7 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
   @Override
   public Collection<Worker> getLazyWorkers()
   {
-    return ImmutableList.copyOf(getWorkerFromZK(lazyWorkers.values()));
+    return getWorkerFromZK(lazyWorkers.values());
   }
 
   private static ImmutableList<ImmutableWorkerInfo> getImmutableWorkerFromZK(Collection<ZkWorker> workers)
@@ -1228,18 +1243,20 @@ public class RemoteTaskRunner implements WorkerTaskRunner, TaskLogStreamer
     );
   }
 
-  public static Collection<Worker> getWorkerFromZK(Collection<ZkWorker> workers)
+  private static ImmutableList<Worker> getWorkerFromZK(Collection<ZkWorker> workers)
   {
-    return Collections2.transform(
-        workers,
-        new Function<ZkWorker, Worker>()
-        {
-          @Override
-          public Worker apply(ZkWorker input)
+    return ImmutableList.copyOf(
+        Collections2.transform(
+          workers,
+          new Function<ZkWorker, Worker>()
           {
-            return input.getWorker();
+            @Override
+            public Worker apply(ZkWorker input)
+            {
+              return input.getWorker();
+            }
           }
-        }
+        )
     );
   }
 

@@ -25,10 +25,10 @@ import io.druid.indexing.overlord.ImmutableWorkerInfo;
 import io.druid.indexing.overlord.ZkWorker;
 import io.druid.indexing.worker.Worker;
 
-public class ResourceManagementUtil
+public class ProvisioningUtil
 {
   public static Predicate<ImmutableWorkerInfo> createValidWorkerPredicate(
-      final SimpleWorkerResourceManagementConfig config
+      final SimpleWorkerProvisioningConfig config
   )
   {
     return new Predicate<ImmutableWorkerInfo>()
@@ -46,7 +46,7 @@ public class ResourceManagementUtil
   }
 
   public static Predicate<ImmutableWorkerInfo> createLazyWorkerPredicate(
-      final SimpleWorkerResourceManagementConfig config
+      final SimpleWorkerProvisioningConfig config
   )
   {
     final Predicate<ImmutableWorkerInfo> isValidWorker = createValidWorkerPredicate(config);

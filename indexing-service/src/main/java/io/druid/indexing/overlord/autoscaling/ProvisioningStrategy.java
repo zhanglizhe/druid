@@ -16,9 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.druid.indexing.overlord;
 
+package io.druid.indexing.overlord.autoscaling;
 
-public interface WorkerTaskRunner extends TaskRunner, TasksAndWorkers
+import io.druid.indexing.overlord.TaskRunner;
+
+/**
+ * In general, the resource management is tied to the runner.
+ */
+public interface ProvisioningStrategy<T extends TaskRunner>
 {
+  /**
+   * Creates a new {@link ProvisioningService} for the given {@link TaskRunner}
+   * This method is intended to be called from the TaskRunner's lifecycle start
+   *
+   * @param runner The TaskRunner state holder this strategy should use during execution
+   */
+  ProvisioningService makeProvisioningService(T runner);
 }

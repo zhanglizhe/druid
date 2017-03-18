@@ -20,6 +20,7 @@
 package io.druid.indexing.overlord.autoscaling;
 
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -37,6 +38,7 @@ import io.druid.indexing.overlord.ImmutableWorkerInfo;
 import io.druid.indexing.overlord.RemoteTaskRunner;
 import io.druid.indexing.overlord.RemoteTaskRunnerWorkItem;
 import io.druid.indexing.overlord.ZkWorker;
+import io.druid.indexing.overlord.setup.BaseWorkerBehaviorConfig;
 import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.indexing.worker.TaskAnnouncement;
 import io.druid.indexing.worker.Worker;
@@ -58,12 +60,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  */
-public class SimpleResourceManagementStrategyTest
+public class SimpleProvisioningStrategyTest
 {
   private AutoScaler autoScaler;
   private Task testTask;
-  private SimpleWorkerResourceManagementStrategy simpleResourceManagementStrategy;
-  private AtomicReference<WorkerBehaviorConfig> workerConfig;
+  private SimpleWorkerProvisioningStrategy strategy;
+  private AtomicReference<BaseWorkerBehaviorConfig> workerConfig;
   private ScheduledExecutorService executorService = Execs.scheduledSingleThreaded("test service");
 
   @Before
@@ -72,27 +74,34 @@ public class SimpleResourceManagementStrategyTest
     autoScaler = EasyMock.createMock(AutoScaler.class);
     testTask = TestTasks.immediateSuccess("task1");
 
-    final SimpleWorkerResourceManagementConfig simpleWorkerResourceManagementConfig = new SimpleWorkerResourceManagementConfig()
+    final SimpleWorkerProvisioningConfig simpleWorkerProvisioningConfig = new SimpleWorkerProvisioningConfig()
         .setWorkerIdleTimeout(new Period(0))
         .setMaxScalingDuration(new Period(1000))
         .setNumEventsToTrack(1)
         .setPendingTaskTimeout(new Period(0))
         .setWorkerVersion("");
 
-    final ResourceManagementSchedulerConfig schedulerConfig = new ResourceManagementSchedulerConfig();
+    final ProvisioningSchedulerConfig schedulerConfig = new ProvisioningSchedulerConfig();
 
-    workerConfig = new AtomicReference<>(
+    workerConfig = new AtomicReference<BaseWorkerBehaviorConfig>(
         new WorkerBehaviorConfig(
             null,
             autoScaler
         )
     );
 
-    simpleResourceManagementStrategy = new SimpleWorkerResourceManagementStrategy(
-        simpleWorkerResourceManagementConfig,
+    strategy = new SimpleWorkerProvisioningStrategy(
+        simpleWorkerProvisioningConfig,
         DSuppliers.of(workerConfig),
         schedulerConfig,
-        executorService
+        new Supplier<ScheduledExecutorService>()
+        {
+          @Override
+          public ScheduledExecutorService get()
+          {
+            return executorService;
+          }
+        }
     );
   }
 
@@ -126,12 +135,13 @@ public class SimpleResourceManagementStrategyTest
     EasyMock.replay(runner);
     EasyMock.replay(autoScaler);
 
-    boolean provisionedSomething = simpleResourceManagementStrategy.doProvision(runner);
+    Provisioner provisioner = strategy.makeProvisioner(runner);
+    boolean provisionedSomething = provisioner.doProvision();
 
     Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(simpleResourceManagementStrategy.getStats().toList().size() == 1);
+    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
     Assert.assertTrue(
-        simpleResourceManagementStrategy.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
+        provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
 
     EasyMock.verify(autoScaler);
@@ -162,22 +172,23 @@ public class SimpleResourceManagementStrategyTest
     EasyMock.replay(runner);
     EasyMock.replay(autoScaler);
 
-    boolean provisionedSomething = simpleResourceManagementStrategy.doProvision(runner);
+    Provisioner provisioner = strategy.makeProvisioner(runner);
+    boolean provisionedSomething = provisioner.doProvision();
 
     Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(simpleResourceManagementStrategy.getStats().toList().size() == 1);
-    DateTime createdTime = simpleResourceManagementStrategy.getStats().toList().get(0).getTimestamp();
+    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
+    DateTime createdTime = provisioner.getStats().toList().get(0).getTimestamp();
     Assert.assertTrue(
-        simpleResourceManagementStrategy.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
+        provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
 
-    provisionedSomething = simpleResourceManagementStrategy.doProvision(runner);
+    provisionedSomething = provisioner.doProvision();
 
     Assert.assertFalse(provisionedSomething);
     Assert.assertTrue(
-        simpleResourceManagementStrategy.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
+        provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
-    DateTime anotherCreatedTime = simpleResourceManagementStrategy.getStats().toList().get(0).getTimestamp();
+    DateTime anotherCreatedTime = provisioner.getStats().toList().get(0).getTimestamp();
     Assert.assertTrue(
         createdTime.equals(anotherCreatedTime)
     );
@@ -218,24 +229,25 @@ public class SimpleResourceManagementStrategyTest
     ).times(2);
     EasyMock.replay(runner);
 
-    boolean provisionedSomething = simpleResourceManagementStrategy.doProvision(runner);
+    Provisioner provisioner = strategy.makeProvisioner(runner);
+    boolean provisionedSomething = provisioner.doProvision();
 
     Assert.assertTrue(provisionedSomething);
-    Assert.assertTrue(simpleResourceManagementStrategy.getStats().toList().size() == 1);
-    DateTime createdTime = simpleResourceManagementStrategy.getStats().toList().get(0).getTimestamp();
+    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
+    DateTime createdTime = provisioner.getStats().toList().get(0).getTimestamp();
     Assert.assertTrue(
-        simpleResourceManagementStrategy.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
+        provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
 
     Thread.sleep(2000);
 
-    provisionedSomething = simpleResourceManagementStrategy.doProvision(runner);
+    provisionedSomething = provisioner.doProvision();
 
     Assert.assertFalse(provisionedSomething);
     Assert.assertTrue(
-        simpleResourceManagementStrategy.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
+        provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.PROVISION
     );
-    DateTime anotherCreatedTime = simpleResourceManagementStrategy.getStats().toList().get(0).getTimestamp();
+    DateTime anotherCreatedTime = provisioner.getStats().toList().get(0).getTimestamp();
     Assert.assertTrue(
         createdTime.equals(anotherCreatedTime)
     );
@@ -276,12 +288,13 @@ public class SimpleResourceManagementStrategyTest
     EasyMock.expect(runner.getLazyWorkers()).andReturn(Lists.<Worker>newArrayList());
     EasyMock.replay(runner);
 
-    boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(runner);
+    Provisioner provisioner = strategy.makeProvisioner(runner);
+    boolean terminatedSomething = provisioner.doTerminate();
 
     Assert.assertTrue(terminatedSomething);
-    Assert.assertTrue(simpleResourceManagementStrategy.getStats().toList().size() == 1);
+    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
     Assert.assertTrue(
-        simpleResourceManagementStrategy.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
+        provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
     );
 
     EasyMock.verify(autoScaler);
@@ -319,20 +332,21 @@ public class SimpleResourceManagementStrategyTest
             );
     EasyMock.replay(runner);
 
-    boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(runner);
+    Provisioner provisioner = strategy.makeProvisioner(runner);
+    boolean terminatedSomething = provisioner.doTerminate();
 
     Assert.assertTrue(terminatedSomething);
-    Assert.assertTrue(simpleResourceManagementStrategy.getStats().toList().size() == 1);
+    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
     Assert.assertTrue(
-        simpleResourceManagementStrategy.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
+        provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
     );
 
-    terminatedSomething = simpleResourceManagementStrategy.doTerminate(runner);
+    terminatedSomething = provisioner.doTerminate();
 
     Assert.assertFalse(terminatedSomething);
-    Assert.assertTrue(simpleResourceManagementStrategy.getStats().toList().size() == 1);
+    Assert.assertTrue(provisioner.getStats().toList().size() == 1);
     Assert.assertTrue(
-        simpleResourceManagementStrategy.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
+        provisioner.getStats().toList().get(0).getEvent() == ScalingStats.EVENT.TERMINATE
     );
 
     EasyMock.verify(autoScaler);
@@ -368,7 +382,8 @@ public class SimpleResourceManagementStrategyTest
             );
     EasyMock.replay(runner);
 
-    boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(runner);
+    Provisioner provisioner = strategy.makeProvisioner(runner);
+    boolean terminatedSomething = provisioner.doTerminate();
 
     Assert.assertFalse(terminatedSomething);
     EasyMock.verify(autoScaler);
@@ -380,7 +395,7 @@ public class SimpleResourceManagementStrategyTest
             .andReturn(Lists.newArrayList("ip"));
     EasyMock.replay(autoScaler);
 
-    boolean provisionedSomething = simpleResourceManagementStrategy.doProvision(runner);
+    boolean provisionedSomething = provisioner.doProvision();
 
     Assert.assertFalse(provisionedSomething);
     EasyMock.verify(autoScaler);
@@ -413,9 +428,8 @@ public class SimpleResourceManagementStrategyTest
             );
     EasyMock.replay(runner);
 
-    boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(
-        runner
-    );
+    Provisioner provisioner = strategy.makeProvisioner(runner);
+    boolean terminatedSomething = provisioner.doTerminate();
     Assert.assertFalse(terminatedSomething);
     EasyMock.verify(autoScaler);
 
@@ -426,9 +440,7 @@ public class SimpleResourceManagementStrategyTest
     EasyMock.expect(autoScaler.ipToIdLookup(EasyMock.<List<String>>anyObject()))
             .andReturn(Lists.newArrayList("ip"));
     EasyMock.replay(autoScaler);
-    boolean provisionedSomething = simpleResourceManagementStrategy.doProvision(
-        runner
-    );
+    boolean provisionedSomething = provisioner.doProvision();
     Assert.assertFalse(provisionedSomething);
     EasyMock.verify(autoScaler);
 
@@ -446,9 +458,7 @@ public class SimpleResourceManagementStrategyTest
         new AutoScalingData(Lists.newArrayList("h4"))
     );
     EasyMock.replay(autoScaler);
-    provisionedSomething = simpleResourceManagementStrategy.doProvision(
-        runner
-    );
+    provisionedSomething = provisioner.doProvision();
     Assert.assertTrue(provisionedSomething);
     EasyMock.verify(autoScaler);
     EasyMock.verify(runner);
@@ -473,13 +483,10 @@ public class SimpleResourceManagementStrategyTest
     ).times(1);
     EasyMock.replay(runner);
 
-    boolean terminatedSomething = simpleResourceManagementStrategy.doTerminate(
-        runner
-    );
+    Provisioner provisioner = strategy.makeProvisioner(runner);
+    boolean terminatedSomething = provisioner.doTerminate();
 
-    boolean provisionedSomething = simpleResourceManagementStrategy.doProvision(
-        runner
-    );
+    boolean provisionedSomething = provisioner.doProvision();
 
     Assert.assertFalse(terminatedSomething);
     Assert.assertFalse(provisionedSomething);

@@ -16,9 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package io.druid.indexing.overlord;
 
+package io.druid.indexing.overlord.autoscaling;
 
-public interface WorkerTaskRunner extends TaskRunner, TasksAndWorkers
+interface Provisioner
 {
+  boolean doTerminate();
+
+  boolean doProvision();
+
+  ScalingStats getStats();
 }
