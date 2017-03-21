@@ -19,10 +19,10 @@
 
 package io.druid.segment.data;
 
-import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.metamx.common.IAE;
 import io.druid.io.Channels;
+import io.druid.io.OutputBytes;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -31,7 +31,6 @@ import it.unimi.dsi.fastutil.ints.IntLists;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.List;
 
 /**
  */
@@ -130,12 +129,16 @@ public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeInd
     return buffer.getInt(buffer.position() + (index * numBytes)) >>> bitsToShift;
   }
 
-  public byte[] getBytesNoPadding()
+  public int getNumBytesNoPadding()
   {
-    int bytesToTake = buffer.remaining() - (4 - numBytes);
-    byte[] bytes = new byte[bytesToTake];
-    buffer.asReadOnlyBuffer().get(bytes);
-    return bytes;
+    return buffer.remaining() - (Ints.BYTES - numBytes);
+  }
+
+  public void writeBytesNoPaddingTo(OutputBytes out)
+  {
+    ByteBuffer toWrite = buffer.slice();
+    toWrite.limit(toWrite.limit() - (Ints.BYTES - numBytes));
+    out.write(toWrite);
   }
 
   public byte[] getBytes()

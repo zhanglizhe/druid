@@ -23,8 +23,8 @@ import com.google.common.primitives.Ints;
 import com.metamx.common.IAE;
 import com.metamx.common.ISE;
 import io.druid.io.Channels;
+import io.druid.io.OutputBytes;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
@@ -41,9 +41,8 @@ public class VSizeIndexed extends IndexedMultivalue<IndexedInts>
   {
     Iterator<VSizeIndexedInts> objects = objectsIterable.iterator();
     if (!objects.hasNext()) {
-      final ByteBuffer buffer = ByteBuffer.allocate(4).putInt(0);
-      buffer.flip();
-      return new VSizeIndexed(buffer, 4);
+      final ByteBuffer buffer = ByteBuffer.allocate(Ints.BYTES).putInt(0, 0);
+      return new VSizeIndexed(buffer, Ints.BYTES);
     }
 
     int numBytes = -1;
@@ -57,31 +56,30 @@ public class VSizeIndexed extends IndexedMultivalue<IndexedInts>
       ++count;
     }
 
-    ByteArrayOutputStream headerBytes = new ByteArrayOutputStream(4 + (count * 4));
-    ByteArrayOutputStream valueBytes = new ByteArrayOutputStream();
+    OutputBytes headerBytes = new OutputBytes();
+    OutputBytes valueBytes = new OutputBytes();
     int offset = 0;
 
     try {
-      headerBytes.write(Ints.toByteArray(count));
+      headerBytes.writeInt(count);
 
       for (VSizeIndexedInts object : objectsIterable) {
         if (object.getNumBytes() != numBytes) {
           throw new ISE("val.numBytes[%s] != numBytesInValue[%s]", object.getNumBytes(), numBytes);
         }
-        byte[] bytes = object.getBytesNoPadding();
-        offset += bytes.length;
-        headerBytes.write(Ints.toByteArray(offset));
-        valueBytes.write(bytes);
+        offset += object.getNumBytesNoPadding();
+        headerBytes.writeInt(offset);
+        object.writeBytesNoPaddingTo(valueBytes);
       }
-      valueBytes.write(new byte[4 - numBytes]);
+      valueBytes.write(new byte[Ints.BYTES - numBytes]);
     }
     catch (IOException e) {
       throw new RuntimeException(e);
     }
 
-    ByteBuffer theBuffer = ByteBuffer.allocate(headerBytes.size() + valueBytes.size());
-    theBuffer.put(headerBytes.toByteArray());
-    theBuffer.put(valueBytes.toByteArray());
+    ByteBuffer theBuffer = ByteBuffer.allocate(Ints.checkedCast(headerBytes.size() + valueBytes.size()));
+    headerBytes.writeTo(theBuffer);
+    valueBytes.writeTo(theBuffer);
     theBuffer.flip();
 
     return new VSizeIndexed(theBuffer.asReadOnlyBuffer(), numBytes);

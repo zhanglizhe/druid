@@ -37,6 +37,7 @@ public class VSizeIndexedIntsWriter extends SingleValueIndexedIntsWriter
   private final int numBytes;
 
   private OutputBytes valuesOut = null;
+  private ByteBuffer intBuffer = ByteBuffer.allocate(Ints.BYTES);
   private boolean bufPaddingWritten = false;
 
   public VSizeIndexedIntsWriter(final int maxValue)
@@ -53,8 +54,8 @@ public class VSizeIndexedIntsWriter extends SingleValueIndexedIntsWriter
   @Override
   protected void addValue(int val) throws IOException
   {
-    byte[] intAsBytes = Ints.toByteArray(val);
-    valuesOut.write(intAsBytes, intAsBytes.length - numBytes, numBytes);
+    intBuffer.putInt(0, val);
+    valuesOut.write(intBuffer.array(), Ints.BYTES - numBytes, numBytes);
   }
 
   @Override
@@ -82,7 +83,7 @@ public class VSizeIndexedIntsWriter extends SingleValueIndexedIntsWriter
   private void writeBufPadding() throws IOException
   {
     if (!bufPaddingWritten) {
-      byte[] bufPadding = new byte[4 - numBytes];
+      byte[] bufPadding = new byte[Ints.BYTES - numBytes];
       valuesOut.write(bufPadding);
       bufPaddingWritten = true;
     }
