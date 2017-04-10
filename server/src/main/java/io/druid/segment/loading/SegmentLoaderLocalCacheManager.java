@@ -37,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
+ * 获取DataSegment指定的数据,如果本地磁盘没有,就从远端load数据并且返回QueryableSegment
  */
 public class SegmentLoaderLocalCacheManager implements SegmentLoader
 {

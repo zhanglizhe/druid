@@ -211,6 +211,7 @@ public class QueryResource
         }
       }
 
+        //query的核心代码
       final Map<String, Object> responseContext = new MapMaker().makeMap();
       final Sequence res = query.run(texasRanger, responseContext);
       final Sequence results;

@@ -41,13 +41,14 @@ public class GuiceInjectors
         new DruidGuiceExtensions(),
         new JacksonModule(),
         new PropertiesModule(Arrays.asList("common.runtime.properties", "runtime.properties")),
-        new ConfigModule(),
+        new ConfigModule(),//提供解析properties,生成Java Object配置对象的机制
         new Module()
         {
           @Override
           public void configure(Binder binder)
           {
             binder.bind(DruidSecondaryModule.class);
+              //把ExtensionsConfig这个类型绑定在读取druid.extensions前缀的property生成的json object
             JsonConfigProvider.bind(binder, "druid.extensions", ExtensionsConfig.class);
           }
         }

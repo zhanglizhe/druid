@@ -51,6 +51,7 @@ import io.druid.query.topn.TopNQueryQueryToolChest;
 import java.util.Map;
 
 /**
+ * 通过map binder,维护一个全局的query class 到 query tool chest 的映射
  */
 public class QueryToolChestModule implements Module
 {

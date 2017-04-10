@@ -55,6 +55,7 @@ public class BlockLayoutIndexedLongSupplier implements Supplier<IndexedLongs>
     final int div = Integer.numberOfTrailingZeros(sizePer);
     final int rem = sizePer - 1;
     final boolean powerOf2 = sizePer == (1 << div);
+    //使用位运算代替取模运算
     if (powerOf2) {
       // this provide slightly better performance than calling the LongsEncodingReader.read, probably because Java
       // doesn't inline the method call for some reason. This should be removed when test show that performance

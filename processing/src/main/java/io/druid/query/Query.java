@@ -51,6 +51,7 @@ import java.util.Map;
     @JsonSubTypes.Type(name = Query.DATASOURCE_METADATA, value = DataSourceMetadataQuery.class)
 
 })
+//T为result type
 public interface Query<T>
 {
   String TIMESERIES = "timeseries";

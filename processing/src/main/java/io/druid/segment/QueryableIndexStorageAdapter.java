@@ -85,8 +85,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
 
   public QueryableIndexStorageAdapter(
       QueryableIndex index
-  )
-  {
+  ){
     this.index = index;
   }
 
@@ -231,6 +230,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       return Sequences.empty();
     }
 
+    //求interval的交集
     if (actualInterval.getStart().isBefore(dataInterval.getStart())) {
       actualInterval = actualInterval.withStart(dataInterval.getStart());
     }
@@ -491,6 +491,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
                       }
                     }
 
+                    //dimension selector支持将dimension value作为string做转换的功能
                     public HistoricalDimensionSelector makeDimensionSelector(
                         DimensionSpec dimensionSpec
                     )

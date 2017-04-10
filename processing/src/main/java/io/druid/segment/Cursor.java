@@ -22,8 +22,8 @@ package io.druid.segment;
 import org.joda.time.DateTime;
 
 /**
+ * 通过cursor获得的column
  */
-
 public interface Cursor extends ColumnSelectorFactory
 {
   public DateTime getTime();

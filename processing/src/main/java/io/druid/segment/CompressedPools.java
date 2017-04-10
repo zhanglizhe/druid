@@ -30,6 +30,7 @@ import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
+ * 用来缓存解压缩过程中间使用的bytebuffer
  */
 public class CompressedPools
 {

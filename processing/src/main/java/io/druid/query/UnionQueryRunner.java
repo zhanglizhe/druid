@@ -27,6 +27,9 @@ import com.metamx.common.guava.Sequences;
 
 import java.util.Map;
 
+/*
+* 支持多个datasource的union query runner
+* */
 public class UnionQueryRunner<T> implements QueryRunner<T>
 {
   private final QueryRunner<T> baseRunner;

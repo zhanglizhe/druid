@@ -56,6 +56,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * they are overshadowed by some other object.  This can be used in conjunction with the add() and remove() methods
  * to achieve "atomic" updates.  First add new items, then check if those items caused anything to be overshadowed, if
  * so, remove the overshadowed elements and you have effectively updated your data set without any user impact.
+ *
+ * VersionType通常是一个string,ObjectType通常是ServerSelector,它持有一个DataSegment和待选的Server列表
  */
 public class VersionedIntervalTimeline<VersionType, ObjectType> implements TimelineLookup<VersionType, ObjectType>
 {

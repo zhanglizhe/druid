@@ -67,6 +67,7 @@ public class ServerModule implements DruidModule
                 new NamedType(LinearShardSpec.class, "linear"),
                 new NamedType(NumberedShardSpec.class, "numbered"),
                 new NamedType(HashBasedNumberedShardSpec.class, "hashed")
+
             )
     );
   }

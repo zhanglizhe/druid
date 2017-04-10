@@ -36,10 +36,13 @@ public class ConfigModule implements Module
   @Override
   public void configure(Binder binder)
   {
+    //被下面的JsonConfigurator用来做生成Java Object的校验
     binder.bind(Validator.class).toInstance(Validation.buildDefaultValidatorFactory().getValidator());
+    //提供根据properties的配置转成一个java object的util方法
     binder.bind(JsonConfigurator.class).in(LazySingleton.class);
   }
 
+  //把property的数据关联到ConfigurationObjectFactory,进而供ConfigProvider使用
   @Provides @LazySingleton
   public ConfigurationObjectFactory makeFactory(Properties props)
   {

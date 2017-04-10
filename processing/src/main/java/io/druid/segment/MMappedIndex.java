@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.Map;
 
 /**
+ * 基本涵盖所有segment的index信息
  */
 public class MMappedIndex
 {

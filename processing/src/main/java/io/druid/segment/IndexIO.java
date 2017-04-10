@@ -214,6 +214,7 @@ public class IndexIO
 
   public QueryableIndex loadIndex(File inDir) throws IOException
   {
+      //读取目录版本
     final int version = SegmentUtils.getVersionFromDir(inDir);
 
     final IndexLoader loader = indexLoaders.get(version);

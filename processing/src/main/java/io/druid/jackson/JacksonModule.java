@@ -31,6 +31,8 @@ import io.druid.guice.annotations.Json;
 import io.druid.guice.annotations.Smile;
 
 /**
+ * @json + ObjectMapper.class 绑定到DefaultObjectMapper
+ * @Smile + ObjectMapper.class 绑定到用SmileFactory构造的DefaultObjectMapper
  */
 public class JacksonModule implements Module
 {

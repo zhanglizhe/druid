@@ -36,6 +36,7 @@ import java.util.ServiceLoader;
 public class Main
 {
   static {
+      //使用Jar包的META-INF文件指定类名,做服务启动前的初始化检查
     ServiceLoader<PropertyChecker> serviceLoader = ServiceLoader.load(PropertyChecker.class);
     for (PropertyChecker propertyChecker : serviceLoader) {
       propertyChecker.checkProperties(System.getProperties());
@@ -88,6 +89,7 @@ public class Main
 
     final Injector injector = GuiceInjectors.makeStartupInjector();
     final ExtensionsConfig config = injector.getInstance(ExtensionsConfig.class);
+      //可以自己写基于druid的command
     final Collection<CliCommandCreator> extensionCommands = Initialization.getFromExtensions(
         config,
         CliCommandCreator.class

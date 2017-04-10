@@ -36,6 +36,8 @@ import java.util.Map;
               })
 public interface ShardSpec
 {
+
+    //创建一个partition chunk, 多个partition chunk组成partition holder,进而可以判断,一个partition holder是否complete,被versiontimeline使用
   public <T> PartitionChunk<T> createChunk(T obj);
 
   public boolean isInChunk(long timestamp, InputRow inputRow);

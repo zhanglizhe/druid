@@ -156,6 +156,7 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
     if (populateCache) {
       // prevent down-stream nodes from caching results as well if we are populating the cache
       contextBuilder.put(CacheConfig.POPULATE_CACHE, false);
+        //这块的意思是:如果需要populate cache,就需要查询整块的segment吗?
       contextBuilder.put("bySegment", true);
     }
 
@@ -210,6 +211,7 @@ public class CachingClusteredClient<T> implements QueryRunner<T>
         // Which is not necessarily an indication that the data doesn't exist or is
         // incomplete. The data could exist and just not be loaded yet.  In either
         // case, though, this query will not include any data from the identified intervals.
+          //???????
         responseContext.put("uncoveredIntervals", uncoveredIntervals);
         responseContext.put("uncoveredIntervalsOverflowed", uncoveredIntervalsOverflowed);
       }

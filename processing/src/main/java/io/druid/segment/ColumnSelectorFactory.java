@@ -24,6 +24,7 @@ import io.druid.segment.column.ColumnCapabilities;
 
 /**
  * Factory class for MetricSelectors
+ * 指定column name或者对dimension column而言,还可以指定extract function,得到一个可以获得指定row number对应value的selector
  */
 public interface ColumnSelectorFactory
 {

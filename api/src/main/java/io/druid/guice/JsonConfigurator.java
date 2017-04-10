@@ -97,6 +97,7 @@ public class JsonConfigurator
 
     final T config;
     try {
+      //这里直接将一个map转成Object
       config = jsonMapper.convertValue(jsonMap, clazz);
     }
     catch (IllegalArgumentException e) {
@@ -105,6 +106,7 @@ public class JsonConfigurator
       );
     }
 
+    //这里还会校验一下
     final Set<ConstraintViolation<T>> violations = validator.validate(config);
     if (!violations.isEmpty()) {
       List<String> messages = Lists.newArrayList();

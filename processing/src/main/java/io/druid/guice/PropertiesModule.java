@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Properties;
 
 /**
+ * 把properties文件的配置都收集到这个module里面
  */
 public class PropertiesModule implements Module
 {

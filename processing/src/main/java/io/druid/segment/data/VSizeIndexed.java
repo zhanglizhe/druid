@@ -30,6 +30,7 @@ import java.nio.channels.WritableByteChannel;
 import java.util.Iterator;
 
 /**
+ * 将多个int列表的列表做Indexed,MultiValue就是指多个int的列表
  */
 public class VSizeIndexed extends IndexedMultivalue<IndexedInts>
 {

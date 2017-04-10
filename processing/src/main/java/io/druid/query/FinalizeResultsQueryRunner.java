@@ -50,6 +50,7 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
   public Sequence<T> run(final Query<T> query, Map<String, Object> responseContext)
   {
     final boolean isBySegment = BaseQuery.getContextBySegment(query, false);
+      //及时runner被包装了finalize的逻辑,也不一定就会执行finalize,还会受到context参数的控制
     final boolean shouldFinalize = BaseQuery.getContextFinalize(query, true);
 
     final Query<T> queryToRun;
@@ -58,7 +59,7 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
 
     if (shouldFinalize) {
       queryToRun = query.withOverriddenContext(ImmutableMap.<String, Object>of("finalize", false));
-      metricManipulationFn = MetricManipulatorFns.finalizing();
+      metricManipulationFn = MetricManipulatorFns.finalizing();//传入的参数是Object,表示每个row对应的column的值
 
     } else {
       queryToRun = query;
@@ -69,7 +70,7 @@ public class FinalizeResultsQueryRunner<T> implements QueryRunner<T>
       {
         final Function<T, T> baseFinalizer = toolChest.makePostComputeManipulatorFn(
             query,
-            metricManipulationFn
+            metricManipulationFn//T往往都是row类型,而metricsManipulationFn处理的是row的metrics列对应的object类型的值
         );
 
         @Override

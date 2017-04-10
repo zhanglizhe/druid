@@ -23,6 +23,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 
 /**
+ * 自定义了singleton的scope annotation,只是覆盖了guice singleton scope的toString方法。
  */
 public class DruidGuiceExtensions implements Module
 {

@@ -24,8 +24,10 @@ import com.fasterxml.jackson.databind.Module;
 import java.util.List;
 
 /**
+ *
  */
 public interface DruidModule extends com.google.inject.Module
 {
+  //返回jackson modules,用来指定json数据转成java object的序列化方式
   public List<? extends Module> getJacksonModules();
 }

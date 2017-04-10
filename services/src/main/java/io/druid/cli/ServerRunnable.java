@@ -37,6 +37,7 @@ public abstract class ServerRunnable extends GuiceRunnable
   public void run()
   {
     final Injector injector = makeInjector();
+    //start lifecycle绑定的服务
     final Lifecycle lifecycle = initLifecycle(injector);
 
     try {

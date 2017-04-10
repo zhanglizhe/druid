@@ -314,6 +314,7 @@ public class Initialization
     }
   }
 
+  // passed-in modules override default modules = intermediate modules which is overrided by extension modules again.
   public static Injector makeInjectorWithModules(final Injector baseInjector, Iterable<? extends Module> modules)
   {
     final ModuleList defaultModules = new ModuleList(baseInjector);
@@ -321,16 +322,16 @@ public class Initialization
         // New modules should be added after Log4jShutterDownerModule
         new Log4jShutterDownerModule(),
         new DruidAuthModule(),
-        new LifecycleModule(),
+        new LifecycleModule(),//各种guice黑科技,把injector里面的lifecycle都可以启动
         EmitterModule.class,
-        HttpClientModule.global(),
-        new HttpClientModule("druid.broker.http", Client.class),
-        new CuratorModule(),
-        new AnnouncerModule(),
-        new DruidProcessingModule(),
+        HttpClientModule.global(),//global http
+        new HttpClientModule("druid.broker.http", Client.class),//client http broker专用
+        new CuratorModule(),//curator framework
+        new AnnouncerModule(),//announcer,将meta信息写到zk上
+        new DruidProcessingModule(),//execute service相关的配置和provider
         new AWSModule(),
         new MetricsModule(),
-        new ServerModule(),
+        new ServerModule(),//DruidNode,标识自身节点信息
         new StorageNodeModule(),
         new JettyServerModule(),
         new QueryableModule(),

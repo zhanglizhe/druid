@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
+ * 将一个int列表编码到byte buffer中,指定最大的数字的byte number,节省存储空间
  */
 public class VSizeIndexedInts extends IndexedInts implements Comparable<VSizeIndexedInts>
 {

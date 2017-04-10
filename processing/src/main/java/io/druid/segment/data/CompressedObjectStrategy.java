@@ -384,12 +384,15 @@ public class CompressedObjectStrategy<T extends Buffer> implements ObjectStrateg
 
   public static interface BufferConverter<T>
   {
+
+    //讲解压缩得到的buf转换成T,buf可能是解压缩的中间buffer
     public T convert(ByteBuffer buf);
 
     public int compare(T lhs, T rhs);
 
     public int sizeOf(int count);
 
+    //将原始T放入压缩处理使用的中间buffer——into中
     public T combine(ByteBuffer into, T from);
   }
 }

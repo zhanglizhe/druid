@@ -29,6 +29,7 @@ import java.nio.ByteOrder;
 import java.nio.channels.WritableByteChannel;
 
 /**
+ *
  */
 public class CompressedLongsIndexedSupplier implements Supplier<IndexedLongs>
 {
@@ -44,12 +45,12 @@ public class CompressedLongsIndexedSupplier implements Supplier<IndexedLongs>
   private final CompressionFactory.LongEncodingFormat encoding;
 
   CompressedLongsIndexedSupplier(
-      int totalSize,
-      int sizePer,
-      ByteBuffer buffer,
-      Supplier<IndexedLongs> supplier,
-      CompressedObjectStrategy.CompressionStrategy compression,
-      CompressionFactory.LongEncodingFormat encoding
+      int totalSize,//数字的总数量
+      int sizePer,//每个block的数字数量
+      ByteBuffer buffer,//序列化好的二进制数据
+      Supplier<IndexedLongs> supplier,//使用压缩算法和long编码器包装好的supplier
+      CompressedObjectStrategy.CompressionStrategy compression,//压缩算法
+      CompressionFactory.LongEncodingFormat encoding//long编码器
   )
   {
     this.totalSize = totalSize;
@@ -107,6 +108,7 @@ public class CompressedLongsIndexedSupplier implements Supplier<IndexedLongs>
         }
         compression = CompressedObjectStrategy.CompressionStrategy.forId(compressionId);
       }
+        //使用压缩算法和long编码器包装好的supplier
       Supplier<IndexedLongs> supplier = CompressionFactory.getLongSupplier(
           totalSize,
           sizePer,
